@@ -14,9 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
-import { ProgressBar } from '@/components/ui/progress-bar';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
+import { TaskProgressEditCell } from '@/components/custom-columns/TaskProgressEditCell';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
@@ -144,6 +144,17 @@ const Tasks = () => {
       console.error('Error updating custom value:', err);
     }
   }, [tasks, updateTask]);
+
+  // Handler to update task progress (quantity & collected)
+  const handleProgressUpdate = useCallback(async (taskId: string, quantity: number, collected: number) => {
+    try {
+      await updateTask(taskId, { quantity, collected });
+      toast.success('Progresso atualizado!');
+    } catch (err) {
+      console.error('Error updating progress:', err);
+      toast.error('Erro ao atualizar progresso');
+    }
+  }, [updateTask]);
 
   const handleOpenNewTask = () => {
     setEditingTask(undefined);
@@ -434,7 +445,12 @@ const Tasks = () => {
                         <PriorityBadge priority={task.priority} />
                       </td>
                       <td className="py-4 px-4">
-                        <ProgressBar value={progress} showLabel size="sm" />
+                        <TaskProgressEditCell
+                          quantity={task.quantity}
+                          collected={task.collected}
+                          progress={progress}
+                          onSave={(quantity, collected) => handleProgressUpdate(task.id, quantity, collected)}
+                        />
                       </td>
                       {/* Custom Columns Values - Inline Editable */}
                       {displayedCustomColumns.map(col => (
