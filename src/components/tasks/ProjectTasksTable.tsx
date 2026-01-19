@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { 
   Search, 
   Filter,
@@ -6,7 +6,7 @@ import {
   Edit,
   Trash2,
   Columns3,
-  Plus
+  GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,11 +62,10 @@ import {
 
 interface ProjectTasksTableProps {
   projectId: string;
-  onOpenNewTask?: () => void;
 }
 
-export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTableProps) => {
-  const { tasks, updateTask, deleteTask, phases, people, customColumns } = useData();
+export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
+  const { tasks, updateTask, deleteTask, phases, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -80,6 +79,13 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  
+  // Column editing and drag state
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingColumnName, setEditingColumnName] = useState('');
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
+  const columnInputRef = useRef<HTMLInputElement>(null);
 
   // Filter tasks for this project
   const projectTasks = useMemo(() => {
@@ -195,6 +201,104 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
     setFilters({ status: 'all', priority: 'all', responsible: 'all', phase: 'all' });
     setSearch('');
   };
+
+  // Column inline editing handlers
+  const startEditingColumn = useCallback((columnId: string, currentName: string) => {
+    setEditingColumnId(columnId);
+    setEditingColumnName(currentName);
+    setTimeout(() => columnInputRef.current?.focus(), 0);
+  }, []);
+
+  const saveColumnName = useCallback(async () => {
+    if (!editingColumnId || !editingColumnName.trim()) {
+      setEditingColumnId(null);
+      setEditingColumnName('');
+      return;
+    }
+
+    try {
+      await updateCustomColumn(editingColumnId, { name: editingColumnName.trim() });
+    } catch (err) {
+      console.error('Error updating column name:', err);
+      toast.error('Erro ao atualizar nome da coluna');
+    } finally {
+      setEditingColumnId(null);
+      setEditingColumnName('');
+    }
+  }, [editingColumnId, editingColumnName, updateCustomColumn]);
+
+  const cancelEditingColumn = useCallback(() => {
+    setEditingColumnId(null);
+    setEditingColumnName('');
+  }, []);
+
+  // Column drag-and-drop handlers
+  const handleColumnDragStart = useCallback((e: React.DragEvent, columnId: string) => {
+    setDraggedColumnId(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', columnId);
+  }, []);
+
+  const handleColumnDragOver = useCallback((e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (columnId !== draggedColumnId) {
+      setDragOverColumnId(columnId);
+    }
+  }, [draggedColumnId]);
+
+  const handleColumnDragLeave = useCallback(() => {
+    setDragOverColumnId(null);
+  }, []);
+
+  const handleColumnDrop = useCallback(async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    
+    if (!draggedColumnId || draggedColumnId === targetId) {
+      setDraggedColumnId(null);
+      setDragOverColumnId(null);
+      return;
+    }
+
+    const draggedIndex = displayedCustomColumns.findIndex(col => col.id === draggedColumnId);
+    const targetIndex = displayedCustomColumns.findIndex(col => col.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newColumns = [...displayedCustomColumns];
+    const [removed] = newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, removed);
+
+    // Update local state immediately for responsiveness
+    setCustomColumns(prev => {
+      const updated = [...prev];
+      newColumns.forEach((col, index) => {
+        const idx = updated.findIndex(c => c.id === col.id);
+        if (idx !== -1) {
+          updated[idx] = { ...updated[idx], order: index + 1 };
+        }
+      });
+      return updated;
+    });
+
+    // Persist to database
+    try {
+      await Promise.all(
+        newColumns.map((col, index) => updateCustomColumn(col.id, { order: index + 1 }))
+      );
+    } catch (err) {
+      console.error('Error updating column order:', err);
+      toast.error('Erro ao reordenar colunas');
+    }
+
+    setDraggedColumnId(null);
+    setDragOverColumnId(null);
+  }, [draggedColumnId, displayedCustomColumns, setCustomColumns, updateCustomColumn]);
+
+  const handleColumnDragEnd = useCallback(() => {
+    setDraggedColumnId(null);
+    setDragOverColumnId(null);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -316,12 +420,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
             </DropdownMenu>
           )}
 
-          {onOpenNewTask && (
-            <Button className="gradient-primary text-white" onClick={onOpenNewTask}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Tarefa
-            </Button>
-          )}
         </div>
       </div>
 
@@ -345,10 +443,52 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Início</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Fim</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
-                {/* Custom Columns Headers */}
+                {/* Custom Columns Headers - Editable & Draggable */}
                 {displayedCustomColumns.map(col => (
-                  <th key={col.id} className="text-left py-4 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
-                    {col.name}
+                  <th 
+                    key={col.id} 
+                    className={cn(
+                      "text-left py-4 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap transition-all",
+                      draggedColumnId === col.id && "opacity-50",
+                      dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary"
+                    )}
+                    draggable
+                    onDragStart={(e) => handleColumnDragStart(e, col.id)}
+                    onDragOver={(e) => handleColumnDragOver(e, col.id)}
+                    onDragLeave={handleColumnDragLeave}
+                    onDrop={(e) => handleColumnDrop(e, col.id)}
+                    onDragEnd={handleColumnDragEnd}
+                  >
+                    <div className="flex items-center gap-1 group">
+                      <GripVertical className="w-3 h-3 text-muted-foreground/50 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      {editingColumnId === col.id ? (
+                        <input
+                          ref={columnInputRef}
+                          type="text"
+                          value={editingColumnName}
+                          onChange={(e) => setEditingColumnName(e.target.value)}
+                          onBlur={saveColumnName}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              saveColumnName();
+                            } else if (e.key === 'Escape') {
+                              cancelEditingColumn();
+                            }
+                          }}
+                          className="bg-background border border-primary rounded px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[80px]"
+                          autoFocus
+                        />
+                      ) : (
+                        <span 
+                          className="cursor-text hover:text-foreground transition-colors"
+                          onClick={() => startEditingColumn(col.id, col.name)}
+                          title="Clique para editar o nome da coluna"
+                        >
+                          {col.name}
+                        </span>
+                      )}
+                    </div>
                   </th>
                 ))}
                 <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground w-12"></th>
@@ -472,12 +612,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
             </div>
             <h3 className="text-lg font-semibold mb-2">Nenhuma tarefa encontrada</h3>
             <p className="text-muted-foreground mb-4">Tente ajustar os filtros ou criar uma nova tarefa.</p>
-            {onOpenNewTask && (
-              <Button className="gradient-primary text-white" onClick={onOpenNewTask}>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Tarefa
-              </Button>
-            )}
           </div>
         )}
       </div>
