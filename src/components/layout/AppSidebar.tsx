@@ -27,7 +27,7 @@ const settingsNavItems = [
 export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -107,7 +107,7 @@ export const AppSidebar = () => {
       {/* Logout */}
       <div className="p-2 border-t border-sidebar-border">
         <button
-          onClick={logout}
+          onClick={signOut}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
             "text-sidebar-foreground/70 hover:bg-destructive hover:text-white"

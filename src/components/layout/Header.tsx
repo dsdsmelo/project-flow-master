@@ -17,7 +17,7 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, subtitle }: HeaderProps) => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
 
   return (
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
@@ -52,7 +52,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                 <User className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-medium">{user?.name}</span>
+              <span className="font-medium">{user?.email?.split('@')[0] || 'Usuário'}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -61,7 +61,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
             <DropdownMenuItem>Perfil</DropdownMenuItem>
             <DropdownMenuItem>Configurações</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive">
+            <DropdownMenuItem onClick={signOut} className="text-destructive">
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>
