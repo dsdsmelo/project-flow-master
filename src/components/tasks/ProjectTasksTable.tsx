@@ -12,18 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
-import { TaskProgressEditCell } from '@/components/custom-columns/TaskProgressEditCell';
-import { 
-  StatusEditCell, 
-  PriorityEditCell, 
-  ResponsibleEditCell, 
-  TextEditCell,
-  DateEditCell
-} from '@/components/tasks/InlineTaskFieldEdit';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
-import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
+import { isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Task } from '@/lib/types';
 import { toast } from 'sonner';
@@ -65,7 +57,7 @@ interface ProjectTasksTableProps {
 }
 
 export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
-  const { tasks, updateTask, deleteTask, phases, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
+  const { tasks, updateTask, deleteTask, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -112,10 +104,6 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
       .sort((a, b) => a.order - b.order);
   }, [customColumns, projectId]);
 
-  const getPerson = (personId?: string) => {
-    if (!personId) return null;
-    return people.find(p => p.id === personId);
-  };
 
   const toggleTaskSelection = (taskId: string) => {
     setSelectedTasks(prev => 
@@ -152,26 +140,6 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     }
   }, [tasks, updateTask]);
 
-  // Handler to update task progress
-  const handleProgressUpdate = useCallback(async (taskId: string, progress: number) => {
-    try {
-      await updateTask(taskId, { quantity: 100, collected: progress });
-      toast.success('Progresso atualizado!');
-    } catch (err) {
-      console.error('Error updating progress:', err);
-      toast.error('Erro ao atualizar progresso');
-    }
-  }, [updateTask]);
-
-  // Handler to update any task field
-  const handleTaskFieldUpdate = useCallback(async (taskId: string, field: Partial<Task>) => {
-    try {
-      await updateTask(taskId, field);
-    } catch (err) {
-      console.error('Error updating task field:', err);
-      toast.error('Erro ao atualizar tarefa');
-    }
-  }, [updateTask]);
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
@@ -435,15 +403,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     onCheckedChange={toggleAllTasks}
                   />
                 </th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Tarefa</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Descrição</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Início</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Fim</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
-                {/* Custom Columns Headers - Editable & Draggable */}
+                {/* All Columns Headers - Editable & Draggable */}
                 {displayedCustomColumns.map(col => (
                   <th 
                     key={col.id} 
@@ -496,8 +456,6 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             </thead>
             <tbody>
               {filteredTasks.map(task => {
-                const person = getPerson(task.responsibleId);
-                const progress = calculatePercentage(task);
                 const overdue = isTaskOverdue(task);
 
                 return (
@@ -515,61 +473,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                         onCheckedChange={() => toggleTaskSelection(task.id)}
                       />
                     </td>
-                    <td className="py-4 px-4">
-                      <TextEditCell
-                        value={task.name}
-                        isOverdue={overdue}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { name: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4 max-w-[200px]">
-                      <TextEditCell
-                        value={task.description || ''}
-                        placeholder="Adicionar descrição..."
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { description: value || undefined })}
-                        className="text-muted-foreground"
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <ResponsibleEditCell
-                        responsibleId={task.responsibleId}
-                        people={people}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleId: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <StatusEditCell
-                        status={task.status}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { status: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <PriorityEditCell
-                        priority={task.priority}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { priority: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <DateEditCell
-                        value={task.startDate}
-                        placeholder="Definir"
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { startDate: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <DateEditCell
-                        value={task.endDate}
-                        placeholder="Definir"
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { endDate: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <TaskProgressEditCell
-                        progress={progress}
-                        onSave={(value) => handleProgressUpdate(task.id, value)}
-                      />
-                    </td>
-                    {/* Custom Columns Values - Inline Editable */}
+                    {/* All Columns Values - Inline Editable */}
                     {displayedCustomColumns.map(col => (
                       <td key={col.id} className="py-3 px-4">
                         <InlineEditCell
