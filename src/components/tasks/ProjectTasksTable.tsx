@@ -17,7 +17,6 @@ import {
   StatusEditCell, 
   PriorityEditCell, 
   ResponsibleEditCell, 
-  PhaseEditCell,
   TextEditCell,
   DateEditCell
 } from '@/components/tasks/InlineTaskFieldEdit';
@@ -87,10 +86,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
     return tasks.filter(t => t.projectId === projectId);
   }, [tasks, projectId]);
 
-  // Project phases
-  const projectPhases = useMemo(() => {
-    return phases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order);
-  }, [phases, projectId]);
 
   // Filtered tasks
   const filteredTasks = useMemo(() => {
@@ -110,11 +105,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
       .filter(col => col.projectId === projectId && col.active)
       .sort((a, b) => a.order - b.order);
   }, [customColumns, projectId]);
-
-  const getPhaseName = (phaseId?: string) => {
-    if (!phaseId) return '-';
-    return phases.find(p => p.id === phaseId)?.name || '-';
-  };
 
   const getPerson = (personId?: string) => {
     if (!personId) return null;
@@ -235,17 +225,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
             </SelectContent>
           </Select>
 
-          <Select value={filters.phase} onValueChange={(v) => setFilters(f => ({ ...f, phase: v }))}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Fase" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Fases</SelectItem>
-              {projectPhases.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           <Sheet>
             <SheetTrigger asChild>
@@ -364,7 +343,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                   />
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Tarefa</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Fase</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
@@ -406,14 +384,6 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                         value={task.name}
                         isOverdue={overdue}
                         onSave={(value) => handleTaskFieldUpdate(task.id, { name: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <PhaseEditCell
-                        phaseId={task.phaseId}
-                        phases={phases}
-                        projectId={task.projectId}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { phaseId: value })}
                       />
                     </td>
                     <td className="py-4 px-4">
