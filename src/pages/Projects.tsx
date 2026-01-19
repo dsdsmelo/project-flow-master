@@ -44,7 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const statusColors = {
   planning: 'bg-purple-500',
@@ -55,6 +55,7 @@ const statusColors = {
 };
 
 const Projects = () => {
+  const navigate = useNavigate();
   const { projects, tasks, phases, deleteProject, loading, error } = useData();
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [search, setSearch] = useState('');
@@ -210,9 +211,10 @@ const Projects = () => {
               const phaseCount = getProjectPhaseCount(project.id);
 
               return (
-                <div
+                <Link
                   key={project.id}
-                  className="bg-card rounded-xl border border-border p-6 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in"
+                  to={`/projects/${project.id}`}
+                  className="bg-card rounded-xl border border-border p-6 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in block"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -227,16 +229,18 @@ const Projects = () => {
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="w-4 h-4 mr-2" />
-                          Ver Detalhes
+                      <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
+                        <DropdownMenuItem asChild>
+                          <Link to={`/projects/${project.id}`}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver Detalhes
+                          </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(project)}>
+                        <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
                           <Edit className="w-4 h-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(project.id)}>
+                        <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
                           <Trash2 className="w-4 h-4 mr-2" />
                           Excluir
                         </DropdownMenuItem>
@@ -275,7 +279,7 @@ const Projects = () => {
                       <ProgressBar value={progress} size="md" />
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -298,10 +302,14 @@ const Projects = () => {
                   const taskCount = getProjectTaskCount(project.id);
 
                   return (
-                    <tr key={project.id} className="border-t border-border hover:bg-muted/30 transition-colors">
+                    <tr 
+                      key={project.id} 
+                      className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/projects/${project.id}`)}
+                    >
                       <td className="py-4 px-6">
                         <div>
-                          <p className="font-medium">{project.name}</p>
+                          <Link to={`/projects/${project.id}`} className="font-medium hover:text-primary">{project.name}</Link>
                           {project.description && (
                             <p className="text-sm text-muted-foreground line-clamp-1">{project.description}</p>
                           )}
@@ -326,7 +334,7 @@ const Projects = () => {
                       <td className="py-4 px-6 w-48">
                         <ProgressBar value={progress} showLabel size="sm" />
                       </td>
-                      <td className="py-4 px-6 text-right">
+                      <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -334,9 +342,11 @@ const Projects = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Ver Detalhes
+                            <DropdownMenuItem asChild>
+                              <Link to={`/projects/${project.id}`}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Ver Detalhes
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEdit(project)}>
                               <Edit className="w-4 h-4 mr-2" />

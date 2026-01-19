@@ -8,6 +8,7 @@ import { DataProvider } from "@/contexts/DataContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
 import Tasks from "./pages/Tasks";
 import Gantt from "./pages/Gantt";
 import People from "./pages/People";
@@ -36,6 +37,7 @@ const AppRoutes = () => {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+      <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/gantt" element={<ProtectedRoute><Gantt /></ProtectedRoute>} />
       <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
