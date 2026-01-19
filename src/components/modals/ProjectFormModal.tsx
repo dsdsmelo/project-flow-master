@@ -24,7 +24,7 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, Check, ArrowRight } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -56,7 +56,6 @@ const typeLabels: Record<CustomColumn['type'], string> = {
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
   const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [tempProjectId, setTempProjectId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
   // Custom columns state
@@ -106,7 +105,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: project.endDate || '',
         status: project.status,
       });
-      setTempProjectId(null);
       setPendingColumns([]);
       setCurrentStep(1);
     } else {
@@ -117,7 +115,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: '',
         status: 'planning',
       });
-      setTempProjectId(null);
       setPendingColumns([]);
       setCurrentStep(1);
     }
@@ -190,7 +187,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     // For new project creation - save to pending columns
     if (!project) {
       if (editingColumn) {
-        // Edit pending column
         setPendingColumns(prev => prev.map(col => 
           col.id === editingColumn.id 
             ? {
@@ -204,7 +200,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         ));
         toast.success('Coluna atualizada!');
       } else {
-        // Add new pending column
         const newColumn = {
           id: `temp-${Date.now()}`,
           name: columnFormData.name,
@@ -253,14 +248,12 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   };
 
   const handleDeleteColumn = async (columnId: string) => {
-    // For pending columns (new project creation)
     if (columnId.startsWith('temp-')) {
       setPendingColumns(prev => prev.filter(col => col.id !== columnId));
       toast.success('Coluna removida!');
       return;
     }
 
-    // For existing project columns
     try {
       await updateCustomColumn(columnId, { active: false });
       toast.success('Coluna removida!');
@@ -270,7 +263,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     }
   };
 
-  // Drag and Drop handlers for existing project columns
+  // Drag and Drop handlers
   const handleDragStart = useCallback((e: React.DragEvent, columnId: string) => {
     setDraggedId(columnId);
     e.dataTransfer.effectAllowed = 'move';
@@ -298,7 +291,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       return;
     }
 
-    // For pending columns
     if (draggedId.startsWith('temp-')) {
       const draggedIndex = pendingColumns.findIndex(col => col.id === draggedId);
       const targetIndex = pendingColumns.findIndex(col => col.id === targetId);
@@ -315,7 +307,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       return;
     }
 
-    // For existing project columns
     const draggedIndex = existingProjectColumns.findIndex(col => col.id === draggedId);
     const targetIndex = existingProjectColumns.findIndex(col => col.id === targetId);
 
@@ -325,7 +316,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     const [removed] = newColumns.splice(draggedIndex, 1);
     newColumns.splice(targetIndex, 0, removed);
 
-    // Update local state immediately for responsiveness
     setCustomColumns(prev => {
       const updated = [...prev];
       newColumns.forEach((col, index) => {
@@ -337,7 +327,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       return updated;
     });
 
-    // Persist to database
     try {
       await Promise.all(
         newColumns.map((col, index) => updateCustomColumn(col.id, { order: index + 1 }))
@@ -355,19 +344,22 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     setDragOverId(null);
   }, []);
 
-  // Step 1 complete: move to step 2
-  const handleStep1Complete = () => {
+  const handleNextStep = async () => {
+    const isValid = await form.trigger();
+    if (isValid) {
+      setCurrentStep(2);
+    }
+  };
+
+  const handleCreateProject = async () => {
     if (pendingColumns.length === 0) {
       toast.error('Adicione pelo menos uma coluna.');
       return;
     }
-    setCurrentStep(2);
-  };
 
-  // Step 2 complete: create project with columns
-  const onSubmit = async (data: ProjectFormData) => {
     setIsSubmitting(true);
     try {
+      const data = form.getValues();
       const projectData = {
         name: data.name,
         description: data.description || undefined,
@@ -376,32 +368,24 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         status: data.status,
       };
 
-      if (project) {
-        await updateProject(project.id, projectData);
-        toast.success('Projeto atualizado com sucesso!');
-        onOpenChange(false);
-      } else {
-        // Create project
-        const newProject = await addProject(projectData);
-        
-        // Create all pending columns
-        await Promise.all(
-          pendingColumns.map(col => 
-            addCustomColumn({
-              name: col.name,
-              type: col.type,
-              projectId: newProject.id,
-              order: col.order,
-              options: col.options,
-              isMilestone: col.isMilestone,
-              active: true,
-            })
-          )
-        );
+      const newProject = await addProject(projectData);
+      
+      await Promise.all(
+        pendingColumns.map(col => 
+          addCustomColumn({
+            name: col.name,
+            type: col.type,
+            projectId: newProject.id,
+            order: col.order,
+            options: col.options,
+            isMilestone: col.isMilestone,
+            active: true,
+          })
+        )
+      );
 
-        toast.success('Projeto criado com sucesso!');
-        onOpenChange(false);
-      }
+      toast.success('Projeto criado com sucesso!');
+      onOpenChange(false);
     } catch (error) {
       console.error('Error saving project:', error);
       toast.error('Erro ao salvar projeto');
@@ -410,17 +394,35 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     }
   };
 
+  const handleUpdateProject = async (data: ProjectFormData) => {
+    if (!project) return;
+    
+    setIsSubmitting(true);
+    try {
+      await updateProject(project.id, {
+        name: data.name,
+        description: data.description || undefined,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+        status: data.status,
+      });
+      toast.success('Projeto atualizado com sucesso!');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast.error('Erro ao atualizar projeto');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleClose = () => {
-    setTempProjectId(null);
     setPendingColumns([]);
     setCurrentStep(1);
     onOpenChange(false);
   };
 
-  // Determine which columns to show based on mode
-  const displayColumns = project ? existingProjectColumns : pendingColumns;
-
-  const renderColumnList = (columns: typeof displayColumns, isPending: boolean) => (
+  const renderColumnList = (columns: typeof pendingColumns | CustomColumn[], isPending: boolean) => (
     <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
       {columns.map((column, index) => (
         <div 
@@ -482,7 +484,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     </div>
   );
 
-  // Render step indicator for new project creation
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-4 mb-6">
       <div className={cn(
@@ -492,7 +493,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
           : "bg-primary/20 text-primary"
       )}>
         {currentStep > 1 ? <Check className="w-4 h-4" /> : <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-xs">1</span>}
-        <span>Colunas</span>
+        <span>Projeto</span>
       </div>
       <ArrowRight className="w-4 h-4 text-muted-foreground" />
       <div className={cn(
@@ -502,7 +503,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
           : "bg-muted text-muted-foreground"
       )}>
         <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-xs">2</span>
-        <span>Projeto</span>
+        <span>Colunas</span>
       </div>
     </div>
   );
@@ -519,89 +520,60 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               {project 
                 ? 'Atualize as informações do projeto' 
                 : currentStep === 1
-                  ? 'Primeiro, defina as colunas que serão usadas nas tarefas'
-                  : 'Agora, preencha os dados do projeto'
+                  ? 'Preencha os dados do projeto'
+                  : 'Adicione as colunas do projeto'
               }
             </DialogDescription>
           </DialogHeader>
 
-          {/* Step indicator for new projects */}
           {!project && renderStepIndicator()}
 
-          {/* EDIT MODE: Existing project with tabs-like layout */}
+          {/* EDIT MODE */}
           {project ? (
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Project Info Section */}
+            <form onSubmit={form.handleSubmit(handleUpdateProject)} className="space-y-6">
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Informações</h3>
-                <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome *</Label>
+                  <Input id="name" {...form.register('name')} placeholder="Nome do projeto" />
+                  {form.formState.errors.name && (
+                    <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Textarea id="description" {...form.register('description')} placeholder="Descrição do projeto" rows={3} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={form.watch('status')} onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planning">Planejamento</SelectItem>
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="paused">Pausado</SelectItem>
+                      <SelectItem value="completed">Concluído</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome *</Label>
-                    <Input
-                      id="name"
-                      {...form.register('name')}
-                      placeholder="Nome do projeto"
-                    />
-                    {form.formState.errors.name && (
-                      <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-                    )}
+                    <Label htmlFor="startDate">Data Início</Label>
+                    <Input id="startDate" type="date" {...form.register('startDate')} />
                   </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Textarea
-                      id="description"
-                      {...form.register('description')}
-                      placeholder="Descrição do projeto"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={form.watch('status')}
-                      onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="planning">Planejamento</SelectItem>
-                        <SelectItem value="active">Ativo</SelectItem>
-                        <SelectItem value="paused">Pausado</SelectItem>
-                        <SelectItem value="completed">Concluído</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Data Início</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        {...form.register('startDate')}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">Data Fim</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        {...form.register('endDate')}
-                      />
-                    </div>
+                    <Label htmlFor="endDate">Data Fim</Label>
+                    <Input id="endDate" type="date" {...form.register('endDate')} />
                   </div>
                 </div>
               </div>
 
-              {/* Columns Section */}
               <div className="space-y-4 pt-4 border-t">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Colunas Personalizadas</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Colunas</h3>
                   <Button type="button" onClick={openCreateColumnDialog} size="sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Nova Coluna
@@ -619,84 +591,20 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={handleClose}>
-                  Cancelar
-                </Button>
+                <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
                 <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
                   {isSubmitting ? 'Salvando...' : 'Atualizar'}
                 </Button>
               </div>
             </form>
           ) : (
-            /* CREATE MODE: Step-based flow */
+            /* CREATE MODE */
             <>
-              {/* Step 1: Columns */}
               {currentStep === 1 && (
                 <div className="space-y-4">
-                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <p className="text-sm text-blue-700 dark:text-blue-400">
-                      <strong>Por que colunas primeiro?</strong> As colunas definem quais campos suas tarefas terão. 
-                      Cada projeto pode ter campos personalizados diferentes.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Adicione pelo menos uma coluna para continuar.
-                    </p>
-                    <Button type="button" onClick={openCreateColumnDialog} size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Nova Coluna
-                    </Button>
-                  </div>
-
-                  {pendingColumns.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-amber-400 rounded-lg bg-amber-50/50 dark:bg-amber-950/10">
-                      <Columns3 className="w-10 h-10 mx-auto mb-3 text-amber-500" />
-                      <p className="font-medium">Nenhuma coluna adicionada</p>
-                      <p className="text-sm mt-1">Clique em "Nova Coluna" para começar</p>
-                    </div>
-                  ) : (
-                    <>
-                      {renderColumnList(pendingColumns, true)}
-                      <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                        <Check className="w-4 h-4" />
-                        {pendingColumns.length} {pendingColumns.length === 1 ? 'coluna adicionada' : 'colunas adicionadas'}
-                      </div>
-                    </>
-                  )}
-
-                  <div className="text-xs text-muted-foreground">
-                    <strong>Tipos disponíveis:</strong> Texto, Número, Data, Lista de Opções, Porcentagem, Usuário
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={handleClose}>
-                      Cancelar
-                    </Button>
-                    <Button 
-                      type="button" 
-                      onClick={handleStep1Complete}
-                      disabled={pendingColumns.length === 0}
-                      className="gradient-primary text-white"
-                    >
-                      Próximo: Dados do Projeto
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Project Info */}
-              {currentStep === 2 && (
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome *</Label>
-                    <Input
-                      id="name"
-                      {...form.register('name')}
-                      placeholder="Nome do projeto"
-                    />
+                    <Input id="name" {...form.register('name')} placeholder="Nome do projeto" />
                     {form.formState.errors.name && (
                       <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
                     )}
@@ -704,23 +612,13 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
                   <div className="space-y-2">
                     <Label htmlFor="description">Descrição</Label>
-                    <Textarea
-                      id="description"
-                      {...form.register('description')}
-                      placeholder="Descrição do projeto"
-                      rows={3}
-                    />
+                    <Textarea id="description" {...form.register('description')} placeholder="Descrição do projeto" rows={3} />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={form.watch('status')}
-                      onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                    <Select value={form.watch('status')} onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="planning">Planejamento</SelectItem>
                         <SelectItem value="active">Ativo</SelectItem>
@@ -734,63 +632,70 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="startDate">Data Início</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        {...form.register('startDate')}
-                      />
+                      <Input id="startDate" type="date" {...form.register('startDate')} />
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="endDate">Data Fim</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        {...form.register('endDate')}
-                      />
+                      <Input id="endDate" type="date" {...form.register('endDate')} />
                     </div>
                   </div>
 
-                  {/* Summary of columns */}
-                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                    <p className="text-sm font-medium">Colunas configuradas:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {pendingColumns.map(col => (
-                        <Badge key={col.id} variant="secondary">
-                          {col.name}
-                          {col.isMilestone && <Flag className="w-3 h-3 ml-1 text-amber-500" />}
-                        </Badge>
-                      ))}
-                    </div>
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+                    <Button type="button" onClick={handleNextStep} className="gradient-primary text-white">
+                      Próximo
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
                   </div>
+                </div>
+              )}
+
+              {currentStep === 2 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Mínimo 1 coluna obrigatória</p>
+                    <Button type="button" onClick={openCreateColumnDialog} size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Coluna
+                    </Button>
+                  </div>
+
+                  {pendingColumns.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-amber-400 rounded-lg bg-amber-50/50 dark:bg-amber-950/10">
+                      <Columns3 className="w-10 h-10 mx-auto mb-3 text-amber-500" />
+                      <p className="font-medium">Nenhuma coluna adicionada</p>
+                      <p className="text-sm mt-1">Clique em "Nova Coluna" para começar</p>
+                    </div>
+                  ) : (
+                    renderColumnList(pendingColumns, true)
+                  )}
 
                   <div className="flex justify-between gap-3 pt-4 border-t">
                     <Button type="button" variant="outline" onClick={() => setCurrentStep(1)}>
+                      <ArrowLeft className="w-4 h-4 mr-2" />
                       Voltar
                     </Button>
-                    <div className="flex gap-3">
-                      <Button type="button" variant="outline" onClick={handleClose}>
-                        Cancelar
-                      </Button>
-                      <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
-                        {isSubmitting ? 'Criando...' : 'Criar Projeto'}
-                      </Button>
-                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleCreateProject}
+                      disabled={isSubmitting || pendingColumns.length === 0}
+                      className="gradient-primary text-white"
+                    >
+                      {isSubmitting ? 'Criando...' : 'Criar Projeto'}
+                    </Button>
                   </div>
-                </form>
+                </div>
               )}
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Custom Column Dialog */}
+      {/* Column Dialog */}
       <Dialog open={isColumnDialogOpen} onOpenChange={setIsColumnDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingColumn ? 'Editar Coluna' : 'Nova Coluna'}
-            </DialogTitle>
+            <DialogTitle>{editingColumn ? 'Editar Coluna' : 'Nova Coluna'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -811,9 +716,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                 onValueChange={(v) => setColumnFormData(prev => ({ ...prev, type: v as CustomColumn['type'] }))}
                 disabled={!!editingColumn && !editingColumn.id.startsWith('temp-')}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="text">Texto</SelectItem>
                   <SelectItem value="number">Número</SelectItem>
@@ -823,9 +726,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                   <SelectItem value="user">Usuário</SelectItem>
                 </SelectContent>
               </Select>
-              {editingColumn && !editingColumn.id.startsWith('temp-') && (
-                <p className="text-xs text-muted-foreground">O tipo não pode ser alterado após a criação</p>
-              )}
             </div>
 
             {columnFormData.type === 'list' && (
@@ -864,24 +764,16 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                 onCheckedChange={(checked) => setColumnFormData(prev => ({ ...prev, isMilestone: !!checked }))}
               />
               <div className="grid gap-1.5 leading-none">
-                <label
-                  htmlFor="isMilestone"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
-                >
+                <label htmlFor="isMilestone" className="text-sm font-medium cursor-pointer flex items-center gap-2">
                   <Flag className="w-4 h-4 text-amber-500" />
-                  Marcar como Marco (Milestone)
+                  Marcar como Marco
                 </label>
-                <p className="text-xs text-muted-foreground">
-                  Marcos são pontos importantes no cronograma do projeto
-                </p>
               </div>
             </div>
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsColumnDialogOpen(false)}>
-              Cancelar
-            </Button>
+            <Button type="button" variant="outline" onClick={() => setIsColumnDialogOpen(false)}>Cancelar</Button>
             <Button type="button" onClick={handleSaveColumn} disabled={!columnFormData.name.trim()}>
               {editingColumn ? 'Salvar' : 'Adicionar'}
             </Button>
