@@ -55,7 +55,7 @@ const statusColors = {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, tasks, people, phases, cells, loading, error } = useData();
+  const { projects, tasks, people, phases, cells, customColumns, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
 
@@ -93,20 +93,43 @@ const ProjectDetail = () => {
     ];
   }, [stats]);
 
-  const phaseProgress = useMemo(() => {
-    return projectPhases.map(phase => {
-      const phaseTasks = projectTasks.filter(t => t.phaseId === phase.id);
-      const progress = phaseTasks.length > 0
-        ? Math.round(phaseTasks.reduce((acc, t) => acc + calculatePercentage(t), 0) / phaseTasks.length)
-        : 0;
-      return {
-        name: phase.name.length > 20 ? phase.name.slice(0, 20) + '...' : phase.name,
-        progress,
-        color: phase.color,
-        taskCount: phaseTasks.length,
-      };
+  // Get milestone columns for this project
+  const milestoneColumns = useMemo(() => {
+    return customColumns.filter(col => col.projectId === projectId && col.isMilestone && col.active);
+  }, [customColumns, projectId]);
+
+  // Get milestone data from tasks
+  const milestonesData = useMemo(() => {
+    const data: Array<{
+      columnName: string;
+      columnType: string;
+      tasks: Array<{
+        taskName: string;
+        value: string | number | undefined;
+        status: string;
+      }>;
+    }> = [];
+
+    milestoneColumns.forEach(col => {
+      const tasksWithMilestone = projectTasks
+        .filter(task => task.customValues && task.customValues[col.id] !== undefined && task.customValues[col.id] !== '')
+        .map(task => ({
+          taskName: task.name,
+          value: task.customValues?.[col.id],
+          status: task.status,
+        }));
+
+      if (tasksWithMilestone.length > 0 || true) {
+        data.push({
+          columnName: col.name,
+          columnType: col.type,
+          tasks: tasksWithMilestone,
+        });
+      }
     });
-  }, [projectPhases, projectTasks]);
+
+    return data;
+  }, [milestoneColumns, projectTasks]);
 
   const tasksByPerson = useMemo(() => {
     const personMap = new Map<string, { name: string; color: string; tasks: number }>();
@@ -305,31 +328,68 @@ const ProjectDetail = () => {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Phase Progress */}
+          {/* Milestones */}
           <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Progresso por Fase</h3>
-            {phaseProgress.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={phaseProgress} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                    <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      formatter={(value, name) => [`${value}%`, 'Progresso']}
-                      labelFormatter={(label) => `Fase: ${label}`}
-                    />
-                    <Bar dataKey="progress" radius={[0, 4, 4, 0]}>
-                      {phaseProgress.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">Marcos do Projeto</h3>
+            </div>
+            {milestonesData.length > 0 ? (
+              <div className="space-y-4 max-h-64 overflow-y-auto">
+                {milestonesData.map((milestone, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-primary">{milestone.columnName}</span>
+                      <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
+                        {milestone.tasks.length} {milestone.tasks.length === 1 ? 'tarefa' : 'tarefas'}
+                      </span>
+                    </div>
+                    {milestone.tasks.length > 0 ? (
+                      <div className="grid gap-2">
+                        {milestone.tasks.slice(0, 5).map((task, taskIdx) => (
+                          <div 
+                            key={taskIdx} 
+                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                'w-2 h-2 rounded-full',
+                                task.status === 'completed' ? 'bg-status-completed' :
+                                task.status === 'in_progress' ? 'bg-status-progress' :
+                                task.status === 'blocked' ? 'bg-status-blocked' : 'bg-status-pending'
+                              )} />
+                              <span className="text-sm font-medium">{task.taskName}</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground font-mono">
+                              {milestone.columnType === 'date' && task.value
+                                ? new Date(task.value as string).toLocaleDateString('pt-BR')
+                                : milestone.columnType === 'percentage'
+                                ? `${task.value}%`
+                                : task.value}
+                            </span>
+                          </div>
+                        ))}
+                        {milestone.tasks.length > 5 && (
+                          <p className="text-xs text-muted-foreground text-center">
+                            +{milestone.tasks.length - 5} outras tarefas
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        Nenhuma tarefa com este marco definido
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <p>Nenhuma fase cadastrada para este projeto</p>
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                <Calendar className="w-12 h-12 mb-3 opacity-50" />
+                <p className="text-center">Nenhum marco configurado</p>
+                <p className="text-xs text-center mt-1">
+                  Marque colunas como "Marco" nas configurações do projeto
+                </p>
               </div>
             )}
           </div>
