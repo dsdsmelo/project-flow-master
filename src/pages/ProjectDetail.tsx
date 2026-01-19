@@ -243,16 +243,25 @@ const ProjectDetail = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+          <TabsList className="h-12 p-1 bg-muted/80 border border-border rounded-xl shadow-sm w-full max-w-xl">
+            <TabsTrigger 
+              value="dashboard" 
+              className="flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary transition-all"
+            >
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="tasks" 
+              className="flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary transition-all"
+            >
               <ClipboardList className="w-4 h-4" />
               Tarefas
             </TabsTrigger>
-            <TabsTrigger value="gantt" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="gantt" 
+              className="flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary transition-all"
+            >
               <GanttChart className="w-4 h-4" />
               Gantt
             </TabsTrigger>
