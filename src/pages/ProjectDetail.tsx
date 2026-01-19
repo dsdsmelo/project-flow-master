@@ -162,11 +162,6 @@ const ProjectDetail = () => {
     return { overdue, dueSoon, unassigned };
   }, [projectTasks]);
 
-  const recentTasks = useMemo(() => {
-    return [...projectTasks]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 10);
-  }, [projectTasks]);
 
   const getPersonName = (personId?: string) => {
     if (!personId) return null;
@@ -551,70 +546,6 @@ const ProjectDetail = () => {
           </div>
         )}
 
-        {/* Recent Tasks */}
-        <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Tarefas Recentes</h3>
-            <Link to={`/tasks?project=${projectId}`} className="text-sm text-primary hover:underline">
-              Ver todas
-            </Link>
-          </div>
-          {recentTasks.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tarefa</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Fase</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Célula</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Progresso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentTasks.map(task => {
-                    const person = getPersonName(task.responsibleId);
-                    const progress = calculatePercentage(task);
-                    return (
-                      <tr key={task.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                        <td className="py-3 px-4">
-                          <p className="font-medium text-sm">{task.name}</p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="text-sm text-muted-foreground">{getPhaseName(task.phaseId)}</p>
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="text-sm text-muted-foreground">{getCellName(task.cellId)}</p>
-                        </td>
-                        <td className="py-3 px-4">
-                          {person ? (
-                            <div className="flex items-center gap-2">
-                              <AvatarCircle name={person.name} color={person.color} size="sm" />
-                              <span className="text-sm">{person.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          <StatusBadge status={task.status} />
-                        </td>
-                        <td className="py-3 px-4 w-32">
-                          <ProgressBar value={progress} showLabel size="sm" />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <p>Nenhuma tarefa neste projeto</p>
-            </div>
-          )}
-        </div>
           </TabsContent>
 
           {/* Tasks Tab */}
