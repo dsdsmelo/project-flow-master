@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useData } from '@/contexts/DataContext';
-import { Task } from '@/lib/types';
+import { Task, TASK_CONFIGURABLE_FIELDS } from '@/lib/types';
 import { toast } from 'sonner';
 
 const taskSchema = z.object({
@@ -29,7 +29,6 @@ const taskSchema = z.object({
   description: z.string().optional(),
   projectId: z.string().min(1, 'Projeto é obrigatório'),
   phaseId: z.string().optional(),
-  cellId: z.string().optional(),
   responsibleId: z.string().optional(),
   quantity: z.number().optional(),
   collected: z.number().optional(),
@@ -50,7 +49,7 @@ interface TaskFormModalProps {
 }
 
 export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: TaskFormModalProps) {
-  const { projects, phases, cells, people, addTask, updateTask } = useData();
+  const { projects, phases, people, addTask, updateTask } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<TaskFormData>({
@@ -60,7 +59,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
       description: '',
       projectId: defaultProjectId || '',
       phaseId: '',
-      cellId: '',
       responsibleId: '',
       quantity: undefined,
       collected: undefined,
@@ -75,6 +73,18 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
   const selectedProjectId = form.watch('projectId');
   const projectPhases = phases.filter(p => p.projectId === selectedProjectId);
 
+  // Get visible fields for the selected project
+  const visibleFields = useMemo(() => {
+    const selectedProject = projects.find(p => p.id === selectedProjectId);
+    if (selectedProject?.visibleFields) {
+      return selectedProject.visibleFields;
+    }
+    // Return defaults if no project selected or no fields configured
+    return TASK_CONFIGURABLE_FIELDS.filter(f => f.default).map(f => f.key);
+  }, [selectedProjectId, projects]);
+
+  const isFieldVisible = (fieldKey: string) => visibleFields.includes(fieldKey);
+
   useEffect(() => {
     if (task) {
       form.reset({
@@ -82,7 +92,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         description: task.description || '',
         projectId: task.projectId,
         phaseId: task.phaseId || '',
-        cellId: task.cellId || '',
         responsibleId: task.responsibleId || '',
         quantity: task.quantity,
         collected: task.collected,
@@ -98,7 +107,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         description: '',
         projectId: defaultProjectId || '',
         phaseId: '',
-        cellId: '',
         responsibleId: '',
         quantity: undefined,
         collected: undefined,
@@ -119,7 +127,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         description: data.description || undefined,
         projectId: data.projectId,
         phaseId: data.phaseId || undefined,
-        cellId: data.cellId || undefined,
         responsibleId: data.responsibleId || undefined,
         quantity: data.quantity,
         collected: data.collected,
@@ -159,6 +166,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Name - Always visible */}
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="name">Nome *</Label>
               <Input
@@ -171,16 +179,20 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
               )}
             </div>
 
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea
-                id="description"
-                {...form.register('description')}
-                placeholder="Descrição detalhada da tarefa"
-                rows={3}
-              />
-            </div>
+            {/* Description - Configurable */}
+            {isFieldVisible('description') && (
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  {...form.register('description')}
+                  placeholder="Descrição detalhada da tarefa"
+                  rows={3}
+                />
+              </div>
+            )}
 
+            {/* Project - Always visible */}
             <div className="space-y-2">
               <Label htmlFor="projectId">Projeto *</Label>
               <Select
@@ -206,67 +218,54 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phaseId">Fase</Label>
-              <Select
-                value={form.watch('phaseId') || ''}
-                onValueChange={(value) => form.setValue('phaseId', value === 'none' ? '' : value)}
-                disabled={!selectedProjectId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma fase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {projectPhases.map((phase) => (
-                    <SelectItem key={phase.id} value={phase.id}>
-                      {phase.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Phase - Configurable */}
+            {isFieldVisible('phase') && (
+              <div className="space-y-2">
+                <Label htmlFor="phaseId">Fase</Label>
+                <Select
+                  value={form.watch('phaseId') || ''}
+                  onValueChange={(value) => form.setValue('phaseId', value === 'none' ? '' : value)}
+                  disabled={!selectedProjectId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma fase" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {projectPhases.map((phase) => (
+                      <SelectItem key={phase.id} value={phase.id}>
+                        {phase.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="cellId">Célula</Label>
-              <Select
-                value={form.watch('cellId') || ''}
-                onValueChange={(value) => form.setValue('cellId', value === 'none' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma célula" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {cells.filter(c => c.active).map((cell) => (
-                    <SelectItem key={cell.id} value={cell.id}>
-                      {cell.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Responsible - Configurable */}
+            {isFieldVisible('responsible') && (
+              <div className="space-y-2">
+                <Label htmlFor="responsibleId">Responsável</Label>
+                <Select
+                  value={form.watch('responsibleId') || ''}
+                  onValueChange={(value) => form.setValue('responsibleId', value === 'none' ? '' : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {people.filter(p => p.active).map((person) => (
+                      <SelectItem key={person.id} value={person.id}>
+                        {person.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="responsibleId">Responsável</Label>
-              <Select
-                value={form.watch('responsibleId') || ''}
-                onValueChange={(value) => form.setValue('responsibleId', value === 'none' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um responsável" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {people.filter(p => p.active).map((person) => (
-                    <SelectItem key={person.id} value={person.id}>
-                      {person.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+            {/* Status - Always visible */}
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select
@@ -286,71 +285,89 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="priority">Prioridade</Label>
-              <Select
-                value={form.watch('priority')}
-                onValueChange={(value: TaskFormData['priority']) => form.setValue('priority', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Baixa</SelectItem>
-                  <SelectItem value="medium">Média</SelectItem>
-                  <SelectItem value="high">Alta</SelectItem>
-                  <SelectItem value="urgent">Urgente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Priority - Configurable */}
+            {isFieldVisible('priority') && (
+              <div className="space-y-2">
+                <Label htmlFor="priority">Prioridade</Label>
+                <Select
+                  value={form.watch('priority')}
+                  onValueChange={(value: TaskFormData['priority']) => form.setValue('priority', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Baixa</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantidade</Label>
-              <Input
-                id="quantity"
-                type="number"
-                {...form.register('quantity', { valueAsNumber: true })}
-                placeholder="0"
-              />
-            </div>
+            {/* Quantity - Configurable */}
+            {isFieldVisible('quantity') && (
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantidade</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  {...form.register('quantity', { valueAsNumber: true })}
+                  placeholder="0"
+                />
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="collected">Coletados</Label>
-              <Input
-                id="collected"
-                type="number"
-                {...form.register('collected', { valueAsNumber: true })}
-                placeholder="0"
-              />
-            </div>
+            {/* Collected - Configurable */}
+            {isFieldVisible('collected') && (
+              <div className="space-y-2">
+                <Label htmlFor="collected">Coletados</Label>
+                <Input
+                  id="collected"
+                  type="number"
+                  {...form.register('collected', { valueAsNumber: true })}
+                  placeholder="0"
+                />
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Data Início</Label>
-              <Input
-                id="startDate"
-                type="date"
-                {...form.register('startDate')}
-              />
-            </div>
+            {/* Start Date - Configurable */}
+            {isFieldVisible('startDate') && (
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Data Início</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  {...form.register('startDate')}
+                />
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="endDate">Data Fim</Label>
-              <Input
-                id="endDate"
-                type="date"
-                {...form.register('endDate')}
-              />
-            </div>
+            {/* End Date - Configurable */}
+            {isFieldVisible('endDate') && (
+              <div className="space-y-2">
+                <Label htmlFor="endDate">Data Fim</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  {...form.register('endDate')}
+                />
+              </div>
+            )}
 
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="observation">Observação</Label>
-              <Textarea
-                id="observation"
-                {...form.register('observation')}
-                placeholder="Observações adicionais"
-                rows={2}
-              />
-            </div>
+            {/* Observation - Configurable */}
+            {isFieldVisible('observation') && (
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="observation">Observação</Label>
+                <Textarea
+                  id="observation"
+                  {...form.register('observation')}
+                  placeholder="Observações adicionais"
+                  rows={2}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
