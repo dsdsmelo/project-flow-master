@@ -69,6 +69,8 @@ export interface CustomColumn {
   options?: string[];
   isMilestone?: boolean;
   active: boolean;
+  // Standard field mapping - if set, this column displays a core task field
+  standardField?: 'name' | 'description' | 'responsible' | 'status' | 'priority' | 'startDate' | 'endDate' | 'progress';
 }
 
 // Helper types

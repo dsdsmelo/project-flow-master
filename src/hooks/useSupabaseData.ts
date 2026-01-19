@@ -327,6 +327,7 @@ function mapCustomColumn(data: any): CustomColumn {
     options: data.options,
     isMilestone: data.is_milestone,
     active: data.active,
+    standardField: data.standard_field,
   };
 }
 
@@ -399,5 +400,6 @@ function customColumnToDb(column: Partial<CustomColumn>): any {
   if (column.options !== undefined) result.options = column.options;
   if (column.isMilestone !== undefined) result.is_milestone = column.isMilestone;
   if (column.active !== undefined) result.active = column.active;
+  if (column.standardField !== undefined) result.standard_field = column.standardField;
   return result;
 }
