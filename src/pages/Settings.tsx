@@ -20,7 +20,7 @@ import { useData } from '@/contexts/DataContext';
 
 const Settings = () => {
   const { toast } = useToast();
-  const { projects, tasks, people, cells, devices, phases } = useData();
+  const { projects, tasks, people, cells, phases, customColumns } = useData();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -36,22 +36,46 @@ const Settings = () => {
   };
 
   const handleExportExcel = () => {
-    // Create CSV content
-    const headers = ['Nome', 'Projeto', 'Fase', 'Responsável', 'Status', 'Prioridade', 'Progresso'];
+    // Get all active custom columns
+    const activeCustomColumns = customColumns.filter(c => c.active);
+    
+    // Create headers including custom columns
+    const baseHeaders = ['Nome', 'Projeto', 'Fase', 'Responsável', 'Status', 'Prioridade', 'Progresso'];
+    const customHeaders = activeCustomColumns.map(c => c.name);
+    const headers = [...baseHeaders, ...customHeaders];
+    
     const rows = tasks.map(task => {
       const project = projects.find(p => p.id === task.projectId);
       const phase = phases.find(p => p.id === task.phaseId);
       const person = people.find(p => p.id === task.responsibleId);
       const progress = task.quantity ? Math.round((task.collected || 0) / task.quantity * 100) : 0;
-      return [
-        task.name,
-        project?.name || '',
-        phase?.name || '',
-        person?.name || '',
+      
+      // Base row values
+      const baseValues = [
+        `"${task.name}"`,
+        `"${project?.name || ''}"`,
+        `"${phase?.name || ''}"`,
+        `"${person?.name || ''}"`,
         task.status,
         task.priority,
         `${progress}%`
-      ].join(',');
+      ];
+      
+      // Custom column values
+      const customValues = activeCustomColumns.map(col => {
+        const value = task.customValues?.[col.id];
+        if (value === undefined || value === '') return '';
+        if (col.type === 'user') {
+          const user = people.find(p => p.id === value);
+          return `"${user?.name || ''}"`;
+        }
+        if (col.type === 'date') {
+          return new Date(value as string).toLocaleDateString('pt-BR');
+        }
+        return typeof value === 'string' ? `"${value}"` : value;
+      });
+      
+      return [...baseValues, ...customValues].join(',');
     });
     
     const csv = [headers.join(','), ...rows].join('\n');
@@ -74,8 +98,8 @@ const Settings = () => {
       tasks,
       people,
       cells,
-      devices,
       phases,
+      customColumns,
       exportedAt: new Date().toISOString(),
     };
     
