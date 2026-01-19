@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, GripVertical, X, Settings2, Flag } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, X, Settings2, Flag, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useData } from '@/contexts/DataContext';
 import { CustomColumn } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,23 @@ const standardFieldLabels: Record<string, string> = {
   progress: 'Progresso',
 };
 
+// Default columns that are created for every new project
+const DEFAULT_COLUMNS: Array<{
+  name: string;
+  type: CustomColumn['type'];
+  standardField: CustomColumn['standardField'];
+  order: number;
+}> = [
+  { name: 'Tarefa', type: 'text', standardField: 'name', order: 1 },
+  { name: 'Descrição', type: 'text', standardField: 'description', order: 2 },
+  { name: 'Responsável', type: 'user', standardField: 'responsible', order: 3 },
+  { name: 'Status', type: 'list', standardField: 'status', order: 4 },
+  { name: 'Prioridade', type: 'list', standardField: 'priority', order: 5 },
+  { name: 'Data Início', type: 'date', standardField: 'startDate', order: 6 },
+  { name: 'Data Fim', type: 'date', standardField: 'endDate', order: 7 },
+  { name: 'Progresso', type: 'percentage', standardField: 'progress', order: 8 },
+];
+
 export const ColumnManagerSheet = ({ 
   projectId, 
   trigger,
@@ -67,6 +85,7 @@ export const ColumnManagerSheet = ({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState('');
+  const [isRestoringDefaults, setIsRestoringDefaults] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: 'text' as CustomColumn['type'],
@@ -155,6 +174,52 @@ export const ColumnManagerSheet = ({
       await updateCustomColumn(columnId, { active: false });
     } catch (err) {
       console.error('Error deleting custom column:', err);
+    }
+  };
+
+  // Restore default columns for existing projects
+  const handleRestoreDefaults = async () => {
+    setIsRestoringDefaults(true);
+    try {
+      // Find which standard fields already exist
+      const existingStandardFields = projectColumns
+        .filter(col => col.standardField)
+        .map(col => col.standardField);
+
+      // Get missing default columns
+      const missingDefaults = DEFAULT_COLUMNS.filter(
+        def => !existingStandardFields.includes(def.standardField)
+      );
+
+      if (missingDefaults.length === 0) {
+        toast.info('Todas as colunas padrão já estão configuradas');
+        return;
+      }
+
+      // Calculate starting order (after existing columns)
+      const startOrder = projectColumns.length + 1;
+
+      // Create missing default columns
+      await Promise.all(
+        missingDefaults.map((col, index) =>
+          addCustomColumn({
+            name: col.name,
+            type: col.type,
+            projectId,
+            order: startOrder + index,
+            standardField: col.standardField,
+            isMilestone: false,
+            active: true,
+          })
+        )
+      );
+
+      toast.success(`${missingDefaults.length} coluna(s) padrão restaurada(s)!`);
+    } catch (err) {
+      console.error('Error restoring default columns:', err);
+      toast.error('Erro ao restaurar colunas padrão');
+    } finally {
+      setIsRestoringDefaults(false);
     }
   };
 
@@ -262,14 +327,25 @@ export const ColumnManagerSheet = ({
           </SheetHeader>
 
           <div className="mt-6 space-y-4 max-h-[calc(100vh-180px)] overflow-y-auto pr-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-xs text-muted-foreground">Arraste para reordenar, clique para renomear</p>
               </div>
-              <Button onClick={openCreateDialog} size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Coluna
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleRestoreDefaults} 
+                  size="sm" 
+                  variant="outline"
+                  disabled={isRestoringDefaults}
+                >
+                  <RotateCcw className={cn("w-4 h-4 mr-2", isRestoringDefaults && "animate-spin")} />
+                  Restaurar Padrão
+                </Button>
+                <Button onClick={openCreateDialog} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Coluna
+                </Button>
+              </div>
             </div>
 
             {projectColumns.length === 0 ? (
