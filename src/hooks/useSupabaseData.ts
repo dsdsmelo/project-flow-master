@@ -272,7 +272,6 @@ function mapProject(data: any): Project {
     startDate: data.start_date,
     endDate: data.end_date,
     status: data.status,
-    visibleFields: data.visible_fields,
   };
 }
 
@@ -348,7 +347,6 @@ function projectToDb(project: Partial<Project>): any {
   if (project.startDate !== undefined) result.start_date = project.startDate;
   if (project.endDate !== undefined) result.end_date = project.endDate;
   if (project.status !== undefined) result.status = project.status;
-  if (project.visibleFields !== undefined) result.visible_fields = project.visibleFields;
   return result;
 }
 

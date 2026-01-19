@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -24,9 +23,9 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/DataContext';
-import { Project, TASK_CONFIGURABLE_FIELDS, CustomColumn } from '@/lib/types';
+import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Settings2, Info, Columns3, Plus, Edit, Trash2, GripVertical, X } from 'lucide-react';
+import { Info, Columns3, Plus, Edit, Trash2, GripVertical, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const projectSchema = z.object({
@@ -55,9 +54,9 @@ const typeLabels: Record<CustomColumn['type'], string> = {
 };
 
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
-  const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, deleteCustomColumn, setCustomColumns } = useData();
+  const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [visibleFields, setVisibleFields] = useState<string[]>([]);
+  const [newProjectId, setNewProjectId] = useState<string | null>(null);
   
   // Custom columns state
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
@@ -82,9 +81,12 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     },
   });
 
+  // Get the effective project ID (existing project or newly created)
+  const effectiveProjectId = project?.id || newProjectId;
+
   // Get columns for this project
-  const projectColumns = project 
-    ? customColumns.filter(col => col.projectId === project.id && col.active).sort((a, b) => a.order - b.order)
+  const projectColumns = effectiveProjectId 
+    ? customColumns.filter(col => col.projectId === effectiveProjectId && col.active).sort((a, b) => a.order - b.order)
     : [];
 
   useEffect(() => {
@@ -96,11 +98,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: project.endDate || '',
         status: project.status,
       });
-      // Use saved visible fields or defaults
-      setVisibleFields(
-        project.visibleFields || 
-        TASK_CONFIGURABLE_FIELDS.filter(f => f.default).map(f => f.key)
-      );
+      setNewProjectId(null);
     } else {
       form.reset({
         name: '',
@@ -109,18 +107,9 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: '',
         status: 'planning',
       });
-      // Set defaults for new project
-      setVisibleFields(TASK_CONFIGURABLE_FIELDS.filter(f => f.default).map(f => f.key));
+      setNewProjectId(null);
     }
   }, [project, form, open]);
-
-  const toggleField = (fieldKey: string) => {
-    setVisibleFields(prev => 
-      prev.includes(fieldKey) 
-        ? prev.filter(f => f !== fieldKey)
-        : [...prev, fieldKey]
-    );
-  };
 
   // Column management functions
   const resetColumnForm = () => {
@@ -162,7 +151,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   };
 
   const handleSaveColumn = async () => {
-    if (!columnFormData.name.trim() || !project) return;
+    if (!columnFormData.name.trim() || !effectiveProjectId) return;
 
     try {
       if (editingColumn) {
@@ -176,7 +165,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         await addCustomColumn({
           name: columnFormData.name,
           type: columnFormData.type,
-          projectId: project.id,
+          projectId: effectiveProjectId,
           order: projectColumns.length + 1,
           options: columnFormData.type === 'list' ? columnFormData.options : undefined,
           active: true,
@@ -278,17 +267,18 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: data.status,
-        visibleFields,
       };
 
       if (project) {
         await updateProject(project.id, projectData);
         toast.success('Projeto atualizado com sucesso!');
+        onOpenChange(false);
       } else {
-        await addProject(projectData);
-        toast.success('Projeto criado com sucesso!');
+        // Create new project and keep modal open for column configuration
+        const newProject = await addProject(projectData);
+        setNewProjectId(newProject.id);
+        toast.success('Projeto criado! Agora você pode adicionar colunas.');
       }
-      onOpenChange(false);
     } catch (error) {
       console.error('Error saving project:', error);
       toast.error('Erro ao salvar projeto');
@@ -297,33 +287,39 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     }
   };
 
+  const handleClose = () => {
+    setNewProjectId(null);
+    onOpenChange(false);
+  };
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{project ? 'Editar Projeto' : 'Novo Projeto'}</DialogTitle>
+            <DialogTitle>
+              {project ? 'Editar Projeto' : newProjectId ? 'Configurar Projeto' : 'Novo Projeto'}
+            </DialogTitle>
             <DialogDescription>
-              {project ? 'Atualize as informações do projeto' : 'Preencha os dados para criar um novo projeto'}
+              {project 
+                ? 'Atualize as informações do projeto' 
+                : newProjectId 
+                  ? 'Adicione colunas personalizadas para controlar suas tarefas'
+                  : 'Preencha os dados para criar um novo projeto'
+              }
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="info" className="w-full">
-            <TabsList className={cn("grid w-full", project ? "grid-cols-3" : "grid-cols-2")}>
+          <Tabs defaultValue={newProjectId ? "columns" : "info"} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info" className="flex items-center gap-2">
                 <Info className="w-4 h-4" />
                 Informações
               </TabsTrigger>
-              <TabsTrigger value="fields" className="flex items-center gap-2">
-                <Settings2 className="w-4 h-4" />
-                Campos
+              <TabsTrigger value="columns" className="flex items-center gap-2" disabled={!effectiveProjectId}>
+                <Columns3 className="w-4 h-4" />
+                Colunas
               </TabsTrigger>
-              {project && (
-                <TabsTrigger value="custom-columns" className="flex items-center gap-2">
-                  <Columns3 className="w-4 h-4" />
-                  Colunas
-                </TabsTrigger>
-              )}
             </TabsList>
 
             <form onSubmit={form.handleSubmit(onSubmit)} className="mt-4">
@@ -334,6 +330,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                     id="name"
                     {...form.register('name')}
                     placeholder="Nome do projeto"
+                    disabled={!!newProjectId}
                   />
                   {form.formState.errors.name && (
                     <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
@@ -347,6 +344,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                     {...form.register('description')}
                     placeholder="Descrição do projeto"
                     rows={3}
+                    disabled={!!newProjectId}
                   />
                 </div>
 
@@ -355,6 +353,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                   <Select
                     value={form.watch('status')}
                     onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}
+                    disabled={!!newProjectId}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -376,6 +375,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                       id="startDate"
                       type="date"
                       {...form.register('startDate')}
+                      disabled={!!newProjectId}
                     />
                   </div>
 
@@ -385,125 +385,114 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                       id="endDate"
                       type="date"
                       {...form.register('endDate')}
+                      disabled={!!newProjectId}
                     />
                   </div>
                 </div>
+
+                {!newProjectId && (
+                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
+                    <Button type="button" variant="outline" onClick={handleClose}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                      {isSubmitting ? 'Salvando...' : project ? 'Atualizar' : 'Criar Projeto'}
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
-              <TabsContent value="fields" className="space-y-4">
-                <div className="rounded-lg border border-border p-4 bg-muted/30">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Selecione quais campos aparecerão no formulário de tarefas deste projeto. 
-                    Campos não selecionados ficarão ocultos ao criar ou editar tarefas.
+              <TabsContent value="columns" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Colunas personalizadas aparecem no formulário e tabela de tarefas.
                   </p>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    {TASK_CONFIGURABLE_FIELDS.map((field) => (
-                      <div key={field.key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`field-${field.key}`}
-                          checked={visibleFields.includes(field.key)}
-                          onCheckedChange={() => toggleField(field.key)}
-                        />
-                        <Label 
-                          htmlFor={`field-${field.key}`} 
-                          className="text-sm font-normal cursor-pointer"
+                  <Button type="button" onClick={openCreateColumnDialog} size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Coluna
+                  </Button>
+                </div>
+
+                {projectColumns.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+                    <Columns3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium">Nenhuma coluna configurada</p>
+                    <p className="text-sm mt-1">Adicione colunas para personalizar suas tarefas</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
+                    {projectColumns.map((column, index) => (
+                      <div 
+                        key={column.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, column.id)}
+                        onDragOver={(e) => handleDragOver(e, column.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, column.id)}
+                        onDragEnd={handleDragEnd}
+                        className={cn(
+                          "flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border transition-all duration-200",
+                          draggedId === column.id && "opacity-50 scale-[0.98]",
+                          dragOverId === column.id && "border-primary border-2 bg-primary/5"
+                        )}
+                      >
+                        <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono w-5 flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium truncate block">{column.name}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="secondary" className="text-xs">
+                              {typeLabels[column.type]}
+                            </Badge>
+                            {column.type === 'list' && column.options && (
+                              <span className="text-xs text-muted-foreground">
+                                {column.options.length} opções
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => openEditColumnDialog(column)} className="flex-shrink-0">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          type="button"
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive flex-shrink-0"
+                          onClick={() => handleDeleteColumn(column.id)}
                         >
-                          {field.label}
-                        </Label>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
-                </div>
+                )}
 
                 <div className="text-xs text-muted-foreground">
-                  <strong>Nota:</strong> Os campos "Nome", "Projeto" e "Status" são sempre obrigatórios e não podem ser desativados.
+                  <strong>Tipos disponíveis:</strong> Texto, Número, Data, Lista de Opções, Porcentagem, Usuário
                 </div>
+
+                {newProjectId && (
+                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
+                    <Button type="button" variant="outline" onClick={handleClose}>
+                      Concluir
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               {project && (
-                <TabsContent value="custom-columns" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Colunas personalizadas aparecem na tabela de tarefas. Arraste para reordenar.
-                    </p>
-                    <Button type="button" onClick={openCreateColumnDialog} size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Nova Coluna
-                    </Button>
-                  </div>
-
-                  {projectColumns.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
-                      <Columns3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                      <p className="font-medium">Nenhuma coluna customizada</p>
-                      <p className="text-sm mt-1">Adicione campos extras para este projeto</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
-                      {projectColumns.map((column, index) => (
-                        <div 
-                          key={column.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, column.id)}
-                          onDragOver={(e) => handleDragOver(e, column.id)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, column.id)}
-                          onDragEnd={handleDragEnd}
-                          className={cn(
-                            "flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border transition-all duration-200",
-                            draggedId === column.id && "opacity-50 scale-[0.98]",
-                            dragOverId === column.id && "border-primary border-2 bg-primary/5"
-                          )}
-                        >
-                          <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono w-5 flex-shrink-0">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium truncate block">{column.name}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="secondary" className="text-xs">
-                                {typeLabels[column.type]}
-                              </Badge>
-                              {column.type === 'list' && column.options && (
-                                <span className="text-xs text-muted-foreground">
-                                  {column.options.length} opções
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Button type="button" variant="ghost" size="sm" onClick={() => openEditColumnDialog(column)} className="flex-shrink-0">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            type="button"
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive hover:text-destructive flex-shrink-0"
-                            onClick={() => handleDeleteColumn(column.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="text-xs text-muted-foreground">
-                    <strong>Tipos disponíveis:</strong> Texto, Número, Data, Lista de Opções, Porcentagem, Usuário
-                  </div>
-                </TabsContent>
+                <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
+                  <Button type="button" variant="outline" onClick={handleClose}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                    {isSubmitting ? 'Salvando...' : 'Atualizar'}
+                  </Button>
+                </div>
               )}
-
-              <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
-                  {isSubmitting ? 'Salvando...' : project ? 'Atualizar' : 'Criar Projeto'}
-                </Button>
-              </div>
             </form>
           </Tabs>
         </DialogContent>
@@ -514,7 +503,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingColumn ? 'Editar Coluna' : 'Nova Coluna Customizada'}
+              {editingColumn ? 'Editar Coluna' : 'Nova Coluna'}
             </DialogTitle>
           </DialogHeader>
 
