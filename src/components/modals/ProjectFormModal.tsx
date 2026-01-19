@@ -413,6 +413,12 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               </TabsContent>
 
               <TabsContent value="columns" className="space-y-4">
+                {newProjectId && projectColumns.length === 0 && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-400">
+                    <strong>Obrigatório:</strong> Adicione pelo menos uma coluna para concluir a criação do projeto.
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
                     Colunas personalizadas aparecem no formulário e tabela de tarefas.
@@ -424,10 +430,18 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                 </div>
 
                 {projectColumns.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+                  <div className={cn(
+                    "text-center py-12 text-muted-foreground border border-dashed rounded-lg",
+                    newProjectId && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/10"
+                  )}>
                     <Columns3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
                     <p className="font-medium">Nenhuma coluna configurada</p>
-                    <p className="text-sm mt-1">Adicione colunas para personalizar suas tarefas</p>
+                    <p className="text-sm mt-1">
+                      {newProjectId 
+                        ? 'Clique em "Nova Coluna" para adicionar sua primeira coluna'
+                        : 'Adicione colunas para personalizar suas tarefas'
+                      }
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
@@ -491,7 +505,12 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
                 {newProjectId && (
                   <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-                    <Button type="button" variant="outline" onClick={handleClose}>
+                    <Button 
+                      type="button" 
+                      onClick={handleClose}
+                      disabled={projectColumns.length === 0}
+                      className="gradient-primary text-white"
+                    >
                       Concluir
                     </Button>
                   </div>
