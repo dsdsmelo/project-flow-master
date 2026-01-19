@@ -25,16 +25,15 @@ import { Task, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
 
 const taskSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  description: z.string().optional(),
+  name: z.string().min(1, 'Nome é obrigatório').max(200, 'Nome deve ter no máximo 200 caracteres'),
+  description: z.string().max(2000, 'Descrição deve ter no máximo 2000 caracteres').optional(),
   projectId: z.string().min(1, 'Projeto é obrigatório'),
-  phaseId: z.string().optional(),
   responsibleId: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'blocked', 'completed', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
-  observation: z.string().optional(),
+  observation: z.string().max(1000, 'Observação deve ter no máximo 1000 caracteres').optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
@@ -47,7 +46,7 @@ interface TaskFormModalProps {
 }
 
 export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: TaskFormModalProps) {
-  const { projects, phases, people, customColumns, addTask, updateTask } = useData();
+  const { projects, people, customColumns, addTask, updateTask } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customValues, setCustomValues] = useState<Record<string, string | number>>({});
 
@@ -57,7 +56,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
       name: '',
       description: '',
       projectId: defaultProjectId || '',
-      phaseId: '',
       responsibleId: '',
       startDate: '',
       endDate: '',
@@ -68,7 +66,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
   });
 
   const selectedProjectId = form.watch('projectId');
-  const projectPhases = phases.filter(p => p.projectId === selectedProjectId);
 
   // Get custom columns for the selected project
   const projectCustomColumns = useMemo(() => {
@@ -84,7 +81,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         name: task.name,
         description: task.description || '',
         projectId: task.projectId,
-        phaseId: task.phaseId || '',
         responsibleId: task.responsibleId || '',
         startDate: task.startDate || '',
         endDate: task.endDate || '',
@@ -98,7 +94,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         name: '',
         description: '',
         projectId: defaultProjectId || '',
-        phaseId: '',
         responsibleId: '',
         startDate: '',
         endDate: '',
@@ -124,6 +119,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
             value={value as string}
             onChange={(e) => handleCustomValueChange(column.id, e.target.value)}
             placeholder={`Digite ${column.name.toLowerCase()}`}
+            maxLength={500}
           />
         );
       case 'number':
@@ -207,7 +203,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         name: data.name,
         description: data.description || undefined,
         projectId: data.projectId,
-        phaseId: data.phaseId || undefined,
         responsibleId: data.responsibleId || undefined,
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
@@ -252,6 +247,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
                 id="name"
                 {...form.register('name')}
                 placeholder="Nome da tarefa"
+                maxLength={200}
               />
               {form.formState.errors.name && (
                 <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
@@ -266,6 +262,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
                 {...form.register('description')}
                 placeholder="Descrição detalhada da tarefa"
                 rows={3}
+                maxLength={2000}
               />
             </div>
 
@@ -276,7 +273,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
                 value={form.watch('projectId')}
                 onValueChange={(value) => {
                   form.setValue('projectId', value);
-                  form.setValue('phaseId', '');
                   // Clear custom values when project changes
                   setCustomValues({});
                 }}
@@ -295,28 +291,6 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
               {form.formState.errors.projectId && (
                 <p className="text-sm text-destructive">{form.formState.errors.projectId.message}</p>
               )}
-            </div>
-
-            {/* Phase */}
-            <div className="space-y-2">
-              <Label htmlFor="phaseId">Fase</Label>
-              <Select
-                value={form.watch('phaseId') || ''}
-                onValueChange={(value) => form.setValue('phaseId', value === 'none' ? '' : value)}
-                disabled={!selectedProjectId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma fase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {projectPhases.map((phase) => (
-                    <SelectItem key={phase.id} value={phase.id}>
-                      {phase.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Responsible */}
@@ -415,6 +389,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
                 {...form.register('observation')}
                 placeholder="Observações adicionais"
                 rows={2}
+                maxLength={1000}
               />
             </div>
           </div>

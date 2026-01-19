@@ -277,7 +277,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         // Create new project and keep modal open for column configuration
         const newProject = await addProject(projectData);
         setNewProjectId(newProject.id);
-        toast.success('Projeto criado! Agora você pode adicionar colunas.');
+        toast.success('Projeto criado! Adicione pelo menos uma coluna.');
       }
     } catch (error) {
       console.error('Error saving project:', error);
@@ -288,6 +288,11 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   };
 
   const handleClose = () => {
+    // Require at least one column for new projects
+    if (newProjectId && projectColumns.length === 0) {
+      toast.error('Adicione pelo menos uma coluna antes de concluir.');
+      return;
+    }
     setNewProjectId(null);
     onOpenChange(false);
   };
