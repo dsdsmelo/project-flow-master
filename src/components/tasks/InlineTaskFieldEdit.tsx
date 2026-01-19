@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, CalendarIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Task, TaskStatus, TaskPriority, Person, Phase } from '@/lib/types';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
   Select,
   SelectContent,
@@ -301,5 +304,71 @@ export const TextEditCell = ({ value, placeholder, onSave, className, isOverdue 
       </span>
       <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
     </div>
+  );
+};
+
+// Date Edit Cell
+interface DateEditCellProps {
+  value?: string;
+  placeholder?: string;
+  onSave: (value: string | undefined) => void;
+}
+
+export const DateEditCell = ({ value, placeholder, onSave }: DateEditCellProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const date = value ? parseISO(value) : undefined;
+
+  const handleSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate) {
+      onSave(format(selectedDate, 'yyyy-MM-dd'));
+    } else {
+      onSave(undefined);
+    }
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    onSave(undefined);
+    setIsOpen(false);
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]">
+          <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+          <span className={cn(
+            "text-sm",
+            !date && "text-muted-foreground"
+          )}>
+            {date ? format(date, 'dd/MM/yyyy', { locale: ptBR }) : (placeholder || '-')}
+          </span>
+          <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={handleSelect}
+          initialFocus
+          className="p-3 pointer-events-auto"
+          locale={ptBR}
+        />
+        {date && (
+          <div className="px-3 pb-3 pt-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-muted-foreground"
+              onClick={handleClear}
+            >
+              <X className="w-3 h-3 mr-1" />
+              Limpar data
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 };
