@@ -14,7 +14,7 @@ import { useData } from '@/contexts/DataContext';
 import { cn } from '@/lib/utils';
 
 const Cells = () => {
-  const { cells, setCells, tasks } = useData();
+  const { cells, tasks, updateCell, loading, error } = useData();
   const [search, setSearch] = useState('');
 
   const filteredCells = useMemo(() => {
@@ -27,11 +27,43 @@ const Cells = () => {
     return tasks.filter(t => t.cellId === cellId).length;
   };
 
-  const toggleActive = (cellId: string) => {
-    setCells(prev => prev.map(c => 
-      c.id === cellId ? { ...c, active: !c.active } : c
-    ));
+  const toggleActive = async (cellId: string) => {
+    const cell = cells.find(c => c.id === cellId);
+    if (!cell) return;
+    try {
+      await updateCell(cellId, { active: !cell.active });
+    } catch (err) {
+      console.error('Error toggling cell status:', err);
+    }
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Células" subtitle="Gerencie as áreas e departamentos" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <Header title="Células" subtitle="Gerencie as áreas e departamentos" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center text-destructive">
+            <p className="font-medium mb-2">Erro ao carregar dados</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

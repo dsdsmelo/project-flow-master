@@ -43,7 +43,7 @@ const statusColors = {
 };
 
 const Projects = () => {
-  const { projects, tasks, phases } = useData();
+  const { projects, tasks, phases, loading, error } = useData();
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -71,6 +71,34 @@ const Projects = () => {
   const getProjectPhaseCount = (projectId: string) => {
     return phases.filter(p => p.projectId === projectId).length;
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Projetos" subtitle="Gerencie seus projetos e acompanhe o progresso" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <Header title="Projetos" subtitle="Gerencie seus projetos e acompanhe o progresso" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center text-destructive">
+            <p className="font-medium mb-2">Erro ao carregar dados</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
