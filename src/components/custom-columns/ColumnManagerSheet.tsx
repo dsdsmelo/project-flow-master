@@ -45,7 +45,7 @@ const typeLabels: Record<CustomColumn['type'], string> = {
 };
 
 export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetProps) => {
-  const { customColumns, setCustomColumns, projects } = useData();
+  const { customColumns, setCustomColumns, addCustomColumn, updateCustomColumn, deleteCustomColumn, projects } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<CustomColumn | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -101,36 +101,40 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) return;
 
-    if (editingColumn) {
-      setCustomColumns(prev => prev.map(col => 
-        col.id === editingColumn.id 
-          ? { ...col, name: formData.name, type: formData.type, options: formData.options }
-          : col
-      ));
-    } else {
-      const newColumn: CustomColumn = {
-        id: `cc-${Date.now()}`,
-        name: formData.name,
-        type: formData.type,
-        projectId,
-        order: projectColumns.length + 1,
-        options: formData.type === 'list' ? formData.options : undefined,
-        active: true,
-      };
-      setCustomColumns(prev => [...prev, newColumn]);
-    }
+    try {
+      if (editingColumn) {
+        await updateCustomColumn(editingColumn.id, {
+          name: formData.name,
+          type: formData.type,
+          options: formData.options,
+        });
+      } else {
+        await addCustomColumn({
+          name: formData.name,
+          type: formData.type,
+          projectId,
+          order: projectColumns.length + 1,
+          options: formData.type === 'list' ? formData.options : undefined,
+          active: true,
+        });
+      }
 
-    setIsDialogOpen(false);
-    resetForm();
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (err) {
+      console.error('Error saving custom column:', err);
+    }
   };
 
-  const handleDelete = (columnId: string) => {
-    setCustomColumns(prev => prev.map(col => 
-      col.id === columnId ? { ...col, active: false } : col
-    ));
+  const handleDelete = async (columnId: string) => {
+    try {
+      await updateCustomColumn(columnId, { active: false });
+    } catch (err) {
+      console.error('Error deleting custom column:', err);
+    }
   };
 
   // Drag and Drop handlers
@@ -152,7 +156,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
     setDragOverId(null);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent, targetId: string) => {
+  const handleDrop = useCallback(async (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     
     if (!draggedId || draggedId === targetId) {
@@ -170,6 +174,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
     const [removed] = newColumns.splice(draggedIndex, 1);
     newColumns.splice(targetIndex, 0, removed);
 
+    // Update local state immediately for responsiveness
     setCustomColumns(prev => {
       const updated = [...prev];
       newColumns.forEach((col, index) => {
@@ -181,9 +186,18 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
       return updated;
     });
 
+    // Persist to database
+    try {
+      await Promise.all(
+        newColumns.map((col, index) => updateCustomColumn(col.id, { order: index + 1 }))
+      );
+    } catch (err) {
+      console.error('Error updating column order:', err);
+    }
+
     setDraggedId(null);
     setDragOverId(null);
-  }, [draggedId, projectColumns, setCustomColumns]);
+  }, [draggedId, projectColumns, setCustomColumns, updateCustomColumn]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedId(null);

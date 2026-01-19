@@ -32,7 +32,7 @@ import {
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { projects, tasks, people, phases } = useData();
+  const { projects, tasks, people, phases, loading, error } = useData();
 
   const stats = useMemo(() => {
     const activeProjects = projects.filter(p => p.status === 'active').length;
@@ -107,6 +107,34 @@ const Dashboard = () => {
     if (!personId) return null;
     return people.find(p => p.id === personId);
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Dashboard" subtitle="Visão geral do seu workspace" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <Header title="Dashboard" subtitle="Visão geral do seu workspace" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center text-destructive">
+            <p className="font-medium mb-2">Erro ao carregar dados</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
