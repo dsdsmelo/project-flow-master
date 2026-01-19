@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const People = () => {
-  const { people, setPeople, tasks } = useData();
+  const { people, tasks, updatePerson, loading, error } = useData();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
 
@@ -42,11 +42,43 @@ const People = () => {
     return tasks.filter(t => t.responsibleId === personId && t.status === 'completed').length;
   };
 
-  const toggleActive = (personId: string) => {
-    setPeople(prev => prev.map(p => 
-      p.id === personId ? { ...p, active: !p.active } : p
-    ));
+  const toggleActive = async (personId: string) => {
+    const person = people.find(p => p.id === personId);
+    if (!person) return;
+    try {
+      await updatePerson(personId, { active: !person.active });
+    } catch (err) {
+      console.error('Error toggling person status:', err);
+    }
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Pessoas" subtitle="Gerencie os membros da equipe e parceiros" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <Header title="Pessoas" subtitle="Gerencie os membros da equipe e parceiros" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center text-destructive">
+            <p className="font-medium mb-2">Erro ao carregar dados</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
