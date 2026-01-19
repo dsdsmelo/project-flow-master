@@ -23,6 +23,7 @@ import {
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
+import { useColumnSettings } from '@/hooks/useColumnSettings';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Task } from '@/lib/types';
@@ -66,6 +67,15 @@ interface ProjectTasksTableProps {
 
 export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   const { tasks, updateTask, deleteTask, phases, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
+  const { 
+    standardColumns, 
+    visibleColumns: visibleStandardColumns,
+    toggleColumnVisibility,
+    updateColumnName: updateStandardColumnName,
+    reorderColumns: reorderStandardColumns,
+    resetToDefaults: resetStandardColumns,
+  } = useColumnSettings(projectId);
+  
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -80,12 +90,23 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   
-  // Column editing and drag state
+  // Column editing and drag state for custom columns
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState('');
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const columnInputRef = useRef<HTMLInputElement>(null);
+  
+  // Helper to check if a standard column is visible
+  const isColumnVisible = useCallback((columnId: string) => {
+    return visibleStandardColumns.some(col => col.id === columnId);
+  }, [visibleStandardColumns]);
+  
+  // Get column name (possibly customized)
+  const getColumnName = useCallback((columnId: string) => {
+    const col = standardColumns.find(c => c.id === columnId);
+    return col?.name || columnId;
+  }, [standardColumns]);
 
   // Filter tasks for this project
   const projectTasks = useMemo(() => {
@@ -396,6 +417,11 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
         <div className="flex gap-2 flex-wrap">
           <ColumnManagerSheet 
             projectId={projectId}
+            standardColumns={standardColumns}
+            onToggleStandardColumn={toggleColumnVisibility}
+            onUpdateStandardColumnName={updateStandardColumnName}
+            onReorderStandardColumns={reorderStandardColumns}
+            onResetStandardColumns={resetStandardColumns}
             trigger={
               <Button variant="outline">
                 <Columns3 className="w-4 h-4 mr-2" />
@@ -435,14 +461,30 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     onCheckedChange={toggleAllTasks}
                   />
                 </th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Tarefa</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Descrição</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Início</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Fim</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
+                {isColumnVisible('name') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('name')}</th>
+                )}
+                {isColumnVisible('description') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('description')}</th>
+                )}
+                {isColumnVisible('responsible') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('responsible')}</th>
+                )}
+                {isColumnVisible('status') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('status')}</th>
+                )}
+                {isColumnVisible('priority') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('priority')}</th>
+                )}
+                {isColumnVisible('startDate') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('startDate')}</th>
+                )}
+                {isColumnVisible('endDate') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">{getColumnName('endDate')}</th>
+                )}
+                {isColumnVisible('progress') && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">{getColumnName('progress')}</th>
+                )}
                 {/* Custom Columns Headers - Editable & Draggable */}
                 {displayedCustomColumns.map(col => (
                   <th 
@@ -515,60 +557,76 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                         onCheckedChange={() => toggleTaskSelection(task.id)}
                       />
                     </td>
-                    <td className="py-4 px-4">
-                      <TextEditCell
-                        value={task.name}
-                        isOverdue={overdue}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { name: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4 max-w-[200px]">
-                      <TextEditCell
-                        value={task.description || ''}
-                        placeholder="Adicionar descrição..."
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { description: value || undefined })}
-                        className="text-muted-foreground"
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <ResponsibleEditCell
-                        responsibleId={task.responsibleId}
-                        people={people}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleId: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <StatusEditCell
-                        status={task.status}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { status: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <PriorityEditCell
-                        priority={task.priority}
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { priority: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <DateEditCell
-                        value={task.startDate}
-                        placeholder="Definir"
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { startDate: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <DateEditCell
-                        value={task.endDate}
-                        placeholder="Definir"
-                        onSave={(value) => handleTaskFieldUpdate(task.id, { endDate: value })}
-                      />
-                    </td>
-                    <td className="py-4 px-4">
-                      <TaskProgressEditCell
-                        progress={progress}
-                        onSave={(value) => handleProgressUpdate(task.id, value)}
-                      />
-                    </td>
+                    {isColumnVisible('name') && (
+                      <td className="py-4 px-4">
+                        <TextEditCell
+                          value={task.name}
+                          isOverdue={overdue}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { name: value })}
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('description') && (
+                      <td className="py-4 px-4 max-w-[200px]">
+                        <TextEditCell
+                          value={task.description || ''}
+                          placeholder="Adicionar descrição..."
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { description: value || undefined })}
+                          className="text-muted-foreground"
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('responsible') && (
+                      <td className="py-4 px-4">
+                        <ResponsibleEditCell
+                          responsibleId={task.responsibleId}
+                          people={people}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleId: value })}
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('status') && (
+                      <td className="py-4 px-4">
+                        <StatusEditCell
+                          status={task.status}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { status: value })}
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('priority') && (
+                      <td className="py-4 px-4">
+                        <PriorityEditCell
+                          priority={task.priority}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { priority: value })}
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('startDate') && (
+                      <td className="py-4 px-4">
+                        <DateEditCell
+                          value={task.startDate}
+                          placeholder="Definir"
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { startDate: value })}
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('endDate') && (
+                      <td className="py-4 px-4">
+                        <DateEditCell
+                          value={task.endDate}
+                          placeholder="Definir"
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { endDate: value })}
+                        />
+                      </td>
+                    )}
+                    {isColumnVisible('progress') && (
+                      <td className="py-4 px-4">
+                        <TaskProgressEditCell
+                          progress={progress}
+                          onSave={(value) => handleProgressUpdate(task.id, value)}
+                        />
+                      </td>
+                    )}
                     {/* Custom Columns Values - Inline Editable */}
                     {displayedCustomColumns.map(col => (
                       <td key={col.id} className="py-3 px-4">
