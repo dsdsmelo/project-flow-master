@@ -16,21 +16,7 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   status: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
-  visibleFields?: string[]; // Fields visible in task form for this project
 }
-
-// Available task fields that can be toggled per project
-export const TASK_CONFIGURABLE_FIELDS = [
-  { key: 'description', label: 'Descrição', default: true },
-  { key: 'phase', label: 'Fase', default: true },
-  { key: 'responsible', label: 'Responsável', default: true },
-  { key: 'quantity', label: 'Quantidade', default: false },
-  { key: 'collected', label: 'Coletados', default: false },
-  { key: 'startDate', label: 'Data Início', default: true },
-  { key: 'endDate', label: 'Data Fim', default: true },
-  { key: 'priority', label: 'Prioridade', default: true },
-  { key: 'observation', label: 'Observação', default: false },
-] as const;
 
 export interface Phase {
   id: string;
