@@ -21,11 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Info, Columns3, Plus, Edit, Trash2, GripVertical, X, Flag } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, Check, ArrowRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -57,13 +56,22 @@ const typeLabels: Record<CustomColumn['type'], string> = {
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
   const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newProjectId, setNewProjectId] = useState<string | null>(null);
+  const [tempProjectId, setTempProjectId] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
   // Custom columns state
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<CustomColumn | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [pendingColumns, setPendingColumns] = useState<Array<{
+    id: string;
+    name: string;
+    type: CustomColumn['type'];
+    options?: string[];
+    isMilestone: boolean;
+    order: number;
+  }>>([]);
   const [columnFormData, setColumnFormData] = useState({
     name: '',
     type: 'text' as CustomColumn['type'],
@@ -83,14 +91,12 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     },
   });
 
-  // Get the effective project ID (existing project or newly created)
-  const effectiveProjectId = project?.id || newProjectId;
-
-  // Get columns for this project
-  const projectColumns = effectiveProjectId 
-    ? customColumns.filter(col => col.projectId === effectiveProjectId && col.active).sort((a, b) => a.order - b.order)
+  // For editing existing project - get real columns
+  const existingProjectColumns = project 
+    ? customColumns.filter(col => col.projectId === project.id && col.active).sort((a, b) => a.order - b.order)
     : [];
 
+  // Reset when modal opens/closes or project changes
   useEffect(() => {
     if (project) {
       form.reset({
@@ -100,7 +106,9 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: project.endDate || '',
         status: project.status,
       });
-      setNewProjectId(null);
+      setTempProjectId(null);
+      setPendingColumns([]);
+      setCurrentStep(1);
     } else {
       form.reset({
         name: '',
@@ -109,7 +117,9 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: '',
         status: 'planning',
       });
-      setNewProjectId(null);
+      setTempProjectId(null);
+      setPendingColumns([]);
+      setCurrentStep(1);
     }
   }, [project, form, open]);
 
@@ -136,6 +146,27 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     setIsColumnDialogOpen(true);
   };
 
+  const openEditPendingColumnDialog = (col: typeof pendingColumns[0]) => {
+    setEditingColumn({ 
+      id: col.id, 
+      name: col.name, 
+      type: col.type, 
+      options: col.options,
+      isMilestone: col.isMilestone,
+      order: col.order,
+      projectId: '',
+      active: true,
+    });
+    setColumnFormData({
+      name: col.name,
+      type: col.type,
+      options: col.options || [],
+      newOption: '',
+      isMilestone: col.isMilestone,
+    });
+    setIsColumnDialogOpen(true);
+  };
+
   const handleAddOption = () => {
     if (columnFormData.newOption.trim()) {
       setColumnFormData(prev => ({
@@ -154,10 +185,45 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   };
 
   const handleSaveColumn = async () => {
-    if (!columnFormData.name.trim() || !effectiveProjectId) return;
+    if (!columnFormData.name.trim()) return;
 
-    try {
+    // For new project creation - save to pending columns
+    if (!project) {
       if (editingColumn) {
+        // Edit pending column
+        setPendingColumns(prev => prev.map(col => 
+          col.id === editingColumn.id 
+            ? {
+                ...col,
+                name: columnFormData.name,
+                type: columnFormData.type,
+                options: columnFormData.type === 'list' ? columnFormData.options : undefined,
+                isMilestone: columnFormData.isMilestone,
+              }
+            : col
+        ));
+        toast.success('Coluna atualizada!');
+      } else {
+        // Add new pending column
+        const newColumn = {
+          id: `temp-${Date.now()}`,
+          name: columnFormData.name,
+          type: columnFormData.type,
+          options: columnFormData.type === 'list' ? columnFormData.options : undefined,
+          isMilestone: columnFormData.isMilestone,
+          order: pendingColumns.length + 1,
+        };
+        setPendingColumns(prev => [...prev, newColumn]);
+        toast.success('Coluna adicionada!');
+      }
+      setIsColumnDialogOpen(false);
+      resetColumnForm();
+      return;
+    }
+
+    // For editing existing project - save to database
+    try {
+      if (editingColumn && !editingColumn.id.startsWith('temp-')) {
         await updateCustomColumn(editingColumn.id, {
           name: columnFormData.name,
           type: columnFormData.type,
@@ -169,8 +235,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         await addCustomColumn({
           name: columnFormData.name,
           type: columnFormData.type,
-          projectId: effectiveProjectId,
-          order: projectColumns.length + 1,
+          projectId: project.id,
+          order: existingProjectColumns.length + 1,
           options: columnFormData.type === 'list' ? columnFormData.options : undefined,
           isMilestone: columnFormData.isMilestone,
           active: true,
@@ -187,6 +253,14 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   };
 
   const handleDeleteColumn = async (columnId: string) => {
+    // For pending columns (new project creation)
+    if (columnId.startsWith('temp-')) {
+      setPendingColumns(prev => prev.filter(col => col.id !== columnId));
+      toast.success('Coluna removida!');
+      return;
+    }
+
+    // For existing project columns
     try {
       await updateCustomColumn(columnId, { active: false });
       toast.success('Coluna removida!');
@@ -196,7 +270,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     }
   };
 
-  // Drag and Drop handlers
+  // Drag and Drop handlers for existing project columns
   const handleDragStart = useCallback((e: React.DragEvent, columnId: string) => {
     setDraggedId(columnId);
     e.dataTransfer.effectAllowed = 'move';
@@ -224,12 +298,30 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       return;
     }
 
-    const draggedIndex = projectColumns.findIndex(col => col.id === draggedId);
-    const targetIndex = projectColumns.findIndex(col => col.id === targetId);
+    // For pending columns
+    if (draggedId.startsWith('temp-')) {
+      const draggedIndex = pendingColumns.findIndex(col => col.id === draggedId);
+      const targetIndex = pendingColumns.findIndex(col => col.id === targetId);
+
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      const newColumns = [...pendingColumns];
+      const [removed] = newColumns.splice(draggedIndex, 1);
+      newColumns.splice(targetIndex, 0, removed);
+
+      setPendingColumns(newColumns.map((col, index) => ({ ...col, order: index + 1 })));
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    // For existing project columns
+    const draggedIndex = existingProjectColumns.findIndex(col => col.id === draggedId);
+    const targetIndex = existingProjectColumns.findIndex(col => col.id === targetId);
 
     if (draggedIndex === -1 || targetIndex === -1) return;
 
-    const newColumns = [...projectColumns];
+    const newColumns = [...existingProjectColumns];
     const [removed] = newColumns.splice(draggedIndex, 1);
     newColumns.splice(targetIndex, 0, removed);
 
@@ -256,13 +348,23 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
     setDraggedId(null);
     setDragOverId(null);
-  }, [draggedId, projectColumns, setCustomColumns, updateCustomColumn]);
+  }, [draggedId, existingProjectColumns, pendingColumns, setCustomColumns, updateCustomColumn]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedId(null);
     setDragOverId(null);
   }, []);
 
+  // Step 1 complete: move to step 2
+  const handleStep1Complete = () => {
+    if (pendingColumns.length === 0) {
+      toast.error('Adicione pelo menos uma coluna.');
+      return;
+    }
+    setCurrentStep(2);
+  };
+
+  // Step 2 complete: create project with columns
   const onSubmit = async (data: ProjectFormData) => {
     setIsSubmitting(true);
     try {
@@ -279,10 +381,26 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         toast.success('Projeto atualizado com sucesso!');
         onOpenChange(false);
       } else {
-        // Create new project and keep modal open for column configuration
+        // Create project
         const newProject = await addProject(projectData);
-        setNewProjectId(newProject.id);
-        toast.success('Projeto criado! Adicione pelo menos uma coluna.');
+        
+        // Create all pending columns
+        await Promise.all(
+          pendingColumns.map(col => 
+            addCustomColumn({
+              name: col.name,
+              type: col.type,
+              projectId: newProject.id,
+              order: col.order,
+              options: col.options,
+              isMilestone: col.isMilestone,
+              active: true,
+            })
+          )
+        );
+
+        toast.success('Projeto criado com sucesso!');
+        onOpenChange(false);
       }
     } catch (error) {
       console.error('Error saving project:', error);
@@ -293,14 +411,101 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   };
 
   const handleClose = () => {
-    // Require at least one column for new projects
-    if (newProjectId && projectColumns.length === 0) {
-      toast.error('Adicione pelo menos uma coluna antes de concluir.');
-      return;
-    }
-    setNewProjectId(null);
+    setTempProjectId(null);
+    setPendingColumns([]);
+    setCurrentStep(1);
     onOpenChange(false);
   };
+
+  // Determine which columns to show based on mode
+  const displayColumns = project ? existingProjectColumns : pendingColumns;
+
+  const renderColumnList = (columns: typeof displayColumns, isPending: boolean) => (
+    <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
+      {columns.map((column, index) => (
+        <div 
+          key={column.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, column.id)}
+          onDragOver={(e) => handleDragOver(e, column.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, column.id)}
+          onDragEnd={handleDragEnd}
+          className={cn(
+            "flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border transition-all duration-200",
+            draggedId === column.id && "opacity-50 scale-[0.98]",
+            dragOverId === column.id && "border-primary border-2 bg-primary/5"
+          )}
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono w-5 flex-shrink-0">
+            {index + 1}
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="font-medium truncate block">{column.name}</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="secondary" className="text-xs">
+                {typeLabels[column.type]}
+              </Badge>
+              {column.isMilestone && (
+                <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                  Marco
+                </Badge>
+              )}
+              {column.type === 'list' && column.options && (
+                <span className="text-xs text-muted-foreground">
+                  {column.options.length} opções
+                </span>
+              )}
+            </div>
+          </div>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => isPending ? openEditPendingColumnDialog(column as typeof pendingColumns[0]) : openEditColumnDialog(column as CustomColumn)} 
+            className="flex-shrink-0"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button 
+            type="button"
+            variant="ghost" 
+            size="sm" 
+            className="text-destructive hover:text-destructive flex-shrink-0"
+            onClick={() => handleDeleteColumn(column.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Render step indicator for new project creation
+  const renderStepIndicator = () => (
+    <div className="flex items-center justify-center gap-4 mb-6">
+      <div className={cn(
+        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+        currentStep === 1 
+          ? "bg-primary text-primary-foreground" 
+          : "bg-primary/20 text-primary"
+      )}>
+        {currentStep > 1 ? <Check className="w-4 h-4" /> : <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-xs">1</span>}
+        <span>Colunas</span>
+      </div>
+      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+      <div className={cn(
+        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+        currentStep === 2 
+          ? "bg-primary text-primary-foreground" 
+          : "bg-muted text-muted-foreground"
+      )}>
+        <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-xs">2</span>
+        <span>Projeto</span>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -308,227 +513,274 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {project ? 'Editar Projeto' : newProjectId ? 'Configurar Projeto' : 'Novo Projeto'}
+              {project ? 'Editar Projeto' : 'Novo Projeto'}
             </DialogTitle>
             <DialogDescription>
               {project 
                 ? 'Atualize as informações do projeto' 
-                : newProjectId 
-                  ? 'Adicione colunas personalizadas para controlar suas tarefas'
-                  : 'Preencha os dados para criar um novo projeto'
+                : currentStep === 1
+                  ? 'Primeiro, defina as colunas que serão usadas nas tarefas'
+                  : 'Agora, preencha os dados do projeto'
               }
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue={newProjectId ? "columns" : "info"} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="info" className="flex items-center gap-2">
-                <Info className="w-4 h-4" />
-                Informações
-              </TabsTrigger>
-              <TabsTrigger value="columns" className="flex items-center gap-2" disabled={!effectiveProjectId}>
-                <Columns3 className="w-4 h-4" />
-                Colunas
-              </TabsTrigger>
-            </TabsList>
+          {/* Step indicator for new projects */}
+          {!project && renderStepIndicator()}
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-4">
-              <TabsContent value="info" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome *</Label>
-                  <Input
-                    id="name"
-                    {...form.register('name')}
-                    placeholder="Nome do projeto"
-                    disabled={!!newProjectId}
-                  />
-                  {form.formState.errors.name && (
-                    <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea
-                    id="description"
-                    {...form.register('description')}
-                    placeholder="Descrição do projeto"
-                    rows={3}
-                    disabled={!!newProjectId}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={form.watch('status')}
-                    onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}
-                    disabled={!!newProjectId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="planning">Planejamento</SelectItem>
-                      <SelectItem value="active">Ativo</SelectItem>
-                      <SelectItem value="paused">Pausado</SelectItem>
-                      <SelectItem value="completed">Concluído</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+          {/* EDIT MODE: Existing project with tabs-like layout */}
+          {project ? (
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Project Info Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Informações</h3>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startDate">Data Início</Label>
+                    <Label htmlFor="name">Nome *</Label>
                     <Input
-                      id="startDate"
-                      type="date"
-                      {...form.register('startDate')}
-                      disabled={!!newProjectId}
+                      id="name"
+                      {...form.register('name')}
+                      placeholder="Nome do projeto"
+                    />
+                    {form.formState.errors.name && (
+                      <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      {...form.register('description')}
+                      placeholder="Descrição do projeto"
+                      rows={3}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="endDate">Data Fim</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      {...form.register('endDate')}
-                      disabled={!!newProjectId}
-                    />
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={form.watch('status')}
+                      onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="planning">Planejamento</SelectItem>
+                        <SelectItem value="active">Ativo</SelectItem>
+                        <SelectItem value="paused">Pausado</SelectItem>
+                        <SelectItem value="completed">Concluído</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Data Início</Label>
+                      <Input
+                        id="startDate"
+                        type="date"
+                        {...form.register('startDate')}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="endDate">Data Fim</Label>
+                      <Input
+                        id="endDate"
+                        type="date"
+                        {...form.register('endDate')}
+                      />
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {!newProjectId && (
-                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-                    <Button type="button" variant="outline" onClick={handleClose}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
-                      {isSubmitting ? 'Salvando...' : project ? 'Atualizar' : 'Criar Projeto'}
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="columns" className="space-y-4">
-                {newProjectId && projectColumns.length === 0 && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-400">
-                    <strong>Obrigatório:</strong> Adicione pelo menos uma coluna para concluir a criação do projeto.
-                  </div>
-                )}
-
+              {/* Columns Section */}
+              <div className="space-y-4 pt-4 border-t">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Colunas personalizadas aparecem no formulário e tabela de tarefas.
-                  </p>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Colunas Personalizadas</h3>
                   <Button type="button" onClick={openCreateColumnDialog} size="sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Nova Coluna
                   </Button>
                 </div>
 
-                {projectColumns.length === 0 ? (
-                  <div className={cn(
-                    "text-center py-12 text-muted-foreground border border-dashed rounded-lg",
-                    newProjectId && "border-amber-400 bg-amber-50/50 dark:bg-amber-950/10"
-                  )}>
-                    <Columns3 className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">Nenhuma coluna configurada</p>
-                    <p className="text-sm mt-1">
-                      {newProjectId 
-                        ? 'Clique em "Nova Coluna" para adicionar sua primeira coluna'
-                        : 'Adicione colunas para personalizar suas tarefas'
-                      }
-                    </p>
+                {existingProjectColumns.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+                    <Columns3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Nenhuma coluna configurada</p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
-                    {projectColumns.map((column, index) => (
-                      <div 
-                        key={column.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, column.id)}
-                        onDragOver={(e) => handleDragOver(e, column.id)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, column.id)}
-                        onDragEnd={handleDragEnd}
-                        className={cn(
-                          "flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border transition-all duration-200",
-                          draggedId === column.id && "opacity-50 scale-[0.98]",
-                          dragOverId === column.id && "border-primary border-2 bg-primary/5"
-                        )}
-                      >
-                        <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono w-5 flex-shrink-0">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium truncate block">{column.name}</span>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="secondary" className="text-xs">
-                              {typeLabels[column.type]}
-                            </Badge>
-                            {column.isMilestone && (
-                              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
-                                Marco
-                              </Badge>
-                            )}
-                            {column.type === 'list' && column.options && (
-                              <span className="text-xs text-muted-foreground">
-                                {column.options.length} opções
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => openEditColumnDialog(column)} className="flex-shrink-0">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          type="button"
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-destructive hover:text-destructive flex-shrink-0"
-                          onClick={() => handleDeleteColumn(column.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                  renderColumnList(existingProjectColumns, false)
                 )}
+              </div>
 
-                <div className="text-xs text-muted-foreground">
-                  <strong>Tipos disponíveis:</strong> Texto, Número, Data, Lista de Opções, Porcentagem, Usuário
-                </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={handleClose}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                  {isSubmitting ? 'Salvando...' : 'Atualizar'}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            /* CREATE MODE: Step-based flow */
+            <>
+              {/* Step 1: Columns */}
+              {currentStep === 1 && (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <p className="text-sm text-blue-700 dark:text-blue-400">
+                      <strong>Por que colunas primeiro?</strong> As colunas definem quais campos suas tarefas terão. 
+                      Cada projeto pode ter campos personalizados diferentes.
+                    </p>
+                  </div>
 
-                {newProjectId && (
-                  <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-                    <Button 
-                      type="button" 
-                      onClick={handleClose}
-                      disabled={projectColumns.length === 0}
-                      className="gradient-primary text-white"
-                    >
-                      Concluir
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Adicione pelo menos uma coluna para continuar.
+                    </p>
+                    <Button type="button" onClick={openCreateColumnDialog} size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Coluna
                     </Button>
                   </div>
-                )}
-              </TabsContent>
 
-              {project && (
-                <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-                  <Button type="button" variant="outline" onClick={handleClose}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
-                    {isSubmitting ? 'Salvando...' : 'Atualizar'}
-                  </Button>
+                  {pendingColumns.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-amber-400 rounded-lg bg-amber-50/50 dark:bg-amber-950/10">
+                      <Columns3 className="w-10 h-10 mx-auto mb-3 text-amber-500" />
+                      <p className="font-medium">Nenhuma coluna adicionada</p>
+                      <p className="text-sm mt-1">Clique em "Nova Coluna" para começar</p>
+                    </div>
+                  ) : (
+                    <>
+                      {renderColumnList(pendingColumns, true)}
+                      <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                        <Check className="w-4 h-4" />
+                        {pendingColumns.length} {pendingColumns.length === 1 ? 'coluna adicionada' : 'colunas adicionadas'}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="text-xs text-muted-foreground">
+                    <strong>Tipos disponíveis:</strong> Texto, Número, Data, Lista de Opções, Porcentagem, Usuário
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={handleClose}>
+                      Cancelar
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={handleStep1Complete}
+                      disabled={pendingColumns.length === 0}
+                      className="gradient-primary text-white"
+                    >
+                      Próximo: Dados do Projeto
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               )}
-            </form>
-          </Tabs>
+
+              {/* Step 2: Project Info */}
+              {currentStep === 2 && (
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome *</Label>
+                    <Input
+                      id="name"
+                      {...form.register('name')}
+                      placeholder="Nome do projeto"
+                    />
+                    {form.formState.errors.name && (
+                      <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      {...form.register('description')}
+                      placeholder="Descrição do projeto"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={form.watch('status')}
+                      onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="planning">Planejamento</SelectItem>
+                        <SelectItem value="active">Ativo</SelectItem>
+                        <SelectItem value="paused">Pausado</SelectItem>
+                        <SelectItem value="completed">Concluído</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate">Data Início</Label>
+                      <Input
+                        id="startDate"
+                        type="date"
+                        {...form.register('startDate')}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="endDate">Data Fim</Label>
+                      <Input
+                        id="endDate"
+                        type="date"
+                        {...form.register('endDate')}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Summary of columns */}
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                    <p className="text-sm font-medium">Colunas configuradas:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {pendingColumns.map(col => (
+                        <Badge key={col.id} variant="secondary">
+                          {col.name}
+                          {col.isMilestone && <Flag className="w-3 h-3 ml-1 text-amber-500" />}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between gap-3 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => setCurrentStep(1)}>
+                      Voltar
+                    </Button>
+                    <div className="flex gap-3">
+                      <Button type="button" variant="outline" onClick={handleClose}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                        {isSubmitting ? 'Criando...' : 'Criar Projeto'}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -557,7 +809,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               <Select 
                 value={columnFormData.type} 
                 onValueChange={(v) => setColumnFormData(prev => ({ ...prev, type: v as CustomColumn['type'] }))}
-                disabled={!!editingColumn}
+                disabled={!!editingColumn && !editingColumn.id.startsWith('temp-')}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -571,7 +823,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                   <SelectItem value="user">Usuário</SelectItem>
                 </SelectContent>
               </Select>
-              {editingColumn && (
+              {editingColumn && !editingColumn.id.startsWith('temp-') && (
                 <p className="text-xs text-muted-foreground">O tipo não pode ser alterado após a criação</p>
               )}
             </div>
@@ -600,6 +852,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                         </button>
                       </Badge>
                     ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -623,15 +877,13 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               </div>
             </div>
           </div>
-            )}
-          </div>
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setIsColumnDialogOpen(false)}>
               Cancelar
             </Button>
             <Button type="button" onClick={handleSaveColumn} disabled={!columnFormData.name.trim()}>
-              {editingColumn ? 'Salvar' : 'Criar'}
+              {editingColumn ? 'Salvar' : 'Adicionar'}
             </Button>
           </div>
         </DialogContent>
