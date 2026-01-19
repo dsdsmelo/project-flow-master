@@ -619,10 +619,7 @@ const ProjectDetail = () => {
 
           {/* Tasks Tab */}
           <TabsContent value="tasks" className="mt-6">
-            <ProjectTasksTable 
-              projectId={projectId || ''} 
-              onOpenNewTask={() => setTaskModalOpen(true)} 
-            />
+            <ProjectTasksTable projectId={projectId || ''} />
           </TabsContent>
 
           {/* Gantt Tab */}
