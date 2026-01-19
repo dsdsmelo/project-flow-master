@@ -11,7 +11,8 @@ import {
   ListTodo,
   FolderKanban,
   GanttChart,
-  LayoutDashboard
+  LayoutDashboard,
+  Plus
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -26,6 +27,7 @@ import { calculatePercentage, isTaskOverdue, isTaskDueSoon } from '@/lib/mockDat
 import { projectStatusLabels } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ProjectGanttChart } from '@/components/gantt/ProjectGanttChart';
+import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { 
   BarChart, 
   Bar, 
@@ -53,6 +55,7 @@ const ProjectDetail = () => {
   const navigate = useNavigate();
   const { projects, tasks, people, phases, cells, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
 
   const project = useMemo(() => {
     return projects.find(p => p.id === projectId);
@@ -229,6 +232,10 @@ const ProjectDetail = () => {
                 </span>
               </div>
             )}
+            <Button className="gradient-primary text-white" onClick={() => setTaskModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Tarefa
+            </Button>
           </div>
         </div>
 
@@ -546,6 +553,13 @@ const ProjectDetail = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Task Modal */}
+      <TaskFormModal
+        open={taskModalOpen}
+        onOpenChange={setTaskModalOpen}
+        defaultProjectId={projectId}
+      />
     </MainLayout>
   );
 };
