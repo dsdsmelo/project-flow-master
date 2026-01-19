@@ -12,8 +12,9 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
+import { PersonFormModal } from '@/components/modals/PersonFormModal';
 import { useData } from '@/contexts/DataContext';
-import { personTypeLabels } from '@/lib/types';
+import { personTypeLabels, Person } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,6 +23,8 @@ const People = () => {
   const { people, tasks, updatePerson, loading, error } = useData();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingPerson, setEditingPerson] = useState<Person | undefined>();
 
   const filteredPeople = useMemo(() => {
     return people.filter(person => {
@@ -50,6 +53,16 @@ const People = () => {
     } catch (err) {
       console.error('Error toggling person status:', err);
     }
+  };
+
+  const handleOpenNew = () => {
+    setEditingPerson(undefined);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (person: Person) => {
+    setEditingPerson(person);
+    setModalOpen(true);
   };
 
   if (loading) {
@@ -97,7 +110,7 @@ const People = () => {
             />
           </div>
 
-          <Button className="gradient-primary text-white">
+          <Button className="gradient-primary text-white" onClick={handleOpenNew}>
             <Plus className="w-4 h-4 mr-2" />
             Nova Pessoa
           </Button>
@@ -158,7 +171,7 @@ const People = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(person)}>
                     <Edit className="w-4 h-4 mr-2" />
                     Editar
                   </Button>
@@ -193,13 +206,20 @@ const People = () => {
             </div>
             <h3 className="text-lg font-semibold mb-2">Nenhuma pessoa encontrada</h3>
             <p className="text-muted-foreground mb-4">Tente ajustar a busca ou adicione uma nova pessoa.</p>
-            <Button className="gradient-primary text-white">
+            <Button className="gradient-primary text-white" onClick={handleOpenNew}>
               <Plus className="w-4 h-4 mr-2" />
               Nova Pessoa
             </Button>
           </div>
         )}
       </div>
+
+      {/* Person Form Modal */}
+      <PersonFormModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        person={editingPerson}
+      />
     </MainLayout>
   );
 };

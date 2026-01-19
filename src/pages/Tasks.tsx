@@ -19,9 +19,12 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
+import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { Task } from '@/lib/types';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -45,9 +48,19 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Tasks = () => {
-  const { tasks, updateTask, projects, phases, people, customColumns, loading, error } = useData();
+  const { tasks, updateTask, deleteTask, projects, phases, people, customColumns, loading, error } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -57,6 +70,10 @@ const Tasks = () => {
     responsible: 'all',
   });
   const [visibleCustomColumns, setVisibleCustomColumns] = useState<string[]>([]);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -139,6 +156,35 @@ const Tasks = () => {
       console.error('Error updating custom value:', err);
     }
   }, [tasks, updateTask]);
+
+  const handleOpenNewTask = () => {
+    setEditingTask(undefined);
+    setTaskModalOpen(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setTaskModalOpen(true);
+  };
+
+  const handleDeleteClick = (taskId: string) => {
+    setTaskToDelete(taskId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete) return;
+    try {
+      await deleteTask(taskToDelete);
+      toast.success('Tarefa excluída com sucesso!');
+    } catch (err) {
+      console.error('Error deleting task:', err);
+      toast.error('Erro ao excluir tarefa');
+    } finally {
+      setDeleteDialogOpen(false);
+      setTaskToDelete(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -342,7 +388,7 @@ const Tasks = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button className="gradient-primary text-white">
+            <Button className="gradient-primary text-white" onClick={handleOpenNewTask}>
               <Plus className="w-4 h-4 mr-2" />
               Nova Tarefa
             </Button>
@@ -453,11 +499,11 @@ const Tasks = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditTask(task)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(task.id)}>
                               <Trash2 className="w-4 h-4 mr-2" />
                               Excluir
                             </DropdownMenuItem>
@@ -478,7 +524,7 @@ const Tasks = () => {
               </div>
               <h3 className="text-lg font-semibold mb-2">Nenhuma tarefa encontrada</h3>
               <p className="text-muted-foreground mb-4">Tente ajustar os filtros ou criar uma nova tarefa.</p>
-              <Button className="gradient-primary text-white">
+              <Button className="gradient-primary text-white" onClick={handleOpenNewTask}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova Tarefa
               </Button>
@@ -493,6 +539,32 @@ const Tasks = () => {
           </span>
         </div>
       </div>
+
+      {/* Task Form Modal */}
+      <TaskFormModal
+        open={taskModalOpen}
+        onOpenChange={setTaskModalOpen}
+        task={editingTask}
+        defaultProjectId={filters.project !== 'all' ? filters.project : undefined}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };
