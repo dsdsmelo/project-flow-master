@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft,
@@ -9,20 +9,23 @@ import {
   TrendingUp,
   Users,
   ListTodo,
-  Edit,
-  FolderKanban
+  FolderKanban,
+  GanttChart,
+  LayoutDashboard
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatCard } from '@/components/ui/stat-card';
-import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue, isTaskDueSoon } from '@/lib/mockData';
 import { projectStatusLabels } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { ProjectGanttChart } from '@/components/gantt/ProjectGanttChart';
 import { 
   BarChart, 
   Bar, 
@@ -49,6 +52,7 @@ const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { projects, tasks, people, phases, cells, loading, error } = useData();
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
 
   const project = useMemo(() => {
     return projects.find(p => p.id === projectId);
@@ -228,8 +232,23 @@ const ProjectDetail = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="gantt" className="flex items-center gap-2">
+              <GanttChart className="w-4 h-4" />
+              Gantt
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6 mt-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Total de Tarefas"
             value={stats.total}
@@ -514,6 +533,18 @@ const ProjectDetail = () => {
             </div>
           )}
         </div>
+          </TabsContent>
+
+          {/* Gantt Tab */}
+          <TabsContent value="gantt" className="mt-6">
+            <ProjectGanttChart 
+              tasks={projectTasks} 
+              phases={projectPhases} 
+              people={people} 
+              projectId={projectId || ''} 
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );
