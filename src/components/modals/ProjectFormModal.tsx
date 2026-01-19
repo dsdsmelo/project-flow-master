@@ -341,6 +341,23 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     setDragOverId(null);
   }, []);
 
+  // Default columns that are created for every new project
+  const DEFAULT_COLUMNS: Array<{
+    name: string;
+    type: CustomColumn['type'];
+    standardField: CustomColumn['standardField'];
+    order: number;
+  }> = [
+    { name: 'Tarefa', type: 'text', standardField: 'name', order: 1 },
+    { name: 'Descrição', type: 'text', standardField: 'description', order: 2 },
+    { name: 'Responsável', type: 'user', standardField: 'responsible', order: 3 },
+    { name: 'Status', type: 'list', standardField: 'status', order: 4 },
+    { name: 'Prioridade', type: 'list', standardField: 'priority', order: 5 },
+    { name: 'Data Início', type: 'date', standardField: 'startDate', order: 6 },
+    { name: 'Data Fim', type: 'date', standardField: 'endDate', order: 7 },
+    { name: 'Progresso', type: 'percentage', standardField: 'progress', order: 8 },
+  ];
+
   const handleCreateProject = async (data: ProjectFormData) => {
     setIsSubmitting(true);
     try {
@@ -354,15 +371,30 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
       const newProject = await addProject(projectData);
       
-      // Create pending columns if any
+      // Always create default columns first
+      const defaultColumnsToCreate = DEFAULT_COLUMNS.map(col => 
+        addCustomColumn({
+          name: col.name,
+          type: col.type,
+          projectId: newProject.id,
+          order: col.order,
+          standardField: col.standardField,
+          isMilestone: false,
+          active: true,
+        })
+      );
+      
+      await Promise.all(defaultColumnsToCreate);
+      
+      // Create user-added pending columns (after default columns)
       if (pendingColumns.length > 0) {
         await Promise.all(
-          pendingColumns.map(col => 
+          pendingColumns.map((col, index) => 
             addCustomColumn({
               name: col.name,
               type: col.type,
               projectId: newProject.id,
-              order: col.order,
+              order: DEFAULT_COLUMNS.length + index + 1,
               options: col.options,
               isMilestone: col.isMilestone,
               active: true,
