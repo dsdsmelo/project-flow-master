@@ -24,7 +24,7 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, Check, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -56,7 +56,6 @@ const typeLabels: Record<CustomColumn['type'], string> = {
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
   const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
   // Custom columns state
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
@@ -106,7 +105,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         status: project.status,
       });
       setPendingColumns([]);
-      setCurrentStep(1);
     } else {
       form.reset({
         name: '',
@@ -116,7 +114,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         status: 'planning',
       });
       setPendingColumns([]);
-      setCurrentStep(1);
     }
   }, [project, form, open]);
 
@@ -344,22 +341,9 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     setDragOverId(null);
   }, []);
 
-  const handleNextStep = async () => {
-    const isValid = await form.trigger();
-    if (isValid) {
-      setCurrentStep(2);
-    }
-  };
-
-  const handleCreateProject = async () => {
-    if (pendingColumns.length === 0) {
-      toast.error('Adicione pelo menos uma coluna.');
-      return;
-    }
-
+  const handleCreateProject = async (data: ProjectFormData) => {
     setIsSubmitting(true);
     try {
-      const data = form.getValues();
       const projectData = {
         name: data.name,
         description: data.description || undefined,
@@ -370,19 +354,22 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
       const newProject = await addProject(projectData);
       
-      await Promise.all(
-        pendingColumns.map(col => 
-          addCustomColumn({
-            name: col.name,
-            type: col.type,
-            projectId: newProject.id,
-            order: col.order,
-            options: col.options,
-            isMilestone: col.isMilestone,
-            active: true,
-          })
-        )
-      );
+      // Create pending columns if any
+      if (pendingColumns.length > 0) {
+        await Promise.all(
+          pendingColumns.map(col => 
+            addCustomColumn({
+              name: col.name,
+              type: col.type,
+              projectId: newProject.id,
+              order: col.order,
+              options: col.options,
+              isMilestone: col.isMilestone,
+              active: true,
+            })
+          )
+        );
+      }
 
       toast.success('Projeto criado com sucesso!');
       onOpenChange(false);
@@ -418,7 +405,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
   const handleClose = () => {
     setPendingColumns([]);
-    setCurrentStep(1);
     onOpenChange(false);
   };
 
@@ -484,30 +470,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     </div>
   );
 
-  const renderStepIndicator = () => (
-    <div className="flex items-center justify-center gap-4 mb-6">
-      <div className={cn(
-        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
-        currentStep === 1 
-          ? "bg-primary text-primary-foreground" 
-          : "bg-primary/20 text-primary"
-      )}>
-        {currentStep > 1 ? <Check className="w-4 h-4" /> : <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-xs">1</span>}
-        <span>Projeto</span>
-      </div>
-      <ArrowRight className="w-4 h-4 text-muted-foreground" />
-      <div className={cn(
-        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
-        currentStep === 2 
-          ? "bg-primary text-primary-foreground" 
-          : "bg-muted text-muted-foreground"
-      )}>
-        <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-xs">2</span>
-        <span>Colunas</span>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
@@ -519,14 +481,10 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
             <DialogDescription>
               {project 
                 ? 'Atualize as informações do projeto' 
-                : currentStep === 1
-                  ? 'Preencha os dados do projeto'
-                  : 'Adicione as colunas do projeto'
+                : 'Preencha os dados do projeto'
               }
             </DialogDescription>
           </DialogHeader>
-
-          {!project && renderStepIndicator()}
 
           {/* EDIT MODE */}
           {project ? (
@@ -598,95 +556,53 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               </div>
             </form>
           ) : (
-            /* CREATE MODE */
-            <>
-              {currentStep === 1 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome *</Label>
-                    <Input id="name" {...form.register('name')} placeholder="Nome do projeto" />
-                    {form.formState.errors.name && (
-                      <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-                    )}
-                  </div>
+            /* CREATE MODE - Single Step */
+            <form onSubmit={form.handleSubmit(handleCreateProject)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome *</Label>
+                <Input id="name" {...form.register('name')} placeholder="Nome do projeto" />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                )}
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Textarea id="description" {...form.register('description')} placeholder="Descrição do projeto" rows={3} />
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea id="description" {...form.register('description')} placeholder="Descrição do projeto" rows={3} />
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={form.watch('status')} onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="planning">Planejamento</SelectItem>
-                        <SelectItem value="active">Ativo</SelectItem>
-                        <SelectItem value="paused">Pausado</SelectItem>
-                        <SelectItem value="completed">Concluído</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={form.watch('status')} onValueChange={(value: ProjectFormData['status']) => form.setValue('status', value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="planning">Planejamento</SelectItem>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="paused">Pausado</SelectItem>
+                    <SelectItem value="completed">Concluído</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Data Início</Label>
-                      <Input id="startDate" type="date" {...form.register('startDate')} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">Data Fim</Label>
-                      <Input id="endDate" type="date" {...form.register('endDate')} />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-                    <Button type="button" onClick={handleNextStep} className="gradient-primary text-white">
-                      Próximo
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Data Início</Label>
+                  <Input id="startDate" type="date" {...form.register('startDate')} />
                 </div>
-              )}
-
-              {currentStep === 2 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Mínimo 1 coluna obrigatória</p>
-                    <Button type="button" onClick={openCreateColumnDialog} size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Nova Coluna
-                    </Button>
-                  </div>
-
-                  {pendingColumns.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-amber-400 rounded-lg bg-amber-50/50 dark:bg-amber-950/10">
-                      <Columns3 className="w-10 h-10 mx-auto mb-3 text-amber-500" />
-                      <p className="font-medium">Nenhuma coluna adicionada</p>
-                      <p className="text-sm mt-1">Clique em "Nova Coluna" para começar</p>
-                    </div>
-                  ) : (
-                    renderColumnList(pendingColumns, true)
-                  )}
-
-                  <div className="flex justify-between gap-3 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => setCurrentStep(1)}>
-                      <ArrowLeft className="w-4 h-4 mr-2" />
-                      Voltar
-                    </Button>
-                    <Button 
-                      type="button" 
-                      onClick={handleCreateProject}
-                      disabled={isSubmitting || pendingColumns.length === 0}
-                      className="gradient-primary text-white"
-                    >
-                      {isSubmitting ? 'Criando...' : 'Criar Projeto'}
-                    </Button>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">Data Fim</Label>
+                  <Input id="endDate" type="date" {...form.register('endDate')} />
                 </div>
-              )}
-            </>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                  {isSubmitting ? 'Criando...' : 'Criar Projeto'}
+                </Button>
+              </div>
+            </form>
           )}
         </DialogContent>
       </Dialog>
