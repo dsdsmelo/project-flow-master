@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, GripVertical, X, Settings2 } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, X, Settings2, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useData } from '@/contexts/DataContext';
 import { CustomColumn } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
     type: 'text' as CustomColumn['type'],
     options: [] as string[],
     newOption: '',
+    isMilestone: false,
   });
 
   const project = projects.find(p => p.id === projectId);
@@ -64,7 +66,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
     .sort((a, b) => a.order - b.order);
 
   const resetForm = () => {
-    setFormData({ name: '', type: 'text', options: [], newOption: '' });
+    setFormData({ name: '', type: 'text', options: [], newOption: '', isMilestone: false });
     setEditingColumn(null);
   };
 
@@ -80,6 +82,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
       type: column.type,
       options: column.options || [],
       newOption: '',
+      isMilestone: column.isMilestone || false,
     });
     setIsDialogOpen(true);
   };
@@ -110,6 +113,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
           name: formData.name,
           type: formData.type,
           options: formData.options,
+          isMilestone: formData.isMilestone,
         });
       } else {
         await addCustomColumn({
@@ -118,6 +122,7 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
           projectId,
           order: projectColumns.length + 1,
           options: formData.type === 'list' ? formData.options : undefined,
+          isMilestone: formData.isMilestone,
           active: true,
         });
       }
@@ -267,6 +272,11 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
                         <Badge variant="secondary" className="text-xs">
                           {typeLabels[column.type]}
                         </Badge>
+                        {column.isMilestone && (
+                          <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                            Marco
+                          </Badge>
+                        )}
                         {column.type === 'list' && column.options && (
                           <span className="text-xs text-muted-foreground">
                             {column.options.length} opções
@@ -364,6 +374,26 @@ export const ColumnManagerSheet = ({ projectId, trigger }: ColumnManagerSheetPro
                 )}
               </div>
             )}
+
+            <div className="flex items-center space-x-2 pt-2 border-t">
+              <Checkbox
+                id="isMilestoneSheet"
+                checked={formData.isMilestone}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isMilestone: !!checked }))}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="isMilestoneSheet"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
+                >
+                  <Flag className="w-4 h-4 text-amber-500" />
+                  Marcar como Marco (Milestone)
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Marcos são pontos importantes no cronograma do projeto
+                </p>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
