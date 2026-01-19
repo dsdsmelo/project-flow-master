@@ -67,6 +67,7 @@ export interface CustomColumn {
   projectId: string;
   order: number;
   options?: string[];
+  isMilestone?: boolean;
   active: boolean;
 }
 

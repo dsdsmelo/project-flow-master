@@ -325,6 +325,7 @@ function mapCustomColumn(data: any): CustomColumn {
     projectId: data.project_id,
     order: data.order,
     options: data.options,
+    isMilestone: data.is_milestone,
     active: data.active,
   };
 }
@@ -396,6 +397,7 @@ function customColumnToDb(column: Partial<CustomColumn>): any {
   if (column.projectId !== undefined) result.project_id = column.projectId;
   if (column.order !== undefined) result.order = column.order;
   if (column.options !== undefined) result.options = column.options;
+  if (column.isMilestone !== undefined) result.is_milestone = column.isMilestone;
   if (column.active !== undefined) result.active = column.active;
   return result;
 }

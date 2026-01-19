@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS custom_columns (
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   "order" INTEGER NOT NULL DEFAULT 0,
   options TEXT[],
+  is_milestone BOOLEAN NOT NULL DEFAULT false,
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
