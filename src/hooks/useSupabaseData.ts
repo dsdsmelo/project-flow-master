@@ -98,35 +98,6 @@ export function useSupabaseData() {
     if (error) throw error;
     const newProject = mapProject(data);
     setProjects(prev => [...prev, newProject]);
-
-    // Create default columns for the new project
-    const defaultColumns: Omit<CustomColumn, 'id'>[] = [
-      { name: 'Tarefa', type: 'text', projectId: newProject.id, order: 1, active: true },
-      { name: 'Descrição', type: 'text', projectId: newProject.id, order: 2, active: true },
-      { name: 'Responsável', type: 'user', projectId: newProject.id, order: 3, active: true },
-      { name: 'Status', type: 'list', projectId: newProject.id, order: 4, options: ['Pendente', 'Em Progresso', 'Bloqueado', 'Concluído', 'Cancelado'], active: true },
-      { name: 'Prioridade', type: 'list', projectId: newProject.id, order: 5, options: ['Baixa', 'Média', 'Alta', 'Urgente'], active: true },
-      { name: 'Data Início', type: 'date', projectId: newProject.id, order: 6, active: true },
-      { name: 'Data Fim', type: 'date', projectId: newProject.id, order: 7, active: true },
-      { name: 'Progresso', type: 'percentage', projectId: newProject.id, order: 8, active: true },
-    ];
-
-    try {
-      const { data: columnsData, error: columnsError } = await supabase
-        .from('custom_columns')
-        .insert(defaultColumns.map(customColumnToDb))
-        .select();
-      
-      if (columnsError) {
-        console.error('Error creating default columns:', columnsError);
-      } else if (columnsData) {
-        const newColumns = columnsData.map(mapCustomColumn);
-        setCustomColumns(prev => [...prev, ...newColumns]);
-      }
-    } catch (err) {
-      console.error('Error creating default columns:', err);
-    }
-
     return newProject;
   };
 
