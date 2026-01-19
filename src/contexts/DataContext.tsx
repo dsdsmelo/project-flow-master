@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import { Person, Project, Phase, Cell, Task, CustomColumn } from '@/lib/types';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 
@@ -41,7 +41,7 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const DataProvider = ({ children }: { children: ReactNode }) => {
   const supabaseData = useSupabaseData();
 
   return (
