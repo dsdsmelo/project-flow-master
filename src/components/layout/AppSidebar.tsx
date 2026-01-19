@@ -3,7 +3,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FolderKanban, 
-  CheckSquare, 
   GanttChart, 
   Users, 
   Settings,
@@ -17,7 +16,6 @@ import { useAuth } from '@/contexts/AuthContext';
 const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: FolderKanban, label: 'Projetos', path: '/projects' },
-  { icon: CheckSquare, label: 'Tarefas', path: '/tasks' },
   { icon: GanttChart, label: 'Gantt', path: '/gantt' },
   { icon: Users, label: 'Pessoas', path: '/people' },
 ];
