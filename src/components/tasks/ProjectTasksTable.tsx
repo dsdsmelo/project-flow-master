@@ -293,14 +293,9 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
           <ColumnManagerSheet 
             projectId={projectId}
             trigger={
-              <Button variant="outline" className="relative">
+              <Button variant="outline">
                 <Columns3 className="w-4 h-4 mr-2" />
                 Colunas
-                {displayedCustomColumns.length > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
-                    {displayedCustomColumns.length}
-                  </span>
-                )}
               </Button>
             }
           />
@@ -343,6 +338,7 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                   />
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Tarefa</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Descrição</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
@@ -384,6 +380,14 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                         value={task.name}
                         isOverdue={overdue}
                         onSave={(value) => handleTaskFieldUpdate(task.id, { name: value })}
+                      />
+                    </td>
+                    <td className="py-4 px-4 max-w-[200px]">
+                      <TextEditCell
+                        value={task.description || ''}
+                        placeholder="Adicionar descrição..."
+                        onSave={(value) => handleTaskFieldUpdate(task.id, { description: value || undefined })}
+                        className="text-muted-foreground"
                       />
                     </td>
                     <td className="py-4 px-4">
