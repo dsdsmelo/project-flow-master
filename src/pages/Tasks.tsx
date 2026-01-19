@@ -13,10 +13,15 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
-import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
 import { TaskProgressEditCell } from '@/components/custom-columns/TaskProgressEditCell';
+import { 
+  StatusEditCell, 
+  PriorityEditCell, 
+  ResponsibleEditCell, 
+  PhaseEditCell,
+  TextEditCell 
+} from '@/components/tasks/InlineTaskFieldEdit';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
@@ -145,14 +150,25 @@ const Tasks = () => {
     }
   }, [tasks, updateTask]);
 
-  // Handler to update task progress (quantity & collected)
-  const handleProgressUpdate = useCallback(async (taskId: string, quantity: number, collected: number) => {
+  // Handler to update task progress (as percentage)
+  const handleProgressUpdate = useCallback(async (taskId: string, progress: number) => {
     try {
-      await updateTask(taskId, { quantity, collected });
+      // Convert percentage to quantity/collected (use 100 as base quantity)
+      await updateTask(taskId, { quantity: 100, collected: progress });
       toast.success('Progresso atualizado!');
     } catch (err) {
       console.error('Error updating progress:', err);
       toast.error('Erro ao atualizar progresso');
+    }
+  }, [updateTask]);
+
+  // Handler to update any task field
+  const handleTaskFieldUpdate = useCallback(async (taskId: string, field: Partial<Task>) => {
+    try {
+      await updateTask(taskId, field);
+    } catch (err) {
+      console.error('Error updating task field:', err);
+      toast.error('Erro ao atualizar tarefa');
     }
   }, [updateTask]);
 
@@ -411,45 +427,46 @@ const Tasks = () => {
                         />
                       </td>
                       <td className="py-4 px-4">
-                        <div>
-                          <p className={cn("font-medium", overdue && "text-status-blocked")}>
-                            {task.name}
-                          </p>
-                          {task.observation && (
-                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                              {task.observation}
-                            </p>
-                          )}
-                        </div>
+                        <TextEditCell
+                          value={task.name}
+                          isOverdue={overdue}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { name: value })}
+                        />
                       </td>
                       <td className="py-4 px-4 text-sm text-muted-foreground">
                         {getProjectName(task.projectId)}
                       </td>
-                      <td className="py-4 px-4 text-sm text-muted-foreground">
-                        {getPhaseName(task.phaseId)}
+                      <td className="py-4 px-4">
+                        <PhaseEditCell
+                          phaseId={task.phaseId}
+                          phases={phases}
+                          projectId={task.projectId}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { phaseId: value })}
+                        />
                       </td>
                       <td className="py-4 px-4">
-                        {person ? (
-                          <div className="flex items-center gap-2">
-                            <AvatarCircle name={person.name} color={person.color} size="sm" />
-                            <span className="text-sm">{person.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
+                        <ResponsibleEditCell
+                          responsibleId={task.responsibleId}
+                          people={people}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleId: value })}
+                        />
                       </td>
                       <td className="py-4 px-4">
-                        <StatusBadge status={task.status} />
+                        <StatusEditCell
+                          status={task.status}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { status: value })}
+                        />
                       </td>
                       <td className="py-4 px-4">
-                        <PriorityBadge priority={task.priority} />
+                        <PriorityEditCell
+                          priority={task.priority}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { priority: value })}
+                        />
                       </td>
                       <td className="py-4 px-4">
                         <TaskProgressEditCell
-                          quantity={task.quantity}
-                          collected={task.collected}
                           progress={progress}
-                          onSave={(quantity, collected) => handleProgressUpdate(task.id, quantity, collected)}
+                          onSave={(value) => handleProgressUpdate(task.id, value)}
                         />
                       </td>
                       {/* Custom Columns Values - Inline Editable */}
