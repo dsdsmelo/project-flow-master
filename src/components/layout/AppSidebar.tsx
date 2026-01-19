@@ -7,7 +7,6 @@ import {
   GanttChart, 
   Users, 
   Settings,
-  Building2,
   ChevronLeft,
   ChevronRight,
   LogOut
@@ -24,7 +23,6 @@ const mainNavItems = [
 ];
 
 const settingsNavItems = [
-  { icon: Building2, label: 'Células', path: '/cells' },
   { icon: Settings, label: 'Configurações', path: '/settings' },
 ];
 

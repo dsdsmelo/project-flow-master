@@ -12,7 +12,6 @@ import ProjectDetail from "./pages/ProjectDetail";
 import Tasks from "./pages/Tasks";
 import Gantt from "./pages/Gantt";
 import People from "./pages/People";
-import Cells from "./pages/Cells";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -41,7 +40,6 @@ const AppRoutes = () => {
       <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/gantt" element={<ProtectedRoute><Gantt /></ProtectedRoute>} />
       <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
-      <Route path="/cells" element={<ProtectedRoute><Cells /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
