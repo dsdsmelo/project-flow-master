@@ -370,10 +370,6 @@ const Tasks = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button className="gradient-primary text-white" onClick={handleOpenNewTask}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Tarefa
-            </Button>
           </div>
         </div>
 

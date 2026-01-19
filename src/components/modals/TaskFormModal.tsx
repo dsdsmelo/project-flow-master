@@ -266,28 +266,36 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
               />
             </div>
 
-            {/* Project - Always visible */}
+            {/* Project - Fixed when defaultProjectId is provided */}
             <div className="space-y-2">
               <Label htmlFor="projectId">Projeto *</Label>
-              <Select
-                value={form.watch('projectId')}
-                onValueChange={(value) => {
-                  form.setValue('projectId', value);
-                  // Clear custom values when project changes
-                  setCustomValues({});
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um projeto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {defaultProjectId ? (
+                <Input
+                  value={projects.find(p => p.id === defaultProjectId)?.name || ''}
+                  disabled
+                  className="bg-muted"
+                />
+              ) : (
+                <Select
+                  value={form.watch('projectId')}
+                  onValueChange={(value) => {
+                    form.setValue('projectId', value);
+                    // Clear custom values when project changes
+                    setCustomValues({});
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um projeto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               {form.formState.errors.projectId && (
                 <p className="text-sm text-destructive">{form.formState.errors.projectId.message}</p>
               )}
