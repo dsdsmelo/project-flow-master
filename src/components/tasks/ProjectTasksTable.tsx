@@ -18,7 +18,8 @@ import {
   PriorityEditCell, 
   ResponsibleEditCell, 
   PhaseEditCell,
-  TextEditCell 
+  TextEditCell,
+  DateEditCell
 } from '@/components/tasks/InlineTaskFieldEdit';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
@@ -367,6 +368,8 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Início</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Fim</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
                 {/* Custom Columns Headers */}
                 {displayedCustomColumns.map(col => (
@@ -430,6 +433,20 @@ export const ProjectTasksTable = ({ projectId, onOpenNewTask }: ProjectTasksTabl
                       <PriorityEditCell
                         priority={task.priority}
                         onSave={(value) => handleTaskFieldUpdate(task.id, { priority: value })}
+                      />
+                    </td>
+                    <td className="py-4 px-4">
+                      <DateEditCell
+                        value={task.startDate}
+                        placeholder="Definir"
+                        onSave={(value) => handleTaskFieldUpdate(task.id, { startDate: value })}
+                      />
+                    </td>
+                    <td className="py-4 px-4">
+                      <DateEditCell
+                        value={task.endDate}
+                        placeholder="Definir"
+                        onSave={(value) => handleTaskFieldUpdate(task.id, { endDate: value })}
                       />
                     </td>
                     <td className="py-4 px-4">
