@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { Slider } from '@/components/ui/slider';
 import { useData } from '@/contexts/DataContext';
 import { CustomColumn } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface InlineEditCellProps {
   column: CustomColumn;
@@ -58,7 +64,17 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
     }
   };
 
-  // Display mode
+  // For percentage, use popover with slider
+  if (column.type === 'percentage') {
+    return (
+      <PercentageEditCell 
+        value={value as number | undefined} 
+        onSave={onSave} 
+      />
+    );
+  }
+
+  // Display mode for other types
   if (!isEditing) {
     return (
       <div 
@@ -109,19 +125,7 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
         />
       )}
 
-      {column.type === 'percentage' && (
-        <Input
-          ref={inputRef}
-          type="number"
-          min={0}
-          max={100}
-          value={editValue as number}
-          onChange={(e) => setEditValue(Math.min(100, Math.max(0, Number(e.target.value))))}
-          onKeyDown={handleKeyDown}
-          onBlur={handleSave}
-          className="h-7 text-sm w-16"
-        />
-      )}
+      {/* Percentage is handled separately with PercentageEditCell */}
 
       {column.type === 'list' && (
         <Select 
@@ -170,7 +174,7 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
         </Select>
       )}
 
-      {(column.type === 'text' || column.type === 'number' || column.type === 'date' || column.type === 'percentage') && (
+      {(column.type === 'text' || column.type === 'number' || column.type === 'date') && (
         <div className="flex gap-0.5">
           <Button 
             variant="ghost" 
@@ -191,6 +195,78 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
         </div>
       )}
     </div>
+  );
+};
+
+// Percentage Edit Cell with Popover and Slider
+interface PercentageEditCellProps {
+  value: number | undefined;
+  onSave: (value: number) => void;
+}
+
+const PercentageEditCell = ({ value, onSave }: PercentageEditCellProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [localValue, setLocalValue] = useState(value ?? 0);
+
+  useEffect(() => {
+    setLocalValue(value ?? 0);
+  }, [value]);
+
+  const handleSave = () => {
+    onSave(localValue);
+    setIsOpen(false);
+  };
+
+  const quickValues = [0, 25, 50, 75, 100];
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]">
+          <ProgressBar value={value ?? 0} showLabel size="sm" className="min-w-[80px]" />
+          <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-4" align="start">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Porcentagem</span>
+            <span className="text-lg font-bold text-primary">{localValue}%</span>
+          </div>
+          
+          <Slider
+            value={[localValue]}
+            onValueChange={([v]) => setLocalValue(v)}
+            max={100}
+            step={1}
+            className="w-full"
+          />
+
+          <div className="flex gap-1 flex-wrap">
+            {quickValues.map((qv) => (
+              <Button
+                key={qv}
+                variant={localValue === qv ? "default" : "outline"}
+                size="sm"
+                className="flex-1 min-w-[40px]"
+                onClick={() => setLocalValue(qv)}
+              >
+                {qv}%
+              </Button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 pt-2 border-t">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => setIsOpen(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" className="flex-1" onClick={handleSave}>
+              Salvar
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
 
