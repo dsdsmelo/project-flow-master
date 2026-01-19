@@ -8,8 +8,6 @@ import {
   Users, 
   Settings,
   Building2,
-  Monitor,
-  Columns3,
   ChevronLeft,
   ChevronRight,
   LogOut
@@ -27,8 +25,6 @@ const mainNavItems = [
 
 const settingsNavItems = [
   { icon: Building2, label: 'Células', path: '/cells' },
-  { icon: Monitor, label: 'Devices', path: '/devices' },
-  { icon: Columns3, label: 'Colunas', path: '/custom-columns' },
   { icon: Settings, label: 'Configurações', path: '/settings' },
 ];
 

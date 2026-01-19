@@ -6,7 +6,8 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  Columns3
+  Columns3,
+  Settings2
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -17,6 +18,7 @@ import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
+import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -143,8 +145,8 @@ const Tasks = () => {
       <div className="p-6 space-y-6">
         {/* Toolbar */}
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <div className="flex gap-3 flex-1 w-full lg:w-auto">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex gap-3 flex-1 w-full lg:w-auto flex-wrap">
+            <div className="relative flex-1 max-w-sm min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar tarefas..."
@@ -243,25 +245,32 @@ const Tasks = () => {
             </Sheet>
           </div>
 
-          <div className="flex gap-2">
-            {/* Custom Columns Toggle */}
-            {availableCustomColumns.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="relative">
-                    <Columns3 className="w-4 h-4 mr-2" />
-                    Colunas
-                    {visibleCustomColumns.length > 0 && (
-                      <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
-                        {visibleCustomColumns.length}
-                      </span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-semibold">Colunas Customizadas</div>
-                  <DropdownMenuSeparator />
-                  {availableCustomColumns.map(col => (
+          <div className="flex gap-2 flex-wrap">
+            {/* Custom Columns Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="relative">
+                  <Columns3 className="w-4 h-4 mr-2" />
+                  Colunas
+                  {visibleCustomColumns.length > 0 && (
+                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                      {visibleCustomColumns.length}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="px-2 py-1.5 text-sm font-semibold">Colunas Customizadas</div>
+                <DropdownMenuSeparator />
+                {availableCustomColumns.length === 0 ? (
+                  <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                    {filters.project === 'all' 
+                      ? 'Selecione um projeto para ver colunas'
+                      : 'Nenhuma coluna criada'
+                    }
+                  </div>
+                ) : (
+                  availableCustomColumns.map(col => (
                     <DropdownMenuCheckboxItem
                       key={col.id}
                       checked={visibleCustomColumns.includes(col.id)}
@@ -269,10 +278,24 @@ const Tasks = () => {
                     >
                       {col.name}
                     </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                  ))
+                )}
+                <DropdownMenuSeparator />
+                {filters.project !== 'all' && (
+                  <div className="p-1">
+                    <ColumnManagerSheet 
+                      projectId={filters.project}
+                      trigger={
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <Settings2 className="w-4 h-4 mr-2" />
+                          Gerenciar Colunas
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {selectedTasks.length > 0 && (
               <DropdownMenu>
@@ -317,7 +340,7 @@ const Tasks = () => {
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
                   {/* Custom Columns Headers */}
                   {displayedCustomColumns.map(col => (
-                    <th key={col.id} className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
+                    <th key={col.id} className="text-left py-4 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
                       {col.name}
                     </th>
                   ))}
