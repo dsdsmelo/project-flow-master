@@ -6,8 +6,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  Columns3,
-  Settings2
+  Columns3
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -38,7 +37,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Sheet,
@@ -69,7 +67,7 @@ const Tasks = () => {
     priority: 'all',
     responsible: 'all',
   });
-  const [visibleCustomColumns, setVisibleCustomColumns] = useState<string[]>([]);
+  
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -87,21 +85,16 @@ const Tasks = () => {
   }, [tasks, search, filters]);
 
   // Get custom columns for the selected project (or all if no project selected)
-  const availableCustomColumns = useMemo(() => {
+  // Columns are automatically displayed based on project selection
+  const displayedCustomColumns = useMemo(() => {
     if (filters.project !== 'all') {
-      return customColumns.filter(col => col.projectId === filters.project && col.active);
+      return customColumns
+        .filter(col => col.projectId === filters.project && col.active)
+        .sort((a, b) => a.order - b.order);
     }
-    return customColumns.filter(col => col.active);
+    // When viewing all projects, don't show custom columns (they are project-specific)
+    return [];
   }, [customColumns, filters.project]);
-
-  // Toggle custom column visibility
-  const toggleCustomColumn = (columnId: string) => {
-    setVisibleCustomColumns(prev => 
-      prev.includes(columnId)
-        ? prev.filter(id => id !== columnId)
-        : [...prev, columnId]
-    );
-  };
 
   const getProjectName = (projectId: string) => {
     return projects.find(p => p.id === projectId)?.name || '-';
@@ -134,11 +127,6 @@ const Tasks = () => {
   };
 
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length;
-
-  // Get visible custom columns that should be displayed
-  const displayedCustomColumns = availableCustomColumns
-    .filter(col => visibleCustomColumns.includes(col.id))
-    .sort((a, b) => a.order - b.order);
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
@@ -322,56 +310,23 @@ const Tasks = () => {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            {/* Custom Columns Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="relative">
-                  <Columns3 className="w-4 h-4 mr-2" />
-                  Colunas
-                  {visibleCustomColumns.length > 0 && (
-                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
-                      {visibleCustomColumns.length}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <div className="px-2 py-1.5 text-sm font-semibold">Colunas Customizadas</div>
-                <DropdownMenuSeparator />
-                {availableCustomColumns.length === 0 ? (
-                  <div className="px-2 py-3 text-sm text-muted-foreground text-center">
-                    {filters.project === 'all' 
-                      ? 'Selecione um projeto para ver colunas'
-                      : 'Nenhuma coluna criada'
-                    }
-                  </div>
-                ) : (
-                  availableCustomColumns.map(col => (
-                    <DropdownMenuCheckboxItem
-                      key={col.id}
-                      checked={visibleCustomColumns.includes(col.id)}
-                      onCheckedChange={() => toggleCustomColumn(col.id)}
-                    >
-                      {col.name}
-                    </DropdownMenuCheckboxItem>
-                  ))
-                )}
-                <DropdownMenuSeparator />
-                {filters.project !== 'all' && (
-                  <div className="p-1">
-                    <ColumnManagerSheet 
-                      projectId={filters.project}
-                      trigger={
-                        <Button variant="ghost" size="sm" className="w-full justify-start">
-                          <Settings2 className="w-4 h-4 mr-2" />
-                          Gerenciar Colunas
-                        </Button>
-                      }
-                    />
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Column Manager - Only show when a project is selected */}
+            {filters.project !== 'all' && (
+              <ColumnManagerSheet 
+                projectId={filters.project}
+                trigger={
+                  <Button variant="outline" className="relative">
+                    <Columns3 className="w-4 h-4 mr-2" />
+                    Colunas
+                    {displayedCustomColumns.length > 0 && (
+                      <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                        {displayedCustomColumns.length}
+                      </span>
+                    )}
+                  </Button>
+                }
+              />
+            )}
 
             {selectedTasks.length > 0 && (
               <DropdownMenu>
