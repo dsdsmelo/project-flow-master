@@ -6,8 +6,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  CheckSquare,
-  Square
+  Columns3
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -17,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
+import { CustomColumnDisplay } from '@/components/custom-columns/CustomColumnValue';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Sheet,
@@ -44,7 +45,7 @@ import {
 } from '@/components/ui/sheet';
 
 const Tasks = () => {
-  const { tasks, projects, phases, people, cells, devices } = useData();
+  const { tasks, projects, phases, people, customColumns } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -53,6 +54,7 @@ const Tasks = () => {
     priority: 'all',
     responsible: 'all',
   });
+  const [visibleCustomColumns, setVisibleCustomColumns] = useState<string[]>([]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -64,6 +66,23 @@ const Tasks = () => {
       return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesResponsible;
     });
   }, [tasks, search, filters]);
+
+  // Get custom columns for the selected project (or all if no project selected)
+  const availableCustomColumns = useMemo(() => {
+    if (filters.project !== 'all') {
+      return customColumns.filter(col => col.projectId === filters.project && col.active);
+    }
+    return customColumns.filter(col => col.active);
+  }, [customColumns, filters.project]);
+
+  // Toggle custom column visibility
+  const toggleCustomColumn = (columnId: string) => {
+    setVisibleCustomColumns(prev => 
+      prev.includes(columnId)
+        ? prev.filter(id => id !== columnId)
+        : [...prev, columnId]
+    );
+  };
 
   const getProjectName = (projectId: string) => {
     return projects.find(p => p.id === projectId)?.name || '-';
@@ -96,6 +115,11 @@ const Tasks = () => {
   };
 
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length;
+
+  // Get visible custom columns that should be displayed
+  const displayedCustomColumns = availableCustomColumns.filter(col => 
+    visibleCustomColumns.includes(col.id)
+  );
 
   return (
     <MainLayout>
@@ -205,6 +229,36 @@ const Tasks = () => {
           </div>
 
           <div className="flex gap-2">
+            {/* Custom Columns Toggle */}
+            {availableCustomColumns.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="relative">
+                    <Columns3 className="w-4 h-4 mr-2" />
+                    Colunas
+                    {visibleCustomColumns.length > 0 && (
+                      <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                        {visibleCustomColumns.length}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-sm font-semibold">Colunas Customizadas</div>
+                  <DropdownMenuSeparator />
+                  {availableCustomColumns.map(col => (
+                    <DropdownMenuCheckboxItem
+                      key={col.id}
+                      checked={visibleCustomColumns.includes(col.id)}
+                      onCheckedChange={() => toggleCustomColumn(col.id)}
+                    >
+                      {col.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {selectedTasks.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -246,6 +300,12 @@ const Tasks = () => {
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
+                  {/* Custom Columns Headers */}
+                  {displayedCustomColumns.map(col => (
+                    <th key={col.id} className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
+                      {col.name}
+                    </th>
+                  ))}
                   <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground w-12"></th>
                 </tr>
               </thead>
@@ -307,6 +367,15 @@ const Tasks = () => {
                       <td className="py-4 px-4">
                         <ProgressBar value={progress} showLabel size="sm" />
                       </td>
+                      {/* Custom Columns Values */}
+                      {displayedCustomColumns.map(col => (
+                        <td key={col.id} className="py-4 px-4">
+                          <CustomColumnDisplay 
+                            column={col} 
+                            value={task.customValues?.[col.id]} 
+                          />
+                        </td>
+                      ))}
                       <td className="py-4 px-4 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

@@ -13,6 +13,7 @@ import Gantt from "./pages/Gantt";
 import People from "./pages/People";
 import Cells from "./pages/Cells";
 import Devices from "./pages/Devices";
+import CustomColumns from "./pages/CustomColumns";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -42,6 +43,7 @@ const AppRoutes = () => {
       <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
       <Route path="/cells" element={<ProtectedRoute><Cells /></ProtectedRoute>} />
       <Route path="/devices" element={<ProtectedRoute><Devices /></ProtectedRoute>} />
+      <Route path="/custom-columns" element={<ProtectedRoute><CustomColumns /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

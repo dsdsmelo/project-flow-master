@@ -57,6 +57,7 @@ export interface Task {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   observation?: string;
   updatedAt: string;
+  customValues?: Record<string, string | number>;
 }
 
 export interface CustomColumn {
