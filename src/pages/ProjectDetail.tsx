@@ -12,7 +12,8 @@ import {
   FolderKanban,
   GanttChart,
   LayoutDashboard,
-  Plus
+  Plus,
+  ClipboardList
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -28,6 +29,7 @@ import { projectStatusLabels } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ProjectGanttChart } from '@/components/gantt/ProjectGanttChart';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
+import { ProjectTasksTable } from '@/components/tasks/ProjectTasksTable';
 import { 
   BarChart, 
   Bar, 
@@ -241,10 +243,14 @@ const ProjectDetail = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Tarefas
             </TabsTrigger>
             <TabsTrigger value="gantt" className="flex items-center gap-2">
               <GanttChart className="w-4 h-4" />
@@ -540,6 +546,14 @@ const ProjectDetail = () => {
             </div>
           )}
         </div>
+          </TabsContent>
+
+          {/* Tasks Tab */}
+          <TabsContent value="tasks" className="mt-6">
+            <ProjectTasksTable 
+              projectId={projectId || ''} 
+              onOpenNewTask={() => setTaskModalOpen(true)} 
+            />
           </TabsContent>
 
           {/* Gantt Tab */}
