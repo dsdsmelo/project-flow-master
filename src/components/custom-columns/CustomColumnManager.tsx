@@ -1,0 +1,260 @@
+import { useState } from 'react';
+import { Plus, Edit, Trash2, GripVertical, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useData } from '@/contexts/DataContext';
+import { CustomColumn } from '@/lib/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+interface CustomColumnManagerProps {
+  projectId: string;
+}
+
+const typeLabels: Record<CustomColumn['type'], string> = {
+  text: 'Texto',
+  number: 'Número',
+  date: 'Data',
+  list: 'Lista',
+  percentage: 'Porcentagem',
+  user: 'Usuário',
+};
+
+export const CustomColumnManager = ({ projectId }: CustomColumnManagerProps) => {
+  const { customColumns, setCustomColumns, projects } = useData();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingColumn, setEditingColumn] = useState<CustomColumn | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'text' as CustomColumn['type'],
+    options: [] as string[],
+    newOption: '',
+  });
+
+  const projectColumns = customColumns
+    .filter(col => col.projectId === projectId && col.active)
+    .sort((a, b) => a.order - b.order);
+
+  const project = projects.find(p => p.id === projectId);
+
+  const resetForm = () => {
+    setFormData({ name: '', type: 'text', options: [], newOption: '' });
+    setEditingColumn(null);
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (column: CustomColumn) => {
+    setEditingColumn(column);
+    setFormData({
+      name: column.name,
+      type: column.type,
+      options: column.options || [],
+      newOption: '',
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleAddOption = () => {
+    if (formData.newOption.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        options: [...prev.options, prev.newOption.trim()],
+        newOption: '',
+      }));
+    }
+  };
+
+  const handleRemoveOption = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      options: prev.options.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSave = () => {
+    if (!formData.name.trim()) return;
+
+    if (editingColumn) {
+      setCustomColumns(prev => prev.map(col => 
+        col.id === editingColumn.id 
+          ? { ...col, name: formData.name, type: formData.type, options: formData.options }
+          : col
+      ));
+    } else {
+      const newColumn: CustomColumn = {
+        id: `cc-${Date.now()}`,
+        name: formData.name,
+        type: formData.type,
+        projectId,
+        order: projectColumns.length + 1,
+        options: formData.type === 'list' ? formData.options : undefined,
+        active: true,
+      };
+      setCustomColumns(prev => [...prev, newColumn]);
+    }
+
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const handleDelete = (columnId: string) => {
+    setCustomColumns(prev => prev.map(col => 
+      col.id === columnId ? { ...col, active: false } : col
+    ));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Colunas Customizadas</h3>
+          <p className="text-sm text-muted-foreground">
+            Adicione campos extras às tarefas deste projeto
+          </p>
+        </div>
+        <Button onClick={openCreateDialog} size="sm">
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Coluna
+        </Button>
+      </div>
+
+      {projectColumns.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+          <p>Nenhuma coluna customizada criada</p>
+          <p className="text-sm mt-1">Clique em "Nova Coluna" para adicionar</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {projectColumns.map(column => (
+            <div 
+              key={column.id}
+              className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border"
+            >
+              <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
+              <div className="flex-1">
+                <span className="font-medium">{column.name}</span>
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {typeLabels[column.type]}
+                </Badge>
+                {column.type === 'list' && column.options && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({column.options.length} opções)
+                  </span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => openEditDialog(column)}>
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-destructive hover:text-destructive"
+                onClick={() => handleDelete(column.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingColumn ? 'Editar Coluna' : 'Nova Coluna Customizada'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome da Coluna</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Ex: Custo Estimado"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select 
+                value={formData.type} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, type: v as CustomColumn['type'] }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Texto</SelectItem>
+                  <SelectItem value="number">Número</SelectItem>
+                  <SelectItem value="date">Data</SelectItem>
+                  <SelectItem value="list">Lista de Opções</SelectItem>
+                  <SelectItem value="percentage">Porcentagem</SelectItem>
+                  <SelectItem value="user">Usuário</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.type === 'list' && (
+              <div className="space-y-2">
+                <Label>Opções da Lista</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.newOption}
+                    onChange={(e) => setFormData(prev => ({ ...prev, newOption: e.target.value }))}
+                    placeholder="Adicionar opção..."
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddOption())}
+                  />
+                  <Button type="button" onClick={handleAddOption} size="sm">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {formData.options.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.options.map((option, index) => (
+                      <Badge key={index} variant="secondary" className="gap-1">
+                        {option}
+                        <button onClick={() => handleRemoveOption(index)}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={!formData.name.trim()}>
+              {editingColumn ? 'Salvar' : 'Criar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
