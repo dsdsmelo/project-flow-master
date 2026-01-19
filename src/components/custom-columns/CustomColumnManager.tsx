@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Plus, Edit, Trash2, GripVertical, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useData } from '@/contexts/DataContext';
 import { CustomColumn } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -35,9 +36,11 @@ const typeLabels: Record<CustomColumn['type'], string> = {
 };
 
 export const CustomColumnManager = ({ projectId }: CustomColumnManagerProps) => {
-  const { customColumns, setCustomColumns, projects } = useData();
+  const { customColumns, setCustomColumns } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<CustomColumn | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     type: 'text' as CustomColumn['type'],
@@ -48,8 +51,6 @@ export const CustomColumnManager = ({ projectId }: CustomColumnManagerProps) => 
   const projectColumns = customColumns
     .filter(col => col.projectId === projectId && col.active)
     .sort((a, b) => a.order - b.order);
-
-  const project = projects.find(p => p.id === projectId);
 
   const resetForm = () => {
     setFormData({ name: '', type: 'text', options: [], newOption: '' });
@@ -121,13 +122,72 @@ export const CustomColumnManager = ({ projectId }: CustomColumnManagerProps) => 
     ));
   };
 
+  // Drag and Drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, columnId: string) => {
+    setDraggedId(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', columnId);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (columnId !== draggedId) {
+      setDragOverId(columnId);
+    }
+  }, [draggedId]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverId(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const draggedIndex = projectColumns.findIndex(col => col.id === draggedId);
+    const targetIndex = projectColumns.findIndex(col => col.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    // Reorder columns
+    const newColumns = [...projectColumns];
+    const [removed] = newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, removed);
+
+    // Update order values
+    setCustomColumns(prev => {
+      const updated = [...prev];
+      newColumns.forEach((col, index) => {
+        const idx = updated.findIndex(c => c.id === col.id);
+        if (idx !== -1) {
+          updated[idx] = { ...updated[idx], order: index + 1 };
+        }
+      });
+      return updated;
+    });
+
+    setDraggedId(null);
+    setDragOverId(null);
+  }, [draggedId, projectColumns, setCustomColumns]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDragOverId(null);
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Colunas Customizadas</h3>
           <p className="text-sm text-muted-foreground">
-            Adicione campos extras às tarefas deste projeto
+            Adicione campos extras às tarefas deste projeto. Arraste para reordenar.
           </p>
         </div>
         <Button onClick={openCreateDialog} size="sm">
@@ -143,12 +203,25 @@ export const CustomColumnManager = ({ projectId }: CustomColumnManagerProps) => 
         </div>
       ) : (
         <div className="space-y-2">
-          {projectColumns.map(column => (
+          {projectColumns.map((column, index) => (
             <div 
               key={column.id}
-              className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border"
+              draggable
+              onDragStart={(e) => handleDragStart(e, column.id)}
+              onDragOver={(e) => handleDragOver(e, column.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, column.id)}
+              onDragEnd={handleDragEnd}
+              className={cn(
+                "flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border transition-all duration-200",
+                draggedId === column.id && "opacity-50 scale-[0.98]",
+                dragOverId === column.id && "border-primary border-2 bg-primary/5"
+              )}
             >
-              <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
+              <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono w-6">
+                {index + 1}
+              </div>
               <div className="flex-1">
                 <span className="font-medium">{column.name}</span>
                 <Badge variant="secondary" className="ml-2 text-xs">

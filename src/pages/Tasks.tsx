@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { 
   Plus, 
   Search, 
@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
-import { CustomColumnDisplay } from '@/components/custom-columns/CustomColumnValue';
+import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/sheet';
 
 const Tasks = () => {
-  const { tasks, projects, phases, people, customColumns } = useData();
+  const { tasks, setTasks, projects, phases, people, customColumns } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -117,9 +117,24 @@ const Tasks = () => {
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length;
 
   // Get visible custom columns that should be displayed
-  const displayedCustomColumns = availableCustomColumns.filter(col => 
-    visibleCustomColumns.includes(col.id)
-  );
+  const displayedCustomColumns = availableCustomColumns
+    .filter(col => visibleCustomColumns.includes(col.id))
+    .sort((a, b) => a.order - b.order);
+
+  // Handler to update custom column value
+  const handleCustomValueChange = useCallback((taskId: string, columnId: string, value: string | number) => {
+    setTasks(prev => prev.map(task => {
+      if (task.id !== taskId) return task;
+      return {
+        ...task,
+        customValues: {
+          ...task.customValues,
+          [columnId]: value,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+    }));
+  }, [setTasks]);
 
   return (
     <MainLayout>
@@ -367,12 +382,13 @@ const Tasks = () => {
                       <td className="py-4 px-4">
                         <ProgressBar value={progress} showLabel size="sm" />
                       </td>
-                      {/* Custom Columns Values */}
+                      {/* Custom Columns Values - Inline Editable */}
                       {displayedCustomColumns.map(col => (
-                        <td key={col.id} className="py-4 px-4">
-                          <CustomColumnDisplay 
-                            column={col} 
-                            value={task.customValues?.[col.id]} 
+                        <td key={col.id} className="py-3 px-4">
+                          <InlineEditCell
+                            column={col}
+                            value={task.customValues?.[col.id]}
+                            onSave={(value) => handleCustomValueChange(task.id, col.id, value)}
                           />
                         </td>
                       ))}
