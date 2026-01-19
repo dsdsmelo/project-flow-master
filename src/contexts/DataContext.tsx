@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Person, Project, Phase, Cell, Device, Task, CustomColumn } from '@/lib/types';
-import { mockPeople, mockProjects, mockPhases, mockCells, mockDevices, mockTasks } from '@/lib/mockData';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { Person, Project, Phase, Cell, Task, CustomColumn } from '@/lib/types';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 interface DataContextType {
   people: Person[];
@@ -11,35 +11,41 @@ interface DataContextType {
   setPhases: React.Dispatch<React.SetStateAction<Phase[]>>;
   cells: Cell[];
   setCells: React.Dispatch<React.SetStateAction<Cell[]>>;
-  devices: Device[];
-  setDevices: React.Dispatch<React.SetStateAction<Device[]>>;
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   customColumns: CustomColumn[];
   setCustomColumns: React.Dispatch<React.SetStateAction<CustomColumn[]>>;
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  // CRUD operations
+  addPerson: (person: Omit<Person, 'id'>) => Promise<Person>;
+  updatePerson: (id: string, updates: Partial<Person>) => Promise<void>;
+  deletePerson: (id: string) => Promise<void>;
+  addProject: (project: Omit<Project, 'id'>) => Promise<Project>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  addPhase: (phase: Omit<Phase, 'id'>) => Promise<Phase>;
+  updatePhase: (id: string, updates: Partial<Phase>) => Promise<void>;
+  deletePhase: (id: string) => Promise<void>;
+  addCell: (cell: Omit<Cell, 'id'>) => Promise<Cell>;
+  updateCell: (id: string, updates: Partial<Cell>) => Promise<void>;
+  deleteCell: (id: string) => Promise<void>;
+  addTask: (task: Omit<Task, 'id' | 'updatedAt'>) => Promise<Task>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  addCustomColumn: (column: Omit<CustomColumn, 'id'>) => Promise<CustomColumn>;
+  updateCustomColumn: (id: string, updates: Partial<CustomColumn>) => Promise<void>;
+  deleteCustomColumn: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [people, setPeople] = useState<Person[]>(mockPeople);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [phases, setPhases] = useState<Phase[]>(mockPhases);
-  const [cells, setCells] = useState<Cell[]>(mockCells);
-  const [devices, setDevices] = useState<Device[]>(mockDevices);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
-  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
+  const supabaseData = useSupabaseData();
 
   return (
-    <DataContext.Provider value={{
-      people, setPeople,
-      projects, setProjects,
-      phases, setPhases,
-      cells, setCells,
-      devices, setDevices,
-      tasks, setTasks,
-      customColumns, setCustomColumns,
-    }}>
+    <DataContext.Provider value={supabaseData}>
       {children}
     </DataContext.Provider>
   );

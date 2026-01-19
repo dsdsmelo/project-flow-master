@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/sheet';
 
 const Tasks = () => {
-  const { tasks, setTasks, projects, phases, people, customColumns } = useData();
+  const { tasks, updateTask, projects, phases, people, customColumns, loading, error } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -124,19 +124,49 @@ const Tasks = () => {
     .sort((a, b) => a.order - b.order);
 
   // Handler to update custom column value
-  const handleCustomValueChange = useCallback((taskId: string, columnId: string, value: string | number) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id !== taskId) return task;
-      return {
-        ...task,
+  const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    try {
+      await updateTask(taskId, {
         customValues: {
           ...task.customValues,
           [columnId]: value,
         },
-        updatedAt: new Date().toISOString(),
-      };
-    }));
-  }, [setTasks]);
+      });
+    } catch (err) {
+      console.error('Error updating custom value:', err);
+    }
+  }, [tasks, updateTask]);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Header title="Tarefas" subtitle="Gerencie e acompanhe todas as tarefas" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando dados...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <Header title="Tarefas" subtitle="Gerencie e acompanhe todas as tarefas" />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center text-destructive">
+            <p className="font-medium mb-2">Erro ao carregar dados</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
