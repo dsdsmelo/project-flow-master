@@ -15,10 +15,12 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { ProjectFormModal } from '@/components/modals/ProjectFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage } from '@/lib/mockData';
-import { projectStatusLabels } from '@/lib/types';
+import { projectStatusLabels, Project } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -32,6 +34,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Link } from 'react-router-dom';
 
 const statusColors = {
@@ -43,10 +55,14 @@ const statusColors = {
 };
 
 const Projects = () => {
-  const { projects, tasks, phases, loading, error } = useData();
+  const { projects, tasks, phases, deleteProject, loading, error } = useData();
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | undefined>();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   const filteredProjects = useMemo(() => {
     return projects.filter(project => {
@@ -70,6 +86,35 @@ const Projects = () => {
 
   const getProjectPhaseCount = (projectId: string) => {
     return phases.filter(p => p.projectId === projectId).length;
+  };
+
+  const handleOpenNew = () => {
+    setEditingProject(undefined);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (project: Project) => {
+    setEditingProject(project);
+    setModalOpen(true);
+  };
+
+  const handleDeleteClick = (projectId: string) => {
+    setProjectToDelete(projectId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
+    try {
+      await deleteProject(projectToDelete);
+      toast.success('Projeto excluído com sucesso!');
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      toast.error('Erro ao excluir projeto');
+    } finally {
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
+    }
   };
 
   if (loading) {
@@ -149,7 +194,7 @@ const Projects = () => {
                 <List className="w-4 h-4" />
               </Button>
             </div>
-            <Button className="gradient-primary text-white">
+            <Button className="gradient-primary text-white" onClick={handleOpenNew}>
               <Plus className="w-4 h-4 mr-2" />
               Novo Projeto
             </Button>
@@ -187,11 +232,11 @@ const Projects = () => {
                           <Eye className="w-4 h-4 mr-2" />
                           Ver Detalhes
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(project)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(project.id)}>
                           <Trash2 className="w-4 h-4 mr-2" />
                           Excluir
                         </DropdownMenuItem>
@@ -293,11 +338,11 @@ const Projects = () => {
                               <Eye className="w-4 h-4 mr-2" />
                               Ver Detalhes
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit(project)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(project.id)}>
                               <Trash2 className="w-4 h-4 mr-2" />
                               Excluir
                             </DropdownMenuItem>
@@ -319,13 +364,38 @@ const Projects = () => {
             </div>
             <h3 className="text-lg font-semibold mb-2">Nenhum projeto encontrado</h3>
             <p className="text-muted-foreground mb-4">Tente ajustar os filtros ou criar um novo projeto.</p>
-            <Button className="gradient-primary text-white">
+            <Button className="gradient-primary text-white" onClick={handleOpenNew}>
               <Plus className="w-4 h-4 mr-2" />
               Novo Projeto
             </Button>
           </div>
         )}
       </div>
+
+      {/* Project Form Modal */}
+      <ProjectFormModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        project={editingProject}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este projeto? Todas as tarefas e fases associadas também serão excluídas. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };

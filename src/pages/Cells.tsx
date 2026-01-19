@@ -10,12 +10,16 @@ import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CellFormModal } from '@/components/modals/CellFormModal';
 import { useData } from '@/contexts/DataContext';
+import { Cell } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const Cells = () => {
   const { cells, tasks, updateCell, loading, error } = useData();
   const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingCell, setEditingCell] = useState<Cell | undefined>();
 
   const filteredCells = useMemo(() => {
     return cells.filter(cell => 
@@ -35,6 +39,16 @@ const Cells = () => {
     } catch (err) {
       console.error('Error toggling cell status:', err);
     }
+  };
+
+  const handleOpenNew = () => {
+    setEditingCell(undefined);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (cell: Cell) => {
+    setEditingCell(cell);
+    setModalOpen(true);
   };
 
   if (loading) {
@@ -82,7 +96,7 @@ const Cells = () => {
             />
           </div>
 
-          <Button className="gradient-primary text-white">
+          <Button className="gradient-primary text-white" onClick={handleOpenNew}>
             <Plus className="w-4 h-4 mr-2" />
             Nova Célula
           </Button>
@@ -138,7 +152,7 @@ const Cells = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(cell)}>
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button 
@@ -163,7 +177,7 @@ const Cells = () => {
               </div>
               <h3 className="text-lg font-semibold mb-2">Nenhuma célula encontrada</h3>
               <p className="text-muted-foreground mb-4">Adicione uma nova célula para começar.</p>
-              <Button className="gradient-primary text-white">
+              <Button className="gradient-primary text-white" onClick={handleOpenNew}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova Célula
               </Button>
@@ -171,6 +185,13 @@ const Cells = () => {
           )}
         </div>
       </div>
+
+      {/* Cell Form Modal */}
+      <CellFormModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        cell={editingCell}
+      />
     </MainLayout>
   );
 };
