@@ -43,9 +43,10 @@ serve(async (req) => {
       .from("subscriptions")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (error) {
+    // If no subscription found, that's okay - user just doesn't have one yet
+    if (error && error.code !== "PGRST116") {
       console.error("Error fetching subscription:", error);
       throw new Error("Failed to fetch subscription");
     }
