@@ -155,7 +155,8 @@ export const ProjectGanttChart = ({
   };
 
   const columnWidth = zoom === 'day' ? 'min-w-[32px]' : zoom === 'week' ? 'min-w-[80px]' : 'min-w-[100px]';
-  const chartMinWidth = zoom === 'day' ? `${columns.length * 32 + 220}px` : zoom === 'week' ? '1000px' : '800px';
+  const chartMinWidth = zoom === 'day' ? `${columns.length * 32 + 300}px` : zoom === 'week' ? '1100px' : '900px';
+  const labelColumnWidth = 'w-[300px]';
 
   if (tasks.length === 0 && projectPhases.length === 0 && projectMilestones.length === 0) {
     return (
@@ -201,7 +202,7 @@ export const ProjectGanttChart = ({
               
               {/* Header */}
               <div className="flex bg-gradient-to-b from-muted/60 to-muted/30 border-b border-border sticky top-0 z-10">
-                <div className="w-[220px] flex-shrink-0 px-4 py-3 font-semibold text-sm border-r border-border/50">Cronograma</div>
+                <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-3 font-semibold text-sm border-r border-border/50")}>Cronograma</div>
                 <div className="flex-1 flex">
                   {columns.map((col, i) => (
                     <div key={i} className={cn("flex-1 py-2 text-center border-l border-border/30 flex flex-col justify-center", columnWidth)}>
@@ -212,71 +213,23 @@ export const ProjectGanttChart = ({
                 </div>
               </div>
 
-              {/* Phases Section */}
-              {projectPhases.length > 0 && (
-                <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 border-b border-amber-200/50">
-                  <div className="px-4 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider border-b border-amber-200/30">Fases do Projeto</div>
-                  {projectPhases.map((phase) => {
-                    const position = getPosition(phase.startDate, phase.endDate);
-                    return (
-                      <div key={phase.id} className="flex group hover:bg-amber-100/30 dark:hover:bg-amber-900/20 transition-colors">
-                        <div className="w-[220px] flex-shrink-0 px-4 py-2.5 flex items-center gap-3 border-r border-amber-200/30">
-                          <div className="w-3 h-3 rounded flex-shrink-0" style={{ backgroundColor: phase.color || '#f59e0b' }} />
-                          <span className="text-sm font-medium truncate">{phase.name}</span>
-                          <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
-                            {onEditPhase && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEditPhase(phase)}><Pencil className="w-3 h-3" /></Button>}
-                            {onDeletePhase && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => { if(confirm('Excluir fase?')) onDeletePhase(phase.id); }}><Trash2 className="w-3 h-3" /></Button>}
-                          </div>
-                        </div>
-                        <div ref={chartRef} className="flex-1 relative h-10">
-                          <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-amber-200/20", columnWidth)} />)}</div>
-                          {position && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="absolute top-2 h-6 rounded-md shadow-sm flex items-center justify-center px-2" style={{ left: position.left, width: position.width, minWidth: '60px', backgroundColor: phase.color || '#f59e0b' }}>
-                                  <span className="text-xs text-white font-semibold truncate">
-                                    {phase.startDate && new Date(phase.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                    {phase.endDate && ` → ${new Date(phase.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
-                                  </span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent><p className="font-medium">{phase.name}</p>{phase.description && <p className="text-xs text-muted-foreground">{phase.description}</p>}</TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Milestones as diamonds on timeline */}
+              {/* Milestones Section - Now on top with legend */}
               {projectMilestones.length > 0 && (
                 <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-blue-950/20 dark:to-indigo-950/10 border-b border-blue-200/50">
-                  <div className="px-4 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider border-b border-blue-200/30">Marcos</div>
-                  <div className="flex">
-                    <div className="w-[220px] flex-shrink-0 px-4 py-2 border-r border-blue-200/30">
-                      <div className="flex flex-wrap gap-2">
-                        {projectMilestones.map(m => (
-                          <Tooltip key={m.id}>
-                            <TooltipTrigger asChild>
-                              <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer hover:opacity-80", m.completed && "opacity-60 line-through")} style={{ backgroundColor: `${m.color || '#3b82f6'}20`, color: m.color || '#3b82f6' }}>
-                                <Diamond className="w-3 h-3" style={{ fill: m.color || '#3b82f6' }} />
-                                <span className="font-medium truncate max-w-[100px]">{m.name}</span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{m.name}</p><p className="text-xs text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></TooltipContent>
-                          </Tooltip>
-                        ))}
+                  <div className="px-4 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider border-b border-blue-200/30">Marcos</div>
+                  {projectMilestones.map(m => (
+                    <div key={m.id} className="flex group hover:bg-blue-100/30 dark:hover:bg-blue-900/20 transition-colors">
+                      <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1.5 flex items-center gap-2 border-r border-blue-200/30")}>
+                        <Diamond className="w-3.5 h-3.5 flex-shrink-0" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
+                        <span className={cn("text-sm truncate", m.completed && "opacity-60 line-through")}>{m.name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
                       </div>
-                    </div>
-                    <div className="flex-1 relative h-12">
-                      <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-blue-200/20", columnWidth)} />)}</div>
-                      {projectMilestones.map(m => (
-                        <Popover key={m.id}>
+                      <div className="flex-1 relative h-7">
+                        <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-blue-200/20", columnWidth)} />)}</div>
+                        <Popover>
                           <PopoverTrigger asChild>
-                            <div className="absolute top-3 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10" style={{ left: getMilestonePosition(m.date) }}>
-                              <Diamond className="w-6 h-6 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
+                            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10" style={{ left: getMilestonePosition(m.date) }}>
+                              <Diamond className="w-5 h-5 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
                               {m.completed && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-emerald-500" />}
                             </div>
                           </PopoverTrigger>
@@ -296,15 +249,55 @@ export const ProjectGanttChart = ({
                             </div>
                           </PopoverContent>
                         </Popover>
-                      ))}
+                      </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Phases Section - Compact thin bars */}
+              {projectPhases.length > 0 && (
+                <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 border-b border-amber-200/50">
+                  <div className="px-4 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider border-b border-amber-200/30">Fases do Projeto</div>
+                  {projectPhases.map((phase) => {
+                    const position = getPosition(phase.startDate, phase.endDate);
+                    return (
+                      <div key={phase.id} className="flex group hover:bg-amber-100/30 dark:hover:bg-amber-900/20 transition-colors">
+                        <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-0.5 flex items-center gap-2 border-r border-amber-200/30")}>
+                          <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: phase.color || '#f59e0b' }} />
+                          <span className="text-xs font-medium truncate">{phase.name}</span>
+                          <div className="ml-auto flex gap-0.5 opacity-0 group-hover:opacity-100">
+                            {onEditPhase && <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => onEditPhase(phase)}><Pencil className="w-2.5 h-2.5" /></Button>}
+                            {onDeletePhase && <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => { if(confirm('Excluir fase?')) onDeletePhase(phase.id); }}><Trash2 className="w-2.5 h-2.5" /></Button>}
+                          </div>
+                        </div>
+                        <div ref={chartRef} className="flex-1 relative h-5">
+                          <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-amber-200/20", columnWidth)} />)}</div>
+                          {position && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="absolute top-1 h-3 rounded-sm shadow-sm" style={{ left: position.left, width: position.width, minWidth: '20px', backgroundColor: phase.color || '#f59e0b' }} />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-medium">{phase.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {phase.startDate && new Date(phase.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                  {phase.endDate && ` → ${new Date(phase.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
+                                </p>
+                                {phase.description && <p className="text-xs text-muted-foreground">{phase.description}</p>}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {/* Tasks Section */}
               <div className="relative">
-                <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none" style={{ left: `calc(220px + (100% - 220px) * ${parseFloat(getTodayPosition()) / 100})` }}>
+                <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none" style={{ left: `calc(300px + (100% - 300px) * ${parseFloat(getTodayPosition()) / 100})` }}>
                   <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-semibold rounded-sm">Hoje</div>
                 </div>
 
@@ -317,7 +310,7 @@ export const ProjectGanttChart = ({
                   return (
                     <div key={group.id} className="border-b border-border/50 last:border-b-0">
                       <div className="flex items-center cursor-pointer hover:bg-muted/40 transition-colors bg-muted/20" onClick={() => toggleGroup(group.id)}>
-                        <div className="w-[220px] flex-shrink-0 px-3 py-2.5 flex items-center gap-2.5 border-r border-border/50">
+                        <div className={cn(labelColumnWidth, "flex-shrink-0 px-3 py-2.5 flex items-center gap-2.5 border-r border-border/50")}>
                           <button className="p-1 rounded hover:bg-muted">{isCollapsed ? <ChevronRight className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}</button>
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ backgroundColor: group.color || 'hsl(var(--muted-foreground))' }}>{initials}</div>
                           <div className="min-w-0 flex-1">
@@ -339,7 +332,7 @@ export const ProjectGanttChart = ({
                             const styles = getStatusStyles(task);
                             return (
                               <div key={task.id} className="flex items-center hover:bg-muted/30 group/task cursor-pointer transition-colors" onClick={() => onEditTask?.(task)}>
-                                <div className="w-[220px] flex-shrink-0 py-2 px-3 pl-14 flex items-center gap-2 border-r border-border/30">
+                                <div className={cn(labelColumnWidth, "flex-shrink-0 py-2 px-3 pl-14 flex items-center gap-2 border-r border-border/30")}>
                                   <div className={cn("w-2 h-2 rounded-full flex-shrink-0", styles.dot)} />
                                   <span className={cn("text-sm truncate flex-1", task.status === 'completed' && "line-through text-muted-foreground")}>{task.name}</span>
                                   <div className="flex gap-0.5 opacity-0 group-hover/task:opacity-100">
@@ -356,7 +349,7 @@ export const ProjectGanttChart = ({
                           })}
                           {onAddTask && group.id !== 'unassigned' && (
                             <div className="flex items-center border-t border-border/20">
-                              <div className="w-[220px] flex-shrink-0 py-1.5 pl-14">
+                              <div className={cn(labelColumnWidth, "flex-shrink-0 py-1.5 pl-14")}>
                                 <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={(e) => { e.stopPropagation(); onAddTask(group.id); }}><Plus className="w-3.5 h-3.5 mr-1" />Nova tarefa</Button>
                               </div>
                               <div className="flex-1" />
