@@ -14,7 +14,8 @@ import Tasks from "./pages/Tasks";
 import Gantt from "./pages/Gantt";
 import People from "./pages/People";
 import Settings from "./pages/Settings";
-import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
+import AdminPanel from "./pages/AdminPanel";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
@@ -44,31 +45,6 @@ const ProtectedRoute = ({ children, requireSubscription = true }: { children: Re
   return <>{children}</>;
 };
 
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading, isAdmin, hasActiveSubscription } = useAuth();
-  
-  console.log('AdminRoute check:', { isAuthenticated, isLoading, isAdmin, hasActiveSubscription });
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  // Admins bypass subscription requirement
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
 const AppRoutes = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -82,10 +58,18 @@ const AppRoutes = () => {
 
   return (
     <Routes>
+      {/* Public routes */}
       <Route path="/" element={<Landing />} />
       <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
+      
+      {/* Admin routes - completely separate */}
+      <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/panel" element={<AdminPanel />} />
+      
+      {/* Protected app routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
       <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
@@ -93,7 +77,7 @@ const AppRoutes = () => {
       <Route path="/gantt" element={<ProtectedRoute><Gantt /></ProtectedRoute>} />
       <Route path="/people" element={<ProtectedRoute><People /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+      
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
