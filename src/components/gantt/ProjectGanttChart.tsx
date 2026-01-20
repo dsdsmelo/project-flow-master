@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Phase, Milestone } from '@/lib/types';
-import { Flag, Diamond, Pencil, Trash2 } from 'lucide-react';
+import { Flag, Diamond, Pencil, Trash2, CheckCircle2, Circle, GripHorizontal } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ interface ProjectGanttChartProps {
   onAddMilestone?: () => void;
   onEditMilestone?: (milestone: Milestone) => void;
   onDeleteMilestone?: (milestoneId: string) => void;
+  onUpdateMilestone?: (milestoneId: string, data: Partial<Milestone>) => void;
 }
 
 export const ProjectGanttChart = ({ 
@@ -47,14 +49,25 @@ export const ProjectGanttChart = ({
   onAddMilestone,
   onEditMilestone,
   onDeleteMilestone,
+  onUpdateMilestone,
 }: ProjectGanttChartProps) => {
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('phase');
+  const [draggingMilestone, setDraggingMilestone] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   // Get milestones for this project
   const projectMilestones = useMemo(() => {
     return milestones.filter(m => m.projectId === projectId);
   }, [milestones, projectId]);
+
+  // Calculate milestone progress
+  const milestoneProgress = useMemo(() => {
+    const total = projectMilestones.length;
+    const completed = projectMilestones.filter(m => m.completed).length;
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, percentage };
+  }, [projectMilestones]);
 
   // Filter phases for this project
   const projectPhases = useMemo(() => {
@@ -209,10 +222,57 @@ export const ProjectGanttChart = ({
     return `${(offset / totalDays) * 100}%`;
   };
 
-  if (tasks.length === 0) {
+  // Get date from position (for drag and drop)
+  const getDateFromPosition = useCallback((clientX: number) => {
+    if (!chartRef.current) return null;
+    
+    const chartRect = chartRef.current.getBoundingClientRect();
+    const relativeX = clientX - chartRect.left;
+    const percentage = relativeX / chartRect.width;
+    
+    const totalMs = dateRange.end.getTime() - dateRange.start.getTime();
+    const newDate = new Date(dateRange.start.getTime() + (percentage * totalMs));
+    
+    return newDate.toISOString().split('T')[0];
+  }, [dateRange]);
+
+  // Handle drag start
+  const handleDragStart = (milestoneId: string) => {
+    setDraggingMilestone(milestoneId);
+  };
+
+  // Handle drag end
+  const handleDragEnd = (e: React.DragEvent, milestoneId: string) => {
+    if (!draggingMilestone) return;
+    
+    const newDate = getDateFromPosition(e.clientX);
+    if (newDate) {
+      onUpdateMilestone?.(milestoneId, { date: newDate });
+    }
+    setDraggingMilestone(null);
+  };
+
+  // Handle drop
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggingMilestone) return;
+    
+    const newDate = getDateFromPosition(e.clientX);
+    if (newDate) {
+      onUpdateMilestone?.(draggingMilestone, { date: newDate });
+    }
+    setDraggingMilestone(null);
+  };
+
+  // Toggle milestone completion
+  const handleToggleComplete = (milestoneId: string, completed: boolean) => {
+    onUpdateMilestone?.(milestoneId, { completed });
+  };
+
+  if (tasks.length === 0 && projectMilestones.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <p>Nenhuma tarefa com datas definidas neste projeto</p>
+        <p>Nenhuma tarefa ou marco com datas definidas neste projeto</p>
       </div>
     );
   }
@@ -220,6 +280,59 @@ export const ProjectGanttChart = ({
   return (
     <TooltipProvider>
     <div className="space-y-4">
+      {/* Progress Indicator */}
+      {milestoneProgress.total > 0 && (
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Flag className="w-4 h-4 text-amber-500" />
+              <span className="font-medium text-sm">Progresso dos Marcos</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-primary">
+                {milestoneProgress.completed}/{milestoneProgress.total}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                ({milestoneProgress.percentage}%)
+              </span>
+            </div>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-amber-400 to-green-500 rounded-full transition-all duration-500"
+              style={{ width: `${milestoneProgress.percentage}%` }}
+            />
+          </div>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            {projectMilestones.map(m => (
+              <Tooltip key={m.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleToggleComplete(m.id, !m.completed)}
+                    className={cn(
+                      "flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-all",
+                      m.completed 
+                        ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400" 
+                        : "bg-muted border-border text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    {m.completed ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : (
+                      <Circle className="w-3 h-3" />
+                    )}
+                    <span className="truncate max-w-24">{m.name}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{m.completed ? 'Clique para desmarcar' : 'Clique para marcar como concluído'}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-3">
@@ -309,7 +422,12 @@ export const ProjectGanttChart = ({
                     ({milestonesWithDates.length})
                   </span>
                 </div>
-                <div className="flex-1 relative h-14">
+                <div 
+                  ref={chartRef}
+                  className="flex-1 relative h-14"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                >
                   {/* Continuous connecting line */}
                   {milestonesWithDates.length > 1 && (
                     <div 
@@ -323,18 +441,30 @@ export const ProjectGanttChart = ({
                   
                   {/* Milestone markers */}
                   {milestonesWithDates.map((milestone) => {
+                    const isCompleted = milestone.completed;
                     return (
                       <Popover key={milestone.id}>
                         <PopoverTrigger asChild>
                           <div
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 cursor-pointer transition-all hover:scale-125"
+                            draggable
+                            onDragStart={() => handleDragStart(milestone.id)}
+                            onDragEnd={(e) => handleDragEnd(e, milestone.id)}
+                            className={cn(
+                              "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 cursor-grab transition-all hover:scale-125",
+                              draggingMilestone === milestone.id && "opacity-50 cursor-grabbing"
+                            )}
                             style={{
                               left: getDatePosition(milestone.calculatedDate!),
                             }}
                           >
                             <div 
-                              className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-lg flex items-center justify-center"
-                              style={{ 
+                              className={cn(
+                                "w-6 h-6 rounded-full border-2 shadow-lg flex items-center justify-center",
+                                isCompleted 
+                                  ? "border-green-400 dark:border-green-600" 
+                                  : "border-white dark:border-gray-800"
+                              )}
+                              style={{
                                 backgroundColor: milestone.color || '#EAB308',
                               }}
                             >
@@ -354,6 +484,19 @@ export const ProjectGanttChart = ({
                                   {milestone.description}
                                 </p>
                               )}
+                            </div>
+                            <div className="flex items-center gap-2 py-2 border-t">
+                              <Checkbox
+                                id={`complete-${milestone.id}`}
+                                checked={milestone.completed}
+                                onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
+                              />
+                              <label 
+                                htmlFor={`complete-${milestone.id}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                Marcar como concluído
+                              </label>
                             </div>
                             <div className="flex gap-2 pt-2 border-t">
                               <Button
@@ -379,6 +522,10 @@ export const ProjectGanttChart = ({
                                 Excluir
                               </Button>
                             </div>
+                            <p className="text-[10px] text-muted-foreground text-center pt-2">
+                              <GripHorizontal className="w-3 h-3 inline mr-1" />
+                              Arraste para reposicionar
+                            </p>
                           </div>
                         </PopoverContent>
                       </Popover>
