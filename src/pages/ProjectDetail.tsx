@@ -16,7 +16,8 @@ import {
   ClipboardList,
   Flag,
   Pencil,
-  Trash2
+  Trash2,
+  Layers
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -34,6 +35,7 @@ import { ProjectGanttChart } from '@/components/gantt/ProjectGanttChart';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { MilestoneFormModal } from '@/components/modals/MilestoneFormModal';
 import { ProjectTasksTable } from '@/components/tasks/ProjectTasksTable';
+import { PhaseManagerSheet } from '@/components/phases/PhaseManagerSheet';
 import { 
   BarChart, 
   Bar, 
@@ -70,6 +72,7 @@ const ProjectDetail = () => {
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<typeof milestones[0] | undefined>(undefined);
+  const [phaseManagerOpen, setPhaseManagerOpen] = useState(false);
 
   const project = useMemo(() => {
     return projects.find(p => p.id === projectId);
@@ -232,6 +235,10 @@ const ProjectDetail = () => {
                 </span>
               </div>
             )}
+            <Button variant="outline" onClick={() => setPhaseManagerOpen(true)}>
+              <Layers className="w-4 h-4 mr-2" />
+              Fases
+            </Button>
             <Button className="gradient-primary text-white" onClick={() => setTaskModalOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Nova Tarefa
@@ -614,6 +621,13 @@ const ProjectDetail = () => {
         }}
         projectId={projectId || ''}
         milestone={editingMilestone}
+      />
+
+      {/* Phase Manager */}
+      <PhaseManagerSheet
+        open={phaseManagerOpen}
+        onOpenChange={setPhaseManagerOpen}
+        projectId={projectId || ''}
       />
     </MainLayout>
     </TooltipProvider>
