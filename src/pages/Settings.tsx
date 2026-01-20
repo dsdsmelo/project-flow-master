@@ -7,7 +7,8 @@ import {
   Database,
   Lock,
   Save,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Loader2
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -17,14 +18,17 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const Settings = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { projects, tasks, people, cells, phases, customColumns } = useData();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -146,9 +150,18 @@ const Settings = () => {
     input.click();
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (newPassword.length < 6) {
+      toast({
+        title: 'Erro',
+        description: 'A nova senha deve ter pelo menos 6 caracteres.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       toast({
         title: 'Erro',
@@ -158,23 +171,33 @@ const Settings = () => {
       return;
     }
 
-    if (currentPassword !== 'admin123') {
+    setIsChangingPassword(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
       toast({
-        title: 'Erro',
-        description: 'Senha atual incorreta.',
+        title: 'Senha alterada',
+        description: 'Sua senha foi alterada com sucesso.',
+      });
+      
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao alterar senha',
+        description: error.message || 'Não foi possível alterar a senha.',
         variant: 'destructive',
       });
-      return;
+    } finally {
+      setIsChangingPassword(false);
     }
-
-    toast({
-      title: 'Senha alterada',
-      description: 'Sua senha foi alterada com sucesso.',
-    });
-    
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
   };
 
   return (
@@ -251,17 +274,10 @@ const Settings = () => {
             <Lock className="w-5 h-5" />
             Alterar Senha
           </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Usuário atual: <span className="font-medium">{user?.email}</span>
+          </p>
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Senha Atual</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Digite sua senha atual"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">Nova Senha</Label>
               <Input
@@ -269,7 +285,9 @@ const Settings = () => {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Digite a nova senha"
+                placeholder="Digite a nova senha (mín. 6 caracteres)"
+                minLength={6}
+                required
               />
             </div>
             <div className="space-y-2">
@@ -280,11 +298,21 @@ const Settings = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirme a nova senha"
+                required
               />
             </div>
-            <Button type="submit" className="gradient-primary text-white">
-              <Save className="w-4 h-4 mr-2" />
-              Salvar Nova Senha
+            <Button type="submit" className="gradient-primary text-white" disabled={isChangingPassword}>
+              {isChangingPassword ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Alterando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Salvar Nova Senha
+                </>
+              )}
             </Button>
           </form>
         </div>

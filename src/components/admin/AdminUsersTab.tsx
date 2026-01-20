@@ -98,27 +98,29 @@ export const AdminUsersTab = ({ users, isLoading, onRefresh }: AdminUsersTabProp
     try {
       switch (actionType) {
         case 'reset_password':
-          // Call Supabase to send password reset email
-          const { error: resetError } = await supabase.auth.resetPasswordForEmail(selectedUser.email, {
-            redirectTo: `${window.location.origin}/auth?mode=reset`,
+          // Call admin edge function to reset password
+          const { data: resetData, error: resetError } = await supabase.functions.invoke('admin-reset-password', {
+            body: { userId: selectedUser.id, action: 'resetPassword' },
           });
           if (resetError) throw resetError;
           toast({
-            title: 'Email enviado',
-            description: `Link de redefinição enviado para ${selectedUser.email}`,
+            title: 'Senha redefinida',
+            description: resetData.message || `Senha temporária enviada para ${selectedUser.email}`,
           });
           break;
           
         case 'block':
-          // Update user profile to mark as blocked
-          const { error: blockError } = await supabase
-            .from('profiles')
-            .update({ is_blocked: !selectedUser.is_blocked })
-            .eq('id', selectedUser.id);
+          // Call admin edge function to block/unblock
+          const { data: blockData, error: blockError } = await supabase.functions.invoke('admin-reset-password', {
+            body: { 
+              userId: selectedUser.id, 
+              action: selectedUser.is_blocked ? 'unblockUser' : 'blockUser' 
+            },
+          });
           if (blockError) throw blockError;
           toast({
             title: selectedUser.is_blocked ? 'Usuário desbloqueado' : 'Usuário bloqueado',
-            description: `${selectedUser.email} foi ${selectedUser.is_blocked ? 'desbloqueado' : 'bloqueado'} com sucesso`,
+            description: blockData.message,
           });
           onRefresh();
           break;

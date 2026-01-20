@@ -98,7 +98,7 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://lovable.dev";
     logStep("Origin", { origin });
 
-    // Create checkout session
+    // Create checkout session with phone collection
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -108,6 +108,10 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
+      phone_number_collection: {
+        enabled: true,
+      },
+      billing_address_collection: "required",
       success_url: `${origin}/dashboard?subscription=success`,
       cancel_url: `${origin}/?subscription=cancelled`,
       metadata: {
