@@ -479,12 +479,12 @@ function mapMilestone(data: any): Milestone {
     id: data.id,
     name: data.name,
     projectId: data.project_id,
-    phaseId: data.phase_id,
     description: data.description,
     color: data.color,
+    startDate: data.start_date,
+    endDate: data.end_date,
     date: data.date,
     completed: data.completed ?? false,
-    usePhaseEndDate: data.use_phase_end_date ?? true,
   };
 }
 
@@ -492,12 +492,12 @@ function milestoneToDb(milestone: Partial<Milestone>): any {
   const result: any = {};
   if (milestone.name !== undefined) result.name = milestone.name;
   if (milestone.projectId !== undefined) result.project_id = milestone.projectId;
-  if (milestone.phaseId !== undefined) result.phase_id = milestone.phaseId;
   if (milestone.description !== undefined) result.description = milestone.description;
   if (milestone.color !== undefined) result.color = milestone.color;
+  if (milestone.startDate !== undefined) result.start_date = milestone.startDate;
+  if (milestone.endDate !== undefined) result.end_date = milestone.endDate;
   if (milestone.date !== undefined) result.date = milestone.date;
   if (milestone.completed !== undefined) result.completed = milestone.completed;
-  if (milestone.usePhaseEndDate !== undefined) result.use_phase_end_date = milestone.usePhaseEndDate;
   return result;
 }
 

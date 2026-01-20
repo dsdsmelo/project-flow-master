@@ -4,33 +4,19 @@ import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
-import { Task, Person, Phase, Milestone } from '@/lib/types';
-import { Flag, Diamond, Pencil, Trash2, CheckCircle2, GripHorizontal } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Task, Person, Milestone } from '@/lib/types';
+import { Flag, Diamond, Pencil, Trash2, CheckCircle2, GripHorizontal, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from '@/components/ui/tooltip';
-
-type ZoomLevel = 'day' | 'week' | 'month';
-type GroupBy = 'responsible' | 'status';
 
 interface ProjectGanttChartProps {
   tasks: Task[];
-  phases: Phase[];
   people: Person[];
   projectId: string;
   milestones?: Milestone[];
@@ -38,11 +24,13 @@ interface ProjectGanttChartProps {
   onEditMilestone?: (milestone: Milestone) => void;
   onDeleteMilestone?: (milestoneId: string) => void;
   onUpdateMilestone?: (milestoneId: string, data: Partial<Milestone>) => void;
+  onAddTask?: () => void;
+  onEditTask?: (task: Task) => void;
+  onDeleteTask?: (taskId: string) => void;
 }
 
 export const ProjectGanttChart = ({ 
   tasks, 
-  phases, 
   people, 
   projectId, 
   milestones = [],
@@ -50,10 +38,12 @@ export const ProjectGanttChart = ({
   onEditMilestone,
   onDeleteMilestone,
   onUpdateMilestone,
+  onAddTask,
+  onEditTask,
+  onDeleteTask,
 }: ProjectGanttChartProps) => {
-  const [zoom, setZoom] = useState<ZoomLevel>('week');
-  const [groupBy, setGroupBy] = useState<GroupBy>('responsible');
   const [draggingMilestone, setDraggingMilestone] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const chartRef = useRef<HTMLDivElement>(null);
 
   // Get milestones for this project
@@ -61,27 +51,13 @@ export const ProjectGanttChart = ({
     return milestones.filter(m => m.projectId === projectId);
   }, [milestones, projectId]);
 
-  // Calculate milestone progress
-  const milestoneProgress = useMemo(() => {
-    const total = projectMilestones.length;
-    const completed = projectMilestones.filter(m => m.completed).length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, percentage };
-  }, [projectMilestones]);
-
-  // Filter phases for this project
-  const projectPhases = useMemo(() => {
-    return phases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order);
-  }, [phases, projectId]);
-
-  // Calculate date range based on project tasks
+  // Calculate date range based on project tasks and milestones
   const dateRange = useMemo(() => {
     const dates = tasks.flatMap(t => [t.startDate, t.endDate].filter(Boolean)) as string[];
     
     // Include milestone dates in range calculation
     const milestoneDates = projectMilestones
-      .filter(m => !m.usePhaseEndDate && m.date)
-      .map(m => m.date!);
+      .flatMap(m => [m.startDate, m.endDate, m.date].filter(Boolean)) as string[];
     
     const allDates = [...dates, ...milestoneDates];
     
@@ -99,88 +75,58 @@ export const ProjectGanttChart = ({
     return { start: startDate, end: endDate };
   }, [tasks, projectMilestones]);
 
-  // Generate columns based on zoom level
+  // Generate columns (weeks view fixed)
   const columns = useMemo(() => {
     const cols: { date: Date; label: string }[] = [];
     const current = new Date(dateRange.start);
     
     while (current <= dateRange.end) {
-      if (zoom === 'day') {
-        cols.push({
-          date: new Date(current),
-          label: current.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        });
-        current.setDate(current.getDate() + 1);
-      } else if (zoom === 'week') {
-        cols.push({
-          date: new Date(current),
-          label: `Sem ${Math.ceil(current.getDate() / 7)}`,
-        });
-        current.setDate(current.getDate() + 7);
-      } else {
-        cols.push({
-          date: new Date(current),
-          label: current.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-        });
-        current.setMonth(current.getMonth() + 1);
-      }
+      cols.push({
+        date: new Date(current),
+        label: current.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      });
+      current.setDate(current.getDate() + 7);
     }
     return cols;
-  }, [dateRange, zoom]);
+  }, [dateRange]);
 
-  // Group tasks
+  // Group tasks by responsible (fixed)
   const groupedTasks = useMemo(() => {
     const groups: { id: string; name: string; color?: string; tasks: Task[] }[] = [];
     
-    if (groupBy === 'responsible') {
-      const usedPeople = new Set(tasks.map(t => t.responsibleId).filter(Boolean));
-      people.filter(p => usedPeople.has(p.id)).forEach(person => {
-        const personTasks = tasks.filter(t => t.responsibleId === person.id);
-        if (personTasks.length > 0) {
-          groups.push({ id: person.id, name: person.name, color: person.color, tasks: personTasks });
-        }
-      });
-      const unassigned = tasks.filter(t => !t.responsibleId);
-      if (unassigned.length > 0) {
-        groups.push({ id: 'unassigned', name: 'Sem Responsável', tasks: unassigned });
+    const usedPeople = new Set(tasks.map(t => t.responsibleId).filter(Boolean));
+    people.filter(p => usedPeople.has(p.id)).forEach(person => {
+      const personTasks = tasks.filter(t => t.responsibleId === person.id);
+      if (personTasks.length > 0) {
+        groups.push({ id: person.id, name: person.name, color: person.color, tasks: personTasks });
       }
-    } else if (groupBy === 'status') {
-      const statusGroups = [
-        { id: 'pending', name: 'Pendente', color: '#EAB308' },
-        { id: 'in_progress', name: 'Em Progresso', color: '#3B82F6' },
-        { id: 'blocked', name: 'Bloqueado', color: '#EF4444' },
-        { id: 'completed', name: 'Concluído', color: '#22C55E' },
-        { id: 'cancelled', name: 'Cancelado', color: '#6B7280' },
-      ];
-      statusGroups.forEach(sg => {
-        const statusTasks = tasks.filter(t => t.status === sg.id);
-        if (statusTasks.length > 0) {
-          groups.push({ id: sg.id, name: sg.name, color: sg.color, tasks: statusTasks });
-        }
-      });
+    });
+    const unassigned = tasks.filter(t => !t.responsibleId);
+    if (unassigned.length > 0) {
+      groups.push({ id: 'unassigned', name: 'Sem Responsável', tasks: unassigned });
     }
     
     return groups;
-  }, [tasks, people, groupBy]);
+  }, [tasks, people]);
 
-  // Calculate milestone date - agora só usa data manual
-  const getMilestoneDate = (milestone: Milestone): Date | null => {
-    if (milestone.date) {
-      return new Date(milestone.date);
-    }
-    return null;
+  // Get milestone position
+  const getMilestonePosition = (milestone: Milestone) => {
+    const start = milestone.startDate ? new Date(milestone.startDate) : 
+                  milestone.date ? new Date(milestone.date) : null;
+    const end = milestone.endDate ? new Date(milestone.endDate) : 
+                milestone.date ? new Date(milestone.date) : null;
+    
+    if (!start) return null;
+    
+    const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+    const startOffset = (start.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+    const duration = end ? (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) : 1;
+    
+    return {
+      left: `${(startOffset / totalDays) * 100}%`,
+      width: `${Math.max((duration / totalDays) * 100, 2)}%`,
+    };
   };
-
-  // Prepare milestones with calculated dates for timeline
-  const milestonesWithDates = useMemo(() => {
-    return projectMilestones
-      .map(m => ({
-        ...m,
-        calculatedDate: getMilestoneDate(m),
-      }))
-      .filter(m => m.calculatedDate !== null)
-      .sort((a, b) => a.calculatedDate!.getTime() - b.calculatedDate!.getTime());
-  }, [projectMilestones]);
 
   const getTaskPosition = (task: Task) => {
     if (!task.startDate || !task.endDate) return null;
@@ -200,20 +146,13 @@ export const ProjectGanttChart = ({
   const getTodayPosition = () => {
     // Use Brazil timezone for accurate current day
     const now = new Date();
-    // Convert to Brazil time (UTC-3)
-    const brazilOffset = -3 * 60; // minutes
+    const brazilOffset = -3 * 60;
     const localOffset = now.getTimezoneOffset();
     const diffMinutes = localOffset + brazilOffset;
     const today = new Date(now.getTime() + diffMinutes * 60 * 1000);
     today.setHours(12, 0, 0, 0);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (today.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    return `${(offset / totalDays) * 100}%`;
-  };
-
-  const getDatePosition = (date: Date) => {
-    const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    const offset = (date.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
   };
 
@@ -231,32 +170,43 @@ export const ProjectGanttChart = ({
     return newDate.toISOString().split('T')[0];
   }, [dateRange]);
 
-  // Handle drag start
+  // Handle drag
   const handleDragStart = (milestoneId: string) => {
     setDraggingMilestone(milestoneId);
   };
 
-  // Handle drag end
   const handleDragEnd = (e: React.DragEvent, milestoneId: string) => {
     if (!draggingMilestone) return;
     
     const newDate = getDateFromPosition(e.clientX);
     if (newDate) {
-      onUpdateMilestone?.(milestoneId, { date: newDate });
+      onUpdateMilestone?.(milestoneId, { startDate: newDate });
     }
     setDraggingMilestone(null);
   };
 
-  // Handle drop
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (!draggingMilestone) return;
     
     const newDate = getDateFromPosition(e.clientX);
     if (newDate) {
-      onUpdateMilestone?.(draggingMilestone, { date: newDate });
+      onUpdateMilestone?.(draggingMilestone, { startDate: newDate });
     }
     setDraggingMilestone(null);
+  };
+
+  // Toggle group collapse
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
   };
 
   // Toggle milestone completion
@@ -275,62 +225,18 @@ export const ProjectGanttChart = ({
   return (
     <TooltipProvider>
     <div className="space-y-4">
-      {/* Removed Progress Indicator as requested */}
-
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex gap-3">
-          <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Agrupar por" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="responsible">Responsável</SelectItem>
-              <SelectItem value="status">Status</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {onAddMilestone && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onAddMilestone}
-            >
-              <Flag className="w-4 h-4 mr-2" />
-              Novo Marco
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground mr-2">Zoom:</span>
-          <div className="flex border border-border rounded-lg overflow-hidden">
-            <Button
-              variant={zoom === 'day' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setZoom('day')}
-              className="rounded-none"
-            >
-              Dia
-            </Button>
-            <Button
-              variant={zoom === 'week' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setZoom('week')}
-              className="rounded-none"
-            >
-              Semana
-            </Button>
-            <Button
-              variant={zoom === 'month' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setZoom('month')}
-              className="rounded-none"
-            >
-              Mês
-            </Button>
-          </div>
-        </div>
+      {/* Simple Toolbar - Only Add Milestone */}
+      <div className="flex gap-3 items-center">
+        {onAddMilestone && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onAddMilestone}
+          >
+            <Flag className="w-4 h-4 mr-2" />
+            Novo Marco
+          </Button>
+        )}
       </div>
 
       {/* Gantt Chart */}
@@ -339,9 +245,9 @@ export const ProjectGanttChart = ({
           <div className="min-w-[800px]">
             {/* Header */}
             <div className="flex border-b border-border">
-            <div className="w-56 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
-              {groupBy === 'responsible' ? 'Responsável' : 'Status'}
-            </div>
+              <div className="w-56 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
+                Responsável
+              </div>
               <div className="flex-1 flex relative">
                 {columns.map((col, i) => (
                   <div 
@@ -354,9 +260,11 @@ export const ProjectGanttChart = ({
               </div>
             </div>
 
-            {/* Milestone Timeline Rows - One per milestone */}
-            {milestonesWithDates.map((milestone, index) => {
+            {/* Milestone Rows */}
+            {projectMilestones.map((milestone, index) => {
+              const position = getMilestonePosition(milestone);
               const isCompleted = milestone.completed;
+              
               return (
                 <div key={milestone.id} className="flex border-b border-border bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20">
                   <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2 bg-amber-100/50 dark:bg-amber-900/30">
@@ -374,97 +282,99 @@ export const ProjectGanttChart = ({
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleDrop}
                   >
-                    {/* Milestone bar - showing single date marker with visual width */}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <div
-                          draggable
-                          onDragStart={() => handleDragStart(milestone.id)}
-                          onDragEnd={(e) => handleDragEnd(e, milestone.id)}
-                          className={cn(
-                            "absolute top-2 h-8 rounded-md cursor-grab transition-all hover:shadow-lg group",
-                            draggingMilestone === milestone.id && "opacity-50 cursor-grabbing",
-                            isCompleted ? "opacity-80" : ""
-                          )}
-                          style={{
-                            left: `calc(${getDatePosition(milestone.calculatedDate!)} - 60px)`,
-                            width: '120px',
-                            backgroundColor: milestone.color || '#EAB308',
-                          }}
-                        >
-                          <div className="h-full flex items-center justify-center px-2 text-xs text-white font-medium gap-1">
-                            {isCompleted && <CheckCircle2 className="w-3.5 h-3.5" />}
-                            <span className="truncate">{milestone.calculatedDate!.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                          </div>
-                          {/* Diamond marker at center */}
-                          <div 
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-sm rotate-45 shadow"
-                          />
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent side="top" className="w-64 p-3">
-                        <div className="space-y-3">
-                          <div>
-                            <p className="font-semibold">{milestone.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {milestone.calculatedDate!.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                            </p>
-                            {milestone.description && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {milestone.description}
-                              </p>
+                    {position && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div
+                            draggable
+                            onDragStart={() => handleDragStart(milestone.id)}
+                            onDragEnd={(e) => handleDragEnd(e, milestone.id)}
+                            className={cn(
+                              "absolute top-2 h-8 rounded-md cursor-grab transition-all hover:shadow-lg",
+                              draggingMilestone === milestone.id && "opacity-50 cursor-grabbing",
+                              isCompleted ? "opacity-80" : ""
                             )}
+                            style={{
+                              left: position.left,
+                              width: position.width,
+                              minWidth: '80px',
+                              backgroundColor: milestone.color || '#EAB308',
+                            }}
+                          >
+                            <div className="h-full flex items-center justify-center px-2 text-xs text-white font-medium gap-1">
+                              {isCompleted && <CheckCircle2 className="w-3.5 h-3.5" />}
+                              <span className="truncate">
+                                {milestone.startDate && new Date(milestone.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                {milestone.endDate && ` - ${new Date(milestone.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 py-2 border-t">
-                            <Checkbox
-                              id={`complete-${milestone.id}`}
-                              checked={milestone.completed}
-                              onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
-                            />
-                            <label 
-                              htmlFor={`complete-${milestone.id}`}
-                              className="text-sm cursor-pointer"
-                            >
-                              Marcar como concluído
-                            </label>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" className="w-64 p-3">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="font-semibold">{milestone.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {milestone.startDate && new Date(milestone.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                {milestone.endDate && ` até ${new Date(milestone.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`}
+                              </p>
+                              {milestone.description && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {milestone.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 py-2 border-t">
+                              <Checkbox
+                                id={`complete-${milestone.id}`}
+                                checked={milestone.completed}
+                                onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
+                              />
+                              <label 
+                                htmlFor={`complete-${milestone.id}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                Marcar como concluído
+                              </label>
+                            </div>
+                            <div className="flex gap-2 pt-2 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => onEditMilestone?.(milestone)}
+                              >
+                                <Pencil className="w-3.5 h-3.5 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  if (confirm('Tem certeza que deseja excluir este marco?')) {
+                                    onDeleteMilestone?.(milestone.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                Excluir
+                              </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground text-center pt-2">
+                              <GripHorizontal className="w-3 h-3 inline mr-1" />
+                              Arraste para reposicionar
+                            </p>
                           </div>
-                          <div className="flex gap-2 pt-2 border-t">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => onEditMilestone?.(milestone)}
-                            >
-                              <Pencil className="w-3.5 h-3.5 mr-1" />
-                              Editar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => {
-                                if (confirm('Tem certeza que deseja excluir este marco?')) {
-                                  onDeleteMilestone?.(milestone.id);
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5 mr-1" />
-                              Excluir
-                            </Button>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground text-center pt-2">
-                            <GripHorizontal className="w-3 h-3 inline mr-1" />
-                            Arraste para reposicionar
-                          </p>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
                 </div>
               );
             })}
 
-            {/* Body */}
+            {/* Body - Tasks grouped by responsible */}
             <div className="relative">
               {/* Today line */}
               <div 
@@ -474,76 +384,129 @@ export const ProjectGanttChart = ({
                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary" />
               </div>
 
-              {groupedTasks.map((group) => (
-                <div key={group.id}>
-                  {/* Group Header */}
-                  <div className="flex border-b border-border bg-muted/30">
-                    <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2">
-                      {group.color && (
-                        <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: group.color }}
-                        />
-                      )}
-                      <span className="truncate">{group.name}</span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">({group.tasks.length})</span>
+              {groupedTasks.map((group) => {
+                const isCollapsed = collapsedGroups.has(group.id);
+                
+                return (
+                  <div key={group.id}>
+                    {/* Group Header - Collapsible */}
+                    <div 
+                      className="flex border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => toggleGroup(group.id)}
+                    >
+                      <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2">
+                        {isCollapsed ? (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        {group.color && (
+                          <div 
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: group.color }}
+                          />
+                        )}
+                        <span className="truncate">{group.name}</span>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">({group.tasks.length})</span>
+                      </div>
+                      <div className="flex-1" />
                     </div>
-                    <div className="flex-1" />
-                  </div>
 
-                  {/* Tasks */}
-                  {group.tasks.map((task) => {
-                    const position = getTaskPosition(task);
-                    const overdue = isTaskOverdue(task);
-                    const person = people.find(p => p.id === task.responsibleId);
+                    {/* Tasks - Collapsible */}
+                    {!isCollapsed && (
+                      <>
+                        {group.tasks.map((task) => {
+                          const position = getTaskPosition(task);
+                          const overdue = isTaskOverdue(task);
+                          const person = people.find(p => p.id === task.responsibleId);
 
-                    return (
-                      <div key={task.id} className="flex border-b border-border/50 hover:bg-muted/20">
-                        <div className="w-56 flex-shrink-0 p-3 text-sm flex items-center gap-2">
-                          {person && <AvatarCircle name={person.name} color={person.color} size="sm" />}
-                          <span className={cn("truncate", overdue && "text-status-blocked")}>
-                            {task.name}
-                          </span>
-                        </div>
-                        <div className="flex-1 relative h-12">
-                          {position && (
-                            <div
-                              className={cn(
-                                "absolute top-2 h-8 rounded-md cursor-pointer transition-all hover:shadow-md",
-                                overdue ? "bg-status-blocked" : 
-                                task.status === 'completed' ? "bg-status-completed" :
-                                task.status === 'in_progress' ? "bg-status-progress" :
-                                task.status === 'blocked' ? "bg-status-blocked" :
-                                "bg-status-pending"
-                              )}
-                              style={{
-                                left: position.left,
-                                width: position.width,
-                                minWidth: '20px',
-                              }}
-                            >
-                              <div className="h-full flex items-center px-2 text-xs text-white font-medium truncate">
-                                {task.name}
+                          return (
+                            <div key={task.id} className="flex border-b border-border/50 hover:bg-muted/20 group/task">
+                              <div className="w-56 flex-shrink-0 p-3 text-sm flex items-center gap-2 pl-10">
+                                {person && <AvatarCircle name={person.name} color={person.color} size="sm" />}
+                                <span className={cn("truncate flex-1", overdue && "text-status-blocked")}>
+                                  {task.name}
+                                </span>
+                                <div className="flex gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                  {onEditTask && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditTask(task);
+                                      }}
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                  {onDeleteTask && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Excluir tarefa?')) {
+                                          onDeleteTask(task.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex-1 relative h-12">
+                                {position && (
+                                  <div
+                                    className={cn(
+                                      "absolute top-2 h-8 rounded-md cursor-pointer transition-all hover:shadow-md",
+                                      overdue ? "bg-status-blocked" : 
+                                      task.status === 'completed' ? "bg-status-completed" :
+                                      task.status === 'in_progress' ? "bg-status-progress" :
+                                      task.status === 'blocked' ? "bg-status-blocked" :
+                                      "bg-status-pending"
+                                    )}
+                                    style={{
+                                      left: position.left,
+                                      width: position.width,
+                                      minWidth: '20px',
+                                    }}
+                                  >
+                                    <div className="h-full flex items-center px-2 text-xs text-white font-medium truncate">
+                                      {task.name}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          )}
-
-                          {/* Sprint marker */}
-                          {task.sprintDate && (
-                            <div
-                              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-purple-500 transform rotate-45 z-20"
-                              style={{
-                                left: `${((new Date(task.sprintDate).getTime() - dateRange.start.getTime()) / (dateRange.end.getTime() - dateRange.start.getTime())) * 100}%`,
-                              }}
-                              title={`Sprint: ${new Date(task.sprintDate).toLocaleDateString('pt-BR')}`}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                          );
+                        })}
+                        
+                        {/* Add Task Button inside group */}
+                        {onAddTask && (
+                          <div className="flex border-b border-border/50">
+                            <div className="w-56 flex-shrink-0 p-2 pl-10">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={onAddTask}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Nova tarefa
+                              </Button>
+                            </div>
+                            <div className="flex-1" />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -71,7 +71,8 @@ export const PhaseManagerSheet = ({
   const projectMilestones = milestones.filter(m => m.projectId === projectId);
 
   const getMilestoneCount = (phaseId: string) => {
-    return projectMilestones.filter(m => m.phaseId === phaseId).length;
+    // Milestones no longer have phaseId, return 0
+    return 0;
   };
 
   const handleAddPhase = async () => {
