@@ -318,7 +318,7 @@ export const ColumnManagerSheet = ({
             </Button>
           )}
         </SheetTrigger>
-        <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetContent className="w-full sm:w-[600px] sm:max-w-[600px]">
           <SheetHeader>
             <SheetTitle>Gerenciar Colunas</SheetTitle>
             <SheetDescription>
@@ -327,21 +327,20 @@ export const ColumnManagerSheet = ({
           </SheetHeader>
 
           <div className="mt-6 space-y-4 max-h-[calc(100vh-180px)] overflow-y-auto pr-2">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Arraste para reordenar, clique para renomear</p>
-              </div>
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-muted-foreground">Arraste para reordenar, clique para renomear</p>
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   onClick={handleRestoreDefaults} 
                   size="sm" 
                   variant="outline"
                   disabled={isRestoringDefaults}
+                  className="flex-1 sm:flex-none"
                 >
                   <RotateCcw className={cn("w-4 h-4 mr-2", isRestoringDefaults && "animate-spin")} />
                   Restaurar Padrão
                 </Button>
-                <Button onClick={openCreateDialog} size="sm">
+                <Button onClick={openCreateDialog} size="sm" className="flex-1 sm:flex-none">
                   <Plus className="w-4 h-4 mr-2" />
                   Nova Coluna
                 </Button>
