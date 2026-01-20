@@ -560,6 +560,7 @@ const ProjectDetail = () => {
               phases={projectPhases} 
               people={people} 
               projectId={projectId || ''} 
+              customColumns={customColumns}
             />
           </TabsContent>
         </Tabs>
