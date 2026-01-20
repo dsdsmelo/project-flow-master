@@ -17,11 +17,13 @@ import { AdminStatsCards } from '@/components/admin/AdminStatsCards';
 import { AdminUsersTab, UserWithSubscription } from '@/components/admin/AdminUsersTab';
 import { AdminLogsTab } from '@/components/admin/AdminLogsTab';
 import { AdminInfraTab } from '@/components/admin/AdminInfraTab';
+import { TwoFactorSetup } from '@/components/admin/TwoFactorSetup';
 
 const AdminPanel = () => {
   const [users, setUsers] = useState<UserWithSubscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [adminEmail, setAdminEmail] = useState('');
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeSubscriptions: 0,
@@ -34,12 +36,19 @@ const AdminPanel = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Check admin session
+  // Check admin session and get email
   useEffect(() => {
     const adminAuth = sessionStorage.getItem('adminAuthenticated');
     if (!adminAuth) {
       navigate('/admin/login');
+      return;
     }
+    
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        setAdminEmail(data.user.email);
+      }
+    });
   }, [navigate]);
 
   const handleLogout = async () => {
@@ -174,7 +183,7 @@ const AdminPanel = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="overview" className="gap-2">
               <Activity className="w-4 h-4" />
               <span className="hidden sm:inline">Visão Geral</span>
@@ -190,6 +199,10 @@ const AdminPanel = () => {
             <TabsTrigger value="infra" className="gap-2">
               <Server className="w-4 h-4" />
               <span className="hidden sm:inline">Infraestrutura</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="gap-2">
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Segurança</span>
             </TabsTrigger>
           </TabsList>
 
@@ -208,6 +221,15 @@ const AdminPanel = () => {
 
           <TabsContent value="infra">
             <AdminInfraTab />
+          </TabsContent>
+
+          <TabsContent value="security">
+            <div className="space-y-6">
+              <TwoFactorSetup 
+                userId={sessionStorage.getItem('adminUserId') || ''} 
+                userEmail={adminEmail}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
