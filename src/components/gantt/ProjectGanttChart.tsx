@@ -4,7 +4,7 @@ import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Phase, Milestone } from '@/lib/types';
-import { Flag, Plus } from 'lucide-react';
+import { Flag, Plus, Diamond } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -47,22 +47,35 @@ export const ProjectGanttChart = ({
     return milestones.filter(m => m.projectId === projectId);
   }, [milestones, projectId]);
 
+  // Filter phases for this project
+  const projectPhases = useMemo(() => {
+    return phases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order);
+  }, [phases, projectId]);
+
   // Calculate date range based on project tasks
   const dateRange = useMemo(() => {
     const dates = tasks.flatMap(t => [t.startDate, t.endDate].filter(Boolean)) as string[];
-    if (dates.length === 0) {
+    
+    // Include milestone dates in range calculation
+    const milestoneDates = projectMilestones
+      .filter(m => !m.usePhaseEndDate && m.date)
+      .map(m => m.date!);
+    
+    const allDates = [...dates, ...milestoneDates];
+    
+    if (allDates.length === 0) {
       const today = new Date();
       return {
         start: new Date(today.getFullYear(), today.getMonth(), 1),
         end: new Date(today.getFullYear(), today.getMonth() + 2, 0),
       };
     }
-    const startDate = new Date(Math.min(...dates.map(d => new Date(d).getTime())));
-    const endDate = new Date(Math.max(...dates.map(d => new Date(d).getTime())));
+    const startDate = new Date(Math.min(...allDates.map(d => new Date(d).getTime())));
+    const endDate = new Date(Math.max(...allDates.map(d => new Date(d).getTime())));
     startDate.setDate(startDate.getDate() - 7);
     endDate.setDate(endDate.getDate() + 14);
     return { start: startDate, end: endDate };
-  }, [tasks]);
+  }, [tasks, projectMilestones]);
 
   // Generate columns based on zoom level
   const columns = useMemo(() => {
@@ -92,11 +105,6 @@ export const ProjectGanttChart = ({
     }
     return cols;
   }, [dateRange, zoom]);
-
-  // Filter phases for this project
-  const projectPhases = useMemo(() => {
-    return phases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order);
-  }, [phases, projectId]);
 
   // Group tasks
   const groupedTasks = useMemo(() => {
@@ -144,6 +152,31 @@ export const ProjectGanttChart = ({
     return groups;
   }, [tasks, projectPhases, people, groupBy]);
 
+  // Calculate milestone date (either manual or from phase's last task)
+  const getMilestoneDate = (milestone: Milestone): Date | null => {
+    if (!milestone.usePhaseEndDate && milestone.date) {
+      return new Date(milestone.date);
+    }
+    
+    // Find the phase and get its last task's end date
+    const phaseTasks = tasks.filter(t => t.phaseId === milestone.phaseId && t.endDate);
+    if (phaseTasks.length === 0) return null;
+    
+    const lastEndDate = new Date(Math.max(...phaseTasks.map(t => new Date(t.endDate!).getTime())));
+    return lastEndDate;
+  };
+
+  // Prepare milestones with calculated dates for timeline
+  const milestonesWithDates = useMemo(() => {
+    return projectMilestones
+      .map(m => ({
+        ...m,
+        calculatedDate: getMilestoneDate(m),
+      }))
+      .filter(m => m.calculatedDate !== null)
+      .sort((a, b) => a.calculatedDate!.getTime() - b.calculatedDate!.getTime());
+  }, [projectMilestones, tasks]);
+
   const getTaskPosition = (task: Task) => {
     if (!task.startDate || !task.endDate) return null;
     
@@ -161,14 +194,13 @@ export const ProjectGanttChart = ({
 
   const getTodayPosition = () => {
     const today = new Date();
-    // Normalize to start of day for accurate positioning
     today.setHours(12, 0, 0, 0);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (today.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
   };
 
-  const getMilestonePosition = (date: Date) => {
+  const getDatePosition = (date: Date) => {
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (date.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
@@ -276,6 +308,79 @@ export const ProjectGanttChart = ({
               </div>
             </div>
 
+            {/* Milestone Timeline Row - Continuous Line */}
+            {milestonesWithDates.length > 0 && (
+              <div className="flex border-b border-border bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20">
+                <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2 bg-amber-100/50 dark:bg-amber-900/30">
+                  <Flag className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-amber-800 dark:text-amber-300">Marcos</span>
+                  <span className="text-xs text-amber-600/70 dark:text-amber-400/70">
+                    ({milestonesWithDates.length})
+                  </span>
+                </div>
+                <div className="flex-1 relative h-14">
+                  {/* Continuous connecting line */}
+                  {milestonesWithDates.length > 1 && (
+                    <div 
+                      className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400"
+                      style={{
+                        left: getDatePosition(milestonesWithDates[0].calculatedDate!),
+                        width: `calc(${getDatePosition(milestonesWithDates[milestonesWithDates.length - 1].calculatedDate!)} - ${getDatePosition(milestonesWithDates[0].calculatedDate!)})`,
+                      }}
+                    />
+                  )}
+                  
+                  {/* Milestone markers */}
+                  {milestonesWithDates.map((milestone, index) => {
+                    const phase = projectPhases.find(p => p.id === milestone.phaseId);
+                    return (
+                      <Tooltip key={milestone.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 cursor-pointer transition-all hover:scale-125"
+                            style={{
+                              left: getDatePosition(milestone.calculatedDate!),
+                            }}
+                          >
+                            <div 
+                              className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-lg flex items-center justify-center"
+                              style={{ 
+                                backgroundColor: milestone.color || '#EAB308',
+                              }}
+                            >
+                              <Diamond className="w-3 h-3 text-white" />
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <div className="space-y-1">
+                            <p className="font-semibold">{milestone.name}</p>
+                            {phase && (
+                              <p className="text-xs flex items-center gap-1">
+                                <span 
+                                  className="w-2 h-2 rounded-full" 
+                                  style={{ backgroundColor: phase.color }} 
+                                />
+                                {phase.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {milestone.calculatedDate!.toLocaleDateString('pt-BR')}
+                            </p>
+                            {milestone.description && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {milestone.description}
+                              </p>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Body */}
             <div className="relative">
               {/* Today line */}
@@ -350,59 +455,10 @@ export const ProjectGanttChart = ({
                               title={`Sprint: ${new Date(task.sprintDate).toLocaleDateString('pt-BR')}`}
                             />
                           )}
-
                         </div>
                       </div>
                     );
                   })}
-
-                  {/* Milestone row for this phase (only shown when grouped by phase) */}
-                  {groupBy === 'phase' && projectMilestones.filter(m => m.phaseId === group.id).length > 0 && (
-                    <div className="flex border-b border-border/50 bg-amber-50/50 dark:bg-amber-900/10">
-                      <div className="w-56 flex-shrink-0 p-3 text-sm flex items-center gap-2">
-                        <Flag className="w-4 h-4 text-amber-500" />
-                        <span className="font-medium text-amber-700 dark:text-amber-400">Marcos</span>
-                      </div>
-                      <div className="flex-1 relative h-12">
-                        {projectMilestones
-                          .filter(m => m.phaseId === group.id)
-                          .map((milestone) => {
-                            // Position milestone at the end of the phase's last task
-                            const phaseTasks = group.tasks.filter(t => t.endDate);
-                            const lastEndDate = phaseTasks.length > 0 
-                              ? new Date(Math.max(...phaseTasks.map(t => new Date(t.endDate!).getTime())))
-                              : new Date();
-                            
-                            return (
-                              <Tooltip key={milestone.id}>
-                                <TooltipTrigger asChild>
-                                  <div
-                                    className="absolute top-1/2 -translate-y-1/2 z-20 cursor-pointer transition-transform hover:scale-110"
-                                    style={{
-                                      left: getMilestonePosition(lastEndDate),
-                                    }}
-                                  >
-                                    <Flag 
-                                      className="w-6 h-6" 
-                                      style={{ 
-                                        color: milestone.color || '#EAB308',
-                                        fill: milestone.color || '#EAB308',
-                                      }} 
-                                    />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="font-medium">{milestone.name}</p>
-                                  {milestone.description && (
-                                    <p className="text-xs text-muted-foreground">{milestone.description}</p>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -433,7 +489,9 @@ export const ProjectGanttChart = ({
           <span>Sprint</span>
         </div>
         <div className="flex items-center gap-2">
-          <Flag className="w-4 h-4 text-amber-500 fill-amber-500" />
+          <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+            <Diamond className="w-3 h-3 text-white" />
+          </div>
           <span>Marco</span>
         </div>
         <div className="flex items-center gap-2">

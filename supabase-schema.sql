@@ -103,6 +103,22 @@ CREATE TABLE IF NOT EXISTS custom_columns (
 );
 
 -- ============================================
+-- MILESTONES TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS milestones (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  phase_id UUID NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
+  description TEXT,
+  color TEXT DEFAULT '#EAB308',
+  date DATE,
+  use_phase_end_date BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_phases_project_id ON phases(project_id);
