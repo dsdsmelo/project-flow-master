@@ -4,7 +4,7 @@ import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Phase, Milestone } from '@/lib/types';
-import { Flag, Plus, Diamond } from 'lucide-react';
+import { Flag, Diamond } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -152,18 +152,12 @@ export const ProjectGanttChart = ({
     return groups;
   }, [tasks, projectPhases, people, groupBy]);
 
-  // Calculate milestone date (either manual or from phase's last task)
+  // Calculate milestone date - agora só usa data manual
   const getMilestoneDate = (milestone: Milestone): Date | null => {
-    if (!milestone.usePhaseEndDate && milestone.date) {
+    if (milestone.date) {
       return new Date(milestone.date);
     }
-    
-    // Find the phase and get its last task's end date
-    const phaseTasks = tasks.filter(t => t.phaseId === milestone.phaseId && t.endDate);
-    if (phaseTasks.length === 0) return null;
-    
-    const lastEndDate = new Date(Math.max(...phaseTasks.map(t => new Date(t.endDate!).getTime())));
-    return lastEndDate;
+    return null;
   };
 
   // Prepare milestones with calculated dates for timeline
@@ -175,7 +169,7 @@ export const ProjectGanttChart = ({
       }))
       .filter(m => m.calculatedDate !== null)
       .sort((a, b) => a.calculatedDate!.getTime() - b.calculatedDate!.getTime());
-  }, [projectMilestones, tasks]);
+  }, [projectMilestones]);
 
   const getTaskPosition = (task: Task) => {
     if (!task.startDate || !task.endDate) return null;
@@ -232,26 +226,14 @@ export const ProjectGanttChart = ({
           </Select>
           
           {onAddMilestone && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={onAddMilestone}
-                    disabled={projectPhases.length === 0}
-                  >
-                    <Flag className="w-4 h-4 mr-2" />
-                    Novo Marco
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {projectPhases.length === 0 && (
-                <TooltipContent>
-                  <p>Cadastre pelo menos uma fase/sprint para adicionar marcos</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onAddMilestone}
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              Novo Marco
+            </Button>
           )}
         </div>
 
@@ -332,7 +314,6 @@ export const ProjectGanttChart = ({
                   
                   {/* Milestone markers */}
                   {milestonesWithDates.map((milestone, index) => {
-                    const phase = projectPhases.find(p => p.id === milestone.phaseId);
                     return (
                       <Tooltip key={milestone.id}>
                         <TooltipTrigger asChild>
@@ -355,15 +336,6 @@ export const ProjectGanttChart = ({
                         <TooltipContent side="top" className="max-w-xs">
                           <div className="space-y-1">
                             <p className="font-semibold">{milestone.name}</p>
-                            {phase && (
-                              <p className="text-xs flex items-center gap-1">
-                                <span 
-                                  className="w-2 h-2 rounded-full" 
-                                  style={{ backgroundColor: phase.color }} 
-                                />
-                                {phase.name}
-                              </p>
-                            )}
                             <p className="text-xs text-muted-foreground">
                               {milestone.calculatedDate!.toLocaleDateString('pt-BR')}
                             </p>

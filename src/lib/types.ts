@@ -77,11 +77,11 @@ export interface Milestone {
   id: string;
   name: string;
   projectId: string;
-  phaseId: string;
+  phaseId?: string; // Opcional - mantido para compatibilidade
   description?: string;
   color?: string;
-  date?: string; // Data específica (se definida) ou usa a data final da fase
-  usePhaseEndDate: boolean; // true = usa data final da fase automaticamente
+  date?: string; // Data específica do marco
+  usePhaseEndDate?: boolean; // Depreciado - mantido para compatibilidade
 }
 
 export interface MeetingNote {
