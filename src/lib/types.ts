@@ -24,6 +24,9 @@ export interface Phase {
   order: number;
   color?: string;
   projectId: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
 }
 
 export interface Cell {
@@ -79,10 +82,8 @@ export interface Milestone {
   projectId: string;
   description?: string;
   color?: string;
-  startDate?: string; // Data de início do marco
-  endDate?: string; // Data de término do marco
-  date?: string; // Depreciado - mantido para compatibilidade
-  completed?: boolean; // Indica se o marco foi concluído
+  date: string; // Data única do marco (diamante)
+  completed?: boolean;
 }
 
 export interface MeetingNote {

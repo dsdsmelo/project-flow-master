@@ -352,6 +352,9 @@ function mapPhase(data: any): Phase {
     order: data.order,
     color: data.color,
     projectId: data.project_id,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    description: data.description,
   };
 }
 
@@ -428,6 +431,9 @@ function phaseToDb(phase: Partial<Phase>): any {
   if (phase.order !== undefined) result.order = phase.order;
   if (phase.color !== undefined) result.color = phase.color;
   if (phase.projectId !== undefined) result.project_id = phase.projectId;
+  if (phase.startDate !== undefined) result.start_date = phase.startDate;
+  if (phase.endDate !== undefined) result.end_date = phase.endDate;
+  if (phase.description !== undefined) result.description = phase.description;
   return result;
 }
 
@@ -481,9 +487,7 @@ function mapMilestone(data: any): Milestone {
     projectId: data.project_id,
     description: data.description,
     color: data.color,
-    startDate: data.start_date,
-    endDate: data.end_date,
-    date: data.date,
+    date: data.date || data.start_date || '',
     completed: data.completed ?? false,
   };
 }
@@ -494,8 +498,6 @@ function milestoneToDb(milestone: Partial<Milestone>): any {
   if (milestone.projectId !== undefined) result.project_id = milestone.projectId;
   if (milestone.description !== undefined) result.description = milestone.description;
   if (milestone.color !== undefined) result.color = milestone.color;
-  if (milestone.startDate !== undefined) result.start_date = milestone.startDate;
-  if (milestone.endDate !== undefined) result.end_date = milestone.endDate;
   if (milestone.date !== undefined) result.date = milestone.date;
   if (milestone.completed !== undefined) result.completed = milestone.completed;
   return result;
