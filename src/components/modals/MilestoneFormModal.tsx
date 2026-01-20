@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useData } from '@/contexts/DataContext';
 import { Milestone } from '@/lib/types';
 import { toast } from 'sonner';
-import { Calendar } from 'lucide-react';
+import { Calendar, Diamond } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -45,8 +45,7 @@ const milestoneSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
   color: z.string().optional(),
-  startDate: z.string().min(1, 'Data de início é obrigatória'),
-  endDate: z.string().optional(),
+  date: z.string().min(1, 'Data é obrigatória'),
 });
 
 type MilestoneFormData = z.infer<typeof milestoneSchema>;
@@ -59,9 +58,9 @@ interface MilestoneFormModalProps {
 }
 
 const colorOptions = [
-  { value: '#EAB308', label: 'Amarelo' },
-  { value: '#22C55E', label: 'Verde' },
   { value: '#3B82F6', label: 'Azul' },
+  { value: '#22C55E', label: 'Verde' },
+  { value: '#EAB308', label: 'Amarelo' },
   { value: '#8B5CF6', label: 'Roxo' },
   { value: '#EF4444', label: 'Vermelho' },
   { value: '#F97316', label: 'Laranja' },
@@ -80,9 +79,8 @@ export const MilestoneFormModal = ({
     defaultValues: {
       name: '',
       description: '',
-      color: '#EAB308',
-      startDate: '',
-      endDate: '',
+      color: '#3B82F6',
+      date: '',
     },
   });
 
@@ -91,17 +89,15 @@ export const MilestoneFormModal = ({
       form.reset({
         name: milestone.name,
         description: milestone.description || '',
-        color: milestone.color || '#EAB308',
-        startDate: milestone.startDate || milestone.date || '',
-        endDate: milestone.endDate || '',
+        color: milestone.color || '#3B82F6',
+        date: milestone.date || '',
       });
     } else {
       form.reset({
         name: '',
         description: '',
-        color: '#EAB308',
-        startDate: '',
-        endDate: '',
+        color: '#3B82F6',
+        date: '',
       });
     }
   }, [milestone, open, form]);
@@ -113,8 +109,7 @@ export const MilestoneFormModal = ({
           name: data.name,
           description: data.description,
           color: data.color,
-          startDate: data.startDate,
-          endDate: data.endDate || undefined,
+          date: data.date,
         });
         toast.success('Marco atualizado com sucesso!');
       } else {
@@ -123,8 +118,7 @@ export const MilestoneFormModal = ({
           projectId,
           description: data.description,
           color: data.color,
-          startDate: data.startDate,
-          endDate: data.endDate || undefined,
+          date: data.date,
         });
         toast.success('Marco criado com sucesso!');
       }
@@ -139,108 +133,76 @@ export const MilestoneFormModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {milestone ? 'Editar Marco' : 'Novo Marco'}
-          </DialogTitle>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <Diamond className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <DialogTitle>
+                {milestone ? 'Editar Marco' : 'Novo Marco'}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Marcos são pontos importantes no cronograma
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome</FormLabel>
+                  <FormLabel>Nome do Marco</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Entrega Sprint 1, Go-Live, Fase Alpha, etc." {...field} />
+                    <Input placeholder="Ex: Go-Live, Entrega MVP, Aprovação..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data de Início</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), 'dd/MM/yyyy', { locale: ptBR })
-                            ) : (
-                              <span>Início</span>
-                            )}
-                            <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data de Término</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), 'dd/MM/yyyy', { locale: ptBR })
-                            ) : (
-                              <span>Término (opcional)</span>
-                            )}
-                            <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Data</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(new Date(field.value), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                          ) : (
+                            <span>Selecione a data do marco</span>
+                          )}
+                          <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -289,7 +251,8 @@ export const MilestoneFormModal = ({
                   <FormLabel>Descrição (opcional)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Descrição do marco..."
+                      placeholder="Descrição ou observações sobre este marco..."
+                      rows={2}
                       {...field}
                     />
                   </FormControl>
@@ -298,7 +261,7 @@ export const MilestoneFormModal = ({
               )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
