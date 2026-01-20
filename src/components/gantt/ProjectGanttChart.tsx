@@ -4,7 +4,7 @@ import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Phase, Milestone } from '@/lib/types';
-import { Flag, Diamond } from 'lucide-react';
+import { Flag, Diamond, Pencil, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -12,6 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +34,8 @@ interface ProjectGanttChartProps {
   projectId: string;
   milestones?: Milestone[];
   onAddMilestone?: () => void;
+  onEditMilestone?: (milestone: Milestone) => void;
+  onDeleteMilestone?: (milestoneId: string) => void;
 }
 
 export const ProjectGanttChart = ({ 
@@ -38,6 +45,8 @@ export const ProjectGanttChart = ({
   projectId, 
   milestones = [],
   onAddMilestone,
+  onEditMilestone,
+  onDeleteMilestone,
 }: ProjectGanttChartProps) => {
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('phase');
@@ -313,10 +322,10 @@ export const ProjectGanttChart = ({
                   )}
                   
                   {/* Milestone markers */}
-                  {milestonesWithDates.map((milestone, index) => {
+                  {milestonesWithDates.map((milestone) => {
                     return (
-                      <Tooltip key={milestone.id}>
-                        <TooltipTrigger asChild>
+                      <Popover key={milestone.id}>
+                        <PopoverTrigger asChild>
                           <div
                             className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 cursor-pointer transition-all hover:scale-125"
                             style={{
@@ -332,21 +341,47 @@ export const ProjectGanttChart = ({
                               <Diamond className="w-3 h-3 text-white" />
                             </div>
                           </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <div className="space-y-1">
-                            <p className="font-semibold">{milestone.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {milestone.calculatedDate!.toLocaleDateString('pt-BR')}
-                            </p>
-                            {milestone.description && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {milestone.description}
+                        </PopoverTrigger>
+                        <PopoverContent side="top" className="w-64 p-3">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="font-semibold">{milestone.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {milestone.calculatedDate!.toLocaleDateString('pt-BR')}
                               </p>
-                            )}
+                              {milestone.description && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {milestone.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-2 pt-2 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => onEditMilestone?.(milestone)}
+                              >
+                                <Pencil className="w-3.5 h-3.5 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  if (confirm('Tem certeza que deseja excluir este marco?')) {
+                                    onDeleteMilestone?.(milestone.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                Excluir
+                              </Button>
+                            </div>
                           </div>
-                        </TooltipContent>
-                      </Tooltip>
+                        </PopoverContent>
+                      </Popover>
                     );
                   })}
                 </div>
