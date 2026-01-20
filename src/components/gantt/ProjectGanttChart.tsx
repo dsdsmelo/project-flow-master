@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
-import { Task, Person, Phase, CustomColumn } from '@/lib/types';
-import { Flag } from 'lucide-react';
+import { Task, Person, Phase, Milestone } from '@/lib/types';
+import { Flag, Plus } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -12,6 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type ZoomLevel = 'day' | 'week' | 'month';
 type GroupBy = 'phase' | 'responsible' | 'status';
@@ -21,41 +27,25 @@ interface ProjectGanttChartProps {
   phases: Phase[];
   people: Person[];
   projectId: string;
-  customColumns?: CustomColumn[];
+  milestones?: Milestone[];
+  onAddMilestone?: () => void;
 }
 
-export const ProjectGanttChart = ({ tasks, phases, people, projectId, customColumns = [] }: ProjectGanttChartProps) => {
+export const ProjectGanttChart = ({ 
+  tasks, 
+  phases, 
+  people, 
+  projectId, 
+  milestones = [],
+  onAddMilestone,
+}: ProjectGanttChartProps) => {
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('phase');
 
-  // Get milestone columns for this project
-  const milestoneColumns = useMemo(() => {
-    return customColumns.filter(col => col.projectId === projectId && col.isMilestone && col.active && col.type === 'date');
-  }, [customColumns, projectId]);
-
-  // Get milestones from task custom values
-  const milestones = useMemo(() => {
-    const results: { date: Date; name: string; taskId: string; taskName: string }[] = [];
-    
-    milestoneColumns.forEach(col => {
-      tasks.forEach(task => {
-        const value = task.customValues?.[col.id];
-        if (value) {
-          const date = new Date(value);
-          if (!isNaN(date.getTime())) {
-            results.push({
-              date,
-              name: col.name,
-              taskId: task.id,
-              taskName: task.name,
-            });
-          }
-        }
-      });
-    });
-    
-    return results;
-  }, [milestoneColumns, tasks]);
+  // Get milestones for this project
+  const projectMilestones = useMemo(() => {
+    return milestones.filter(m => m.projectId === projectId);
+  }, [milestones, projectId]);
 
   // Calculate date range based on project tasks
   const dateRange = useMemo(() => {
@@ -193,6 +183,7 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId, customColu
   }
 
   return (
+    <TooltipProvider>
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -207,6 +198,13 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId, customColu
               <SelectItem value="status">Status</SelectItem>
             </SelectContent>
           </Select>
+          
+          {onAddMilestone && (
+            <Button variant="outline" size="sm" onClick={onAddMilestone}>
+              <Flag className="w-4 h-4 mr-2" />
+              Novo Marco
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -337,25 +335,58 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId, customColu
                             />
                           )}
 
-                          {/* Milestone markers for this task */}
-                          {milestones
-                            .filter(m => m.taskId === task.id)
-                            .map((milestone, idx) => (
-                              <div
-                                key={`${milestone.taskId}-${idx}`}
-                                className="absolute top-1/2 -translate-y-1/2 z-20 flex items-center justify-center"
-                                style={{
-                                  left: getMilestonePosition(milestone.date),
-                                }}
-                                title={`${milestone.name}: ${milestone.date.toLocaleDateString('pt-BR')}`}
-                              >
-                                <Flag className="w-5 h-5 text-amber-500 fill-amber-500" />
-                              </div>
-                            ))}
                         </div>
                       </div>
                     );
                   })}
+
+                  {/* Milestone row for this phase (only shown when grouped by phase) */}
+                  {groupBy === 'phase' && projectMilestones.filter(m => m.phaseId === group.id).length > 0 && (
+                    <div className="flex border-b border-border/50 bg-amber-50/50 dark:bg-amber-900/10">
+                      <div className="w-56 flex-shrink-0 p-3 text-sm flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-amber-500" />
+                        <span className="font-medium text-amber-700 dark:text-amber-400">Marcos</span>
+                      </div>
+                      <div className="flex-1 relative h-12">
+                        {projectMilestones
+                          .filter(m => m.phaseId === group.id)
+                          .map((milestone) => {
+                            // Position milestone at the end of the phase's last task
+                            const phaseTasks = group.tasks.filter(t => t.endDate);
+                            const lastEndDate = phaseTasks.length > 0 
+                              ? new Date(Math.max(...phaseTasks.map(t => new Date(t.endDate!).getTime())))
+                              : new Date();
+                            
+                            return (
+                              <Tooltip key={milestone.id}>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className="absolute top-1/2 -translate-y-1/2 z-20 cursor-pointer transition-transform hover:scale-110"
+                                    style={{
+                                      left: getMilestonePosition(lastEndDate),
+                                    }}
+                                  >
+                                    <Flag 
+                                      className="w-6 h-6" 
+                                      style={{ 
+                                        color: milestone.color || '#EAB308',
+                                        fill: milestone.color || '#EAB308',
+                                      }} 
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-medium">{milestone.name}</p>
+                                  {milestone.description && (
+                                    <p className="text-xs text-muted-foreground">{milestone.description}</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -395,5 +426,6 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId, customColu
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 };

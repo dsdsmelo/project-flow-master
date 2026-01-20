@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Person, Project, Phase, Cell, Task, CustomColumn } from '@/lib/types';
+import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone } from '@/lib/types';
 
 export function useSupabaseData() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -9,6 +9,7 @@ export function useSupabaseData() {
   const [cells, setCells] = useState<Cell[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +26,7 @@ export function useSupabaseData() {
         { data: cellsData, error: cellsError },
         { data: tasksData, error: tasksError },
         { data: columnsData, error: columnsError },
+        { data: milestonesData, error: milestonesError },
       ] = await Promise.all([
         supabase.from('people').select('*').order('name'),
         supabase.from('projects').select('*').order('name'),
@@ -32,6 +34,7 @@ export function useSupabaseData() {
         supabase.from('cells').select('*').order('name'),
         supabase.from('tasks').select('*').order('updated_at', { ascending: false }),
         supabase.from('custom_columns').select('*').order('order'),
+        supabase.from('milestones').select('*').order('name'),
       ]);
 
       if (peopleError) throw peopleError;
@@ -40,6 +43,7 @@ export function useSupabaseData() {
       if (cellsError) throw cellsError;
       if (tasksError) throw tasksError;
       if (columnsError) throw columnsError;
+      if (milestonesError) throw milestonesError;
 
       // Map snake_case to camelCase
       setPeople((peopleData || []).map(mapPerson));
@@ -48,6 +52,7 @@ export function useSupabaseData() {
       setCells((cellsData || []).map(mapCell));
       setTasks((tasksData || []).map(mapTask));
       setCustomColumns((columnsData || []).map(mapCustomColumn));
+      setMilestones((milestonesData || []).map(mapMilestone));
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setError(err.message);
@@ -229,12 +234,40 @@ export function useSupabaseData() {
     setCustomColumns(prev => prev.filter(c => c.id !== id));
   };
 
+  // CRUD operations for Milestones
+  const addMilestone = async (milestone: Omit<Milestone, 'id'>) => {
+    const { data, error } = await supabase
+      .from('milestones')
+      .insert([milestoneToDb(milestone)])
+      .select()
+      .single();
+    if (error) throw error;
+    const newMilestone = mapMilestone(data);
+    setMilestones(prev => [...prev, newMilestone]);
+    return newMilestone;
+  };
+
+  const updateMilestone = async (id: string, updates: Partial<Milestone>) => {
+    const { error } = await supabase
+      .from('milestones')
+      .update(milestoneToDb(updates))
+      .eq('id', id);
+    if (error) throw error;
+    setMilestones(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+  };
+
+  const deleteMilestone = async (id: string) => {
+    const { error } = await supabase.from('milestones').delete().eq('id', id);
+    if (error) throw error;
+    setMilestones(prev => prev.filter(m => m.id !== id));
+  };
+
   return {
     // Data
-    people, projects, phases, cells, tasks, customColumns,
+    people, projects, phases, cells, tasks, customColumns, milestones,
     loading, error,
     // State setters for local updates
-    setPeople, setProjects, setPhases, setCells, setTasks, setCustomColumns,
+    setPeople, setProjects, setPhases, setCells, setTasks, setCustomColumns, setMilestones,
     // Refresh
     refetch: fetchData,
     // People CRUD
@@ -249,6 +282,8 @@ export function useSupabaseData() {
     addTask, updateTask, deleteTask,
     // Custom Columns CRUD
     addCustomColumn, updateCustomColumn, deleteCustomColumn,
+    // Milestones CRUD
+    addMilestone, updateMilestone, deleteMilestone,
   };
 }
 
@@ -401,5 +436,26 @@ function customColumnToDb(column: Partial<CustomColumn>): any {
   if (column.isMilestone !== undefined) result.is_milestone = column.isMilestone;
   if (column.active !== undefined) result.active = column.active;
   if (column.standardField !== undefined) result.standard_field = column.standardField;
+  return result;
+}
+
+function mapMilestone(data: any): Milestone {
+  return {
+    id: data.id,
+    name: data.name,
+    projectId: data.project_id,
+    phaseId: data.phase_id,
+    description: data.description,
+    color: data.color,
+  };
+}
+
+function milestoneToDb(milestone: Partial<Milestone>): any {
+  const result: any = {};
+  if (milestone.name !== undefined) result.name = milestone.name;
+  if (milestone.projectId !== undefined) result.project_id = milestone.projectId;
+  if (milestone.phaseId !== undefined) result.phase_id = milestone.phaseId;
+  if (milestone.description !== undefined) result.description = milestone.description;
+  if (milestone.color !== undefined) result.color = milestone.color;
   return result;
 }
