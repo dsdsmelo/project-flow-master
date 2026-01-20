@@ -67,6 +67,7 @@ const ProjectDetail = () => {
   const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, updateMilestone, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskDefaultResponsible, setTaskDefaultResponsible] = useState<string | undefined>(undefined);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<typeof milestones[0] | undefined>(undefined);
   const [phaseManagerOpen, setPhaseManagerOpen] = useState(false);
@@ -503,7 +504,10 @@ const ProjectDetail = () => {
                   console.error('Error updating milestone:', err);
                 }
               }}
-              onAddTask={() => setTaskModalOpen(true)}
+              onAddTask={(responsibleId) => {
+                setTaskDefaultResponsible(responsibleId);
+                setTaskModalOpen(true);
+              }}
             />
           </TabsContent>
 
@@ -517,8 +521,12 @@ const ProjectDetail = () => {
       {/* Task Modal */}
       <TaskFormModal
         open={taskModalOpen}
-        onOpenChange={setTaskModalOpen}
+        onOpenChange={(open) => {
+          setTaskModalOpen(open);
+          if (!open) setTaskDefaultResponsible(undefined);
+        }}
         defaultProjectId={projectId}
+        defaultResponsibleId={taskDefaultResponsible}
       />
 
       {/* Milestone Modal */}
