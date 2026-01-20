@@ -285,7 +285,7 @@ const Landing = () => {
                   className="group"
                 >
                   {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-                  Assinar por R$ 99/mês
+                  Assinar por R$ 69/mês
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
                 <Link to="/auth">
@@ -576,7 +576,7 @@ const Landing = () => {
 
                   <div className="mb-6">
                     <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-5xl font-bold text-foreground">R$ 99</span>
+                      <span className="text-5xl font-bold text-foreground">R$ 69</span>
                       <span className="text-lg text-muted-foreground">/mês</span>
                     </div>
                   </div>
