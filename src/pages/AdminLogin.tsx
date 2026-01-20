@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff, Loader2, Mail, ArrowLeft, Smartphone } from 'lucide-react';
+import { Shield, Eye, EyeOff, Loader2, Mail, ArrowLeft, Smartphone, Lock, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +8,20 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import * as OTPAuth from 'otpauth';
 
-type ViewMode = 'login' | 'forgot-password' | 'reset-sent' | '2fa-verify';
+type ViewMode = 'login' | 'forgot-password' | 'reset-sent' | '2fa-verify' | '2fa-blocked';
 
 interface PendingAuth {
   userId: string;
   email: string;
 }
+
+interface LockoutState {
+  attempts: number;
+  lockedUntil: number | null;
+}
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -23,8 +31,83 @@ const AdminLogin = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('login');
   const [totpCode, setTotpCode] = useState('');
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
+  const [lockout, setLockout] = useState<LockoutState>({ attempts: 0, lockedUntil: null });
+  const [remainingTime, setRemainingTime] = useState<string>('');
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Load lockout state from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('admin_2fa_lockout');
+    if (stored) {
+      const parsed = JSON.parse(stored) as LockoutState;
+      if (parsed.lockedUntil && Date.now() < parsed.lockedUntil) {
+        setLockout(parsed);
+        setViewMode('2fa-blocked');
+      } else if (parsed.lockedUntil && Date.now() >= parsed.lockedUntil) {
+        // Lockout expired, clear it
+        localStorage.removeItem('admin_2fa_lockout');
+      } else {
+        setLockout(parsed);
+      }
+    }
+  }, []);
+
+  // Update remaining time for lockout
+  useEffect(() => {
+    if (!lockout.lockedUntil) return;
+
+    const updateTimer = () => {
+      const remaining = lockout.lockedUntil! - Date.now();
+      if (remaining <= 0) {
+        setLockout({ attempts: 0, lockedUntil: null });
+        localStorage.removeItem('admin_2fa_lockout');
+        setViewMode('login');
+        setRemainingTime('');
+        return;
+      }
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      setRemainingTime(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [lockout.lockedUntil]);
+
+  const recordFailedAttempt = () => {
+    const newAttempts = lockout.attempts + 1;
+    let newLockout: LockoutState;
+
+    if (newAttempts >= MAX_ATTEMPTS) {
+      newLockout = {
+        attempts: newAttempts,
+        lockedUntil: Date.now() + LOCKOUT_DURATION_MS,
+      };
+      setViewMode('2fa-blocked');
+      toast({
+        title: 'Conta bloqueada temporariamente',
+        description: `Muitas tentativas incorretas. Tente novamente em 15 minutos.`,
+        variant: 'destructive',
+      });
+    } else {
+      newLockout = { attempts: newAttempts, lockedUntil: null };
+      toast({
+        title: 'Código inválido',
+        description: `Tentativa ${newAttempts} de ${MAX_ATTEMPTS}. ${MAX_ATTEMPTS - newAttempts} tentativas restantes.`,
+        variant: 'destructive',
+      });
+    }
+
+    setLockout(newLockout);
+    localStorage.setItem('admin_2fa_lockout', JSON.stringify(newLockout));
+  };
+
+  const clearLockout = () => {
+    setLockout({ attempts: 0, lockedUntil: null });
+    localStorage.removeItem('admin_2fa_lockout');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +172,12 @@ const AdminLogin = () => {
   const verifyTOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check if locked out
+    if (lockout.lockedUntil && Date.now() < lockout.lockedUntil) {
+      setViewMode('2fa-blocked');
+      return;
+    }
+    
     if (!pendingAuth || totpCode.length !== 6) {
       toast({
         title: 'Código inválido',
@@ -125,10 +214,15 @@ const AdminLogin = () => {
       const delta = totp.validate({ token: totpCode, window: 1 });
 
       if (delta === null) {
-        throw new Error('Código inválido ou expirado. Tente novamente.');
+        // Invalid code - record failed attempt
+        recordFailedAttempt();
+        setTotpCode('');
+        setIsLoading(false);
+        return;
       }
 
-      // 2FA verified, complete login
+      // 2FA verified, clear lockout and complete login
+      clearLockout();
       completeLogin(pendingAuth.userId);
     } catch (error: any) {
       console.error('2FA verification error:', error);
@@ -393,6 +487,14 @@ const AdminLogin = () => {
                 Digite o código de 6 dígitos do seu app autenticador
               </p>
 
+              {lockout.attempts > 0 && lockout.attempts < MAX_ATTEMPTS && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                  <p className="text-xs text-amber-400">
+                    ⚠️ {MAX_ATTEMPTS - lockout.attempts} tentativas restantes
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Input
                   type="text"
@@ -431,6 +533,43 @@ const AdminLogin = () => {
                 Voltar ao login
               </button>
             </form>
+          </div>
+        )}
+
+        {/* 2FA Blocked */}
+        {viewMode === '2fa-blocked' && (
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-red-500/30 p-6 shadow-xl text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Acesso Bloqueado</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              Muitas tentativas incorretas de código 2FA. Por segurança, o acesso foi temporariamente bloqueado.
+            </p>
+            
+            <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-center gap-2 text-2xl font-mono text-white">
+                <Clock className="w-5 h-5 text-slate-400" />
+                {remainingTime || '...'}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Tempo restante</p>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-4">
+              Se você perdeu o acesso ao seu autenticador, entre em contato com o suporte.
+            </p>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                cancelTwoFactor();
+                setViewMode('login');
+              }}
+              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao login
+            </Button>
           </div>
         )}
 
