@@ -64,7 +64,7 @@ const AppRoutes = () => {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
