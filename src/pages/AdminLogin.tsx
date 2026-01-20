@@ -1,13 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff, Loader2, Mail, ArrowLeft } from 'lucide-react';
+import { Shield, Eye, EyeOff, Loader2, Mail, ArrowLeft, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import * as OTPAuth from 'otpauth';
 
-type ViewMode = 'login' | 'forgot-password' | 'reset-sent';
+type ViewMode = 'login' | 'forgot-password' | 'reset-sent' | '2fa-verify';
+
+interface PendingAuth {
+  userId: string;
+  email: string;
+}
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -15,6 +21,8 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('login');
+  const [totpCode, setTotpCode] = useState('');
+  const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -46,21 +54,27 @@ const AdminLogin = () => {
       if (roleError) throw roleError;
 
       if (!roleData) {
-        // Sign out if not admin
         await supabase.auth.signOut();
         throw new Error('Acesso negado. Você não tem permissões de administrador.');
       }
 
-      // Store admin session indicator
-      sessionStorage.setItem('adminAuthenticated', 'true');
-      sessionStorage.setItem('adminUserId', authData.user.id);
+      // Check if 2FA is enabled
+      const { data: tfaData } = await supabase
+        .from('admin_2fa')
+        .select('enabled, secret')
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
 
-      toast({
-        title: 'Bem-vindo, Admin!',
-        description: 'Login administrativo realizado com sucesso.',
-      });
+      if (tfaData?.enabled) {
+        // 2FA is enabled, require TOTP code
+        setPendingAuth({ userId: authData.user.id, email: authData.user.email! });
+        setViewMode('2fa-verify');
+        setIsLoading(false);
+        return;
+      }
 
-      navigate('/admin/panel');
+      // No 2FA, complete login
+      completeLogin(authData.user.id);
     } catch (error: any) {
       console.error('Admin login error:', error);
       toast({
@@ -68,9 +82,82 @@ const AdminLogin = () => {
         description: error.message || 'Credenciais inválidas ou sem permissão de admin.',
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
+  };
+
+  const verifyTOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!pendingAuth || totpCode.length !== 6) {
+      toast({
+        title: 'Código inválido',
+        description: 'Digite o código de 6 dígitos do seu app autenticador.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Get the user's TOTP secret
+      const { data: tfaData, error: tfaError } = await supabase
+        .from('admin_2fa')
+        .select('secret')
+        .eq('user_id', pendingAuth.userId)
+        .single();
+
+      if (tfaError || !tfaData?.secret) {
+        throw new Error('Erro ao verificar 2FA');
+      }
+
+      // Verify the TOTP code
+      const totp = new OTPAuth.TOTP({
+        issuer: 'Tarefaa Admin',
+        label: pendingAuth.email,
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(tfaData.secret)
+      });
+
+      const delta = totp.validate({ token: totpCode, window: 1 });
+
+      if (delta === null) {
+        throw new Error('Código inválido ou expirado. Tente novamente.');
+      }
+
+      // 2FA verified, complete login
+      completeLogin(pendingAuth.userId);
+    } catch (error: any) {
+      console.error('2FA verification error:', error);
+      toast({
+        title: 'Erro na verificação',
+        description: error.message || 'Código inválido.',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const completeLogin = (userId: string) => {
+    sessionStorage.setItem('adminAuthenticated', 'true');
+    sessionStorage.setItem('adminUserId', userId);
+
+    toast({
+      title: 'Bem-vindo, Admin!',
+      description: 'Login administrativo realizado com sucesso.',
+    });
+
+    navigate('/admin/panel');
+  };
+
+  const cancelTwoFactor = async () => {
+    await supabase.auth.signOut();
+    setPendingAuth(null);
+    setTotpCode('');
+    setViewMode('login');
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -145,6 +232,7 @@ const AdminLogin = () => {
             {viewMode === 'login' && 'Acesso restrito a administradores'}
             {viewMode === 'forgot-password' && 'Recuperar acesso à sua conta'}
             {viewMode === 'reset-sent' && 'Verifique seu email'}
+            {viewMode === '2fa-verify' && 'Digite o código do seu autenticador'}
           </p>
         </div>
 
@@ -288,6 +376,61 @@ const AdminLogin = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar ao login
             </Button>
+          </div>
+        )}
+
+        {/* 2FA Verification */}
+        {viewMode === '2fa-verify' && (
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6 shadow-xl">
+            <form onSubmit={verifyTOTP} className="space-y-5">
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Smartphone className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              
+              <p className="text-center text-slate-400 text-sm">
+                Digite o código de 6 dígitos do seu app autenticador
+              </p>
+
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  autoFocus
+                  className="bg-slate-700/50 border-slate-600 text-white text-center text-3xl tracking-[0.5em] font-mono placeholder:text-slate-500 placeholder:tracking-[0.5em]"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90"
+                disabled={isLoading || totpCode.length !== 6}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  'Verificar Código'
+                )}
+              </Button>
+
+              <button
+                type="button"
+                onClick={cancelTwoFactor}
+                className="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-primary transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Voltar ao login
+              </button>
+            </form>
           </div>
         )}
 
