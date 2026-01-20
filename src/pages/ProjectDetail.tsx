@@ -64,7 +64,7 @@ const statusColors = {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, loading, error } = useData();
+  const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, updateMilestone, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
@@ -496,6 +496,13 @@ const ProjectDetail = () => {
                   await deleteMilestone(milestoneId);
                 } catch (err) {
                   console.error('Error deleting milestone:', err);
+                }
+              }}
+              onUpdateMilestone={async (milestoneId, data) => {
+                try {
+                  await updateMilestone(milestoneId, data);
+                } catch (err) {
+                  console.error('Error updating milestone:', err);
                 }
               }}
             />

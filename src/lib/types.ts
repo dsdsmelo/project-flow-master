@@ -81,6 +81,7 @@ export interface Milestone {
   description?: string;
   color?: string;
   date?: string; // Data específica do marco
+  completed?: boolean; // Indica se o marco foi concluído
   usePhaseEndDate?: boolean; // Depreciado - mantido para compatibilidade
 }
 
