@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Phase, Milestone } from '@/lib/types';
-import { Flag, Diamond, Pencil, Trash2, CheckCircle2, Circle, GripHorizontal } from 'lucide-react';
+import { Flag, Diamond, Pencil, Trash2, CheckCircle2, GripHorizontal } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/tooltip';
 
 type ZoomLevel = 'day' | 'week' | 'month';
-type GroupBy = 'phase' | 'responsible' | 'status';
+type GroupBy = 'responsible' | 'status';
 
 interface ProjectGanttChartProps {
   tasks: Task[];
@@ -52,7 +52,7 @@ export const ProjectGanttChart = ({
   onUpdateMilestone,
 }: ProjectGanttChartProps) => {
   const [zoom, setZoom] = useState<ZoomLevel>('week');
-  const [groupBy, setGroupBy] = useState<GroupBy>('phase');
+  const [groupBy, setGroupBy] = useState<GroupBy>('responsible');
   const [draggingMilestone, setDraggingMilestone] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -132,18 +132,7 @@ export const ProjectGanttChart = ({
   const groupedTasks = useMemo(() => {
     const groups: { id: string; name: string; color?: string; tasks: Task[] }[] = [];
     
-    if (groupBy === 'phase') {
-      projectPhases.forEach(phase => {
-        const phaseTasks = tasks.filter(t => t.phaseId === phase.id);
-        if (phaseTasks.length > 0) {
-          groups.push({ id: phase.id, name: phase.name, color: phase.color, tasks: phaseTasks });
-        }
-      });
-      const noPhase = tasks.filter(t => !t.phaseId);
-      if (noPhase.length > 0) {
-        groups.push({ id: 'no-phase', name: 'Sem Fase', tasks: noPhase });
-      }
-    } else if (groupBy === 'responsible') {
+    if (groupBy === 'responsible') {
       const usedPeople = new Set(tasks.map(t => t.responsibleId).filter(Boolean));
       people.filter(p => usedPeople.has(p.id)).forEach(person => {
         const personTasks = tasks.filter(t => t.responsibleId === person.id);
@@ -172,7 +161,7 @@ export const ProjectGanttChart = ({
     }
     
     return groups;
-  }, [tasks, projectPhases, people, groupBy]);
+  }, [tasks, people, groupBy]);
 
   // Calculate milestone date - agora só usa data manual
   const getMilestoneDate = (milestone: Milestone): Date | null => {
@@ -209,7 +198,13 @@ export const ProjectGanttChart = ({
   };
 
   const getTodayPosition = () => {
-    const today = new Date();
+    // Use Brazil timezone for accurate current day
+    const now = new Date();
+    // Convert to Brazil time (UTC-3)
+    const brazilOffset = -3 * 60; // minutes
+    const localOffset = now.getTimezoneOffset();
+    const diffMinutes = localOffset + brazilOffset;
+    const today = new Date(now.getTime() + diffMinutes * 60 * 1000);
     today.setHours(12, 0, 0, 0);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (today.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
@@ -280,58 +275,7 @@ export const ProjectGanttChart = ({
   return (
     <TooltipProvider>
     <div className="space-y-4">
-      {/* Progress Indicator */}
-      {milestoneProgress.total > 0 && (
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Flag className="w-4 h-4 text-amber-500" />
-              <span className="font-medium text-sm">Progresso dos Marcos</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-primary">
-                {milestoneProgress.completed}/{milestoneProgress.total}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                ({milestoneProgress.percentage}%)
-              </span>
-            </div>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-amber-400 to-green-500 rounded-full transition-all duration-500"
-              style={{ width: `${milestoneProgress.percentage}%` }}
-            />
-          </div>
-          <div className="flex gap-2 mt-2 flex-wrap">
-            {projectMilestones.map(m => (
-              <Tooltip key={m.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleToggleComplete(m.id, !m.completed)}
-                    className={cn(
-                      "flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-all",
-                      m.completed 
-                        ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400" 
-                        : "bg-muted border-border text-muted-foreground hover:bg-muted/80"
-                    )}
-                  >
-                    {m.completed ? (
-                      <CheckCircle2 className="w-3 h-3" />
-                    ) : (
-                      <Circle className="w-3 h-3" />
-                    )}
-                    <span className="truncate max-w-24">{m.name}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{m.completed ? 'Clique para desmarcar' : 'Clique para marcar como concluído'}</p>
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Removed Progress Indicator as requested */}
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -341,7 +285,6 @@ export const ProjectGanttChart = ({
               <SelectValue placeholder="Agrupar por" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="phase">Fase</SelectItem>
               <SelectItem value="responsible">Responsável</SelectItem>
               <SelectItem value="status">Status</SelectItem>
             </SelectContent>
@@ -396,10 +339,9 @@ export const ProjectGanttChart = ({
           <div className="min-w-[800px]">
             {/* Header */}
             <div className="flex border-b border-border">
-              <div className="w-56 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
-                {groupBy === 'phase' ? 'Fase' : 
-                 groupBy === 'responsible' ? 'Responsável' : 'Status'}
-              </div>
+            <div className="w-56 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
+              {groupBy === 'responsible' ? 'Responsável' : 'Status'}
+            </div>
               <div className="flex-1 flex relative">
                 {columns.map((col, i) => (
                   <div 
@@ -412,128 +354,115 @@ export const ProjectGanttChart = ({
               </div>
             </div>
 
-            {/* Milestone Timeline Row - Continuous Line */}
-            {milestonesWithDates.length > 0 && (
-              <div className="flex border-b border-border bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20">
-                <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2 bg-amber-100/50 dark:bg-amber-900/30">
-                  <Flag className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-amber-800 dark:text-amber-300">Marcos</span>
-                  <span className="text-xs text-amber-600/70 dark:text-amber-400/70">
-                    ({milestonesWithDates.length})
-                  </span>
-                </div>
-                <div 
-                  ref={chartRef}
-                  className="flex-1 relative h-14"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDrop}
-                >
-                  {/* Continuous connecting line */}
-                  {milestonesWithDates.length > 1 && (
+            {/* Milestone Timeline Rows - One per milestone */}
+            {milestonesWithDates.map((milestone, index) => {
+              const isCompleted = milestone.completed;
+              return (
+                <div key={milestone.id} className="flex border-b border-border bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20">
+                  <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2 bg-amber-100/50 dark:bg-amber-900/30">
                     <div 
-                      className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400"
-                      style={{
-                        left: getDatePosition(milestonesWithDates[0].calculatedDate!),
-                        width: `calc(${getDatePosition(milestonesWithDates[milestonesWithDates.length - 1].calculatedDate!)} - ${getDatePosition(milestonesWithDates[0].calculatedDate!)})`,
-                      }}
-                    />
-                  )}
-                  
-                  {/* Milestone markers */}
-                  {milestonesWithDates.map((milestone) => {
-                    const isCompleted = milestone.completed;
-                    return (
-                      <Popover key={milestone.id}>
-                        <PopoverTrigger asChild>
-                          <div
-                            draggable
-                            onDragStart={() => handleDragStart(milestone.id)}
-                            onDragEnd={(e) => handleDragEnd(e, milestone.id)}
-                            className={cn(
-                              "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 cursor-grab transition-all hover:scale-125",
-                              draggingMilestone === milestone.id && "opacity-50 cursor-grabbing"
+                      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: milestone.color || '#EAB308' }}
+                    >
+                      <Diamond className="w-2 h-2 text-white" />
+                    </div>
+                    <span className="text-amber-800 dark:text-amber-300 truncate">{milestone.name}</span>
+                  </div>
+                  <div 
+                    ref={index === 0 ? chartRef : undefined}
+                    className="flex-1 relative h-12"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                  >
+                    {/* Milestone bar - showing single date marker with visual width */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <div
+                          draggable
+                          onDragStart={() => handleDragStart(milestone.id)}
+                          onDragEnd={(e) => handleDragEnd(e, milestone.id)}
+                          className={cn(
+                            "absolute top-2 h-8 rounded-md cursor-grab transition-all hover:shadow-lg group",
+                            draggingMilestone === milestone.id && "opacity-50 cursor-grabbing",
+                            isCompleted ? "opacity-80" : ""
+                          )}
+                          style={{
+                            left: `calc(${getDatePosition(milestone.calculatedDate!)} - 60px)`,
+                            width: '120px',
+                            backgroundColor: milestone.color || '#EAB308',
+                          }}
+                        >
+                          <div className="h-full flex items-center justify-center px-2 text-xs text-white font-medium gap-1">
+                            {isCompleted && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            <span className="truncate">{milestone.calculatedDate!.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                          </div>
+                          {/* Diamond marker at center */}
+                          <div 
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-sm rotate-45 shadow"
+                          />
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent side="top" className="w-64 p-3">
+                        <div className="space-y-3">
+                          <div>
+                            <p className="font-semibold">{milestone.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {milestone.calculatedDate!.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            </p>
+                            {milestone.description && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {milestone.description}
+                              </p>
                             )}
-                            style={{
-                              left: getDatePosition(milestone.calculatedDate!),
-                            }}
-                          >
-                            <div 
-                              className={cn(
-                                "w-6 h-6 rounded-full border-2 shadow-lg flex items-center justify-center",
-                                isCompleted 
-                                  ? "border-green-400 dark:border-green-600" 
-                                  : "border-white dark:border-gray-800"
-                              )}
-                              style={{
-                                backgroundColor: milestone.color || '#EAB308',
+                          </div>
+                          <div className="flex items-center gap-2 py-2 border-t">
+                            <Checkbox
+                              id={`complete-${milestone.id}`}
+                              checked={milestone.completed}
+                              onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
+                            />
+                            <label 
+                              htmlFor={`complete-${milestone.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              Marcar como concluído
+                            </label>
+                          </div>
+                          <div className="flex gap-2 pt-2 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => onEditMilestone?.(milestone)}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                if (confirm('Tem certeza que deseja excluir este marco?')) {
+                                  onDeleteMilestone?.(milestone.id);
+                                }
                               }}
                             >
-                              <Diamond className="w-3 h-3 text-white" />
-                            </div>
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Excluir
+                            </Button>
                           </div>
-                        </PopoverTrigger>
-                        <PopoverContent side="top" className="w-64 p-3">
-                          <div className="space-y-3">
-                            <div>
-                              <p className="font-semibold">{milestone.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {milestone.calculatedDate!.toLocaleDateString('pt-BR')}
-                              </p>
-                              {milestone.description && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {milestone.description}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 py-2 border-t">
-                              <Checkbox
-                                id={`complete-${milestone.id}`}
-                                checked={milestone.completed}
-                                onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
-                              />
-                              <label 
-                                htmlFor={`complete-${milestone.id}`}
-                                className="text-sm cursor-pointer"
-                              >
-                                Marcar como concluído
-                              </label>
-                            </div>
-                            <div className="flex gap-2 pt-2 border-t">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => onEditMilestone?.(milestone)}
-                              >
-                                <Pencil className="w-3.5 h-3.5 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => {
-                                  if (confirm('Tem certeza que deseja excluir este marco?')) {
-                                    onDeleteMilestone?.(milestone.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                Excluir
-                              </Button>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground text-center pt-2">
-                              <GripHorizontal className="w-3 h-3 inline mr-1" />
-                              Arraste para reposicionar
-                            </p>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    );
-                  })}
+                          <p className="text-[10px] text-muted-foreground text-center pt-2">
+                            <GripHorizontal className="w-3 h-3 inline mr-1" />
+                            Arraste para reposicionar
+                          </p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
 
             {/* Body */}
             <div className="relative">
@@ -637,10 +566,6 @@ export const ProjectGanttChart = ({
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded bg-status-completed" />
           <span>Concluído</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-purple-500 transform rotate-45" />
-          <span>Sprint</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
