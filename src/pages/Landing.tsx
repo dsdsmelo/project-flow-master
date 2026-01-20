@@ -16,12 +16,21 @@ import {
   CreditCard,
   Lock,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  HelpCircle,
+  Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // Import images
 import mockupDashboard from '@/assets/mockup-dashboard.png';
@@ -139,6 +148,33 @@ const Landing = () => {
     { image: mockupTasks, title: 'Gestão de Tarefas', description: 'Organize tarefas com colunas totalmente personalizáveis' },
   ];
 
+  const faqs = [
+    {
+      question: 'Como funciona o período de assinatura?',
+      answer: 'A assinatura é mensal e renovada automaticamente. Você tem acesso completo a todas as funcionalidades desde o primeiro dia, sem limitações. Pode cancelar a qualquer momento pelo portal do cliente.'
+    },
+    {
+      question: 'Posso cancelar minha assinatura a qualquer momento?',
+      answer: 'Sim! Você pode cancelar sua assinatura quando quiser através do portal do cliente. O acesso continua ativo até o final do período já pago.'
+    },
+    {
+      question: 'Quais formas de pagamento são aceitas?',
+      answer: 'Aceitamos cartões de crédito (Visa, Mastercard, American Express), PIX e boleto bancário. Todos os pagamentos são processados de forma segura pelo Stripe.'
+    },
+    {
+      question: 'Meus dados estão seguros?',
+      answer: 'Absolutamente! Utilizamos criptografia de ponta a ponta e servidores seguros. Seus dados são isolados e acessíveis apenas por você e sua equipe.'
+    },
+    {
+      question: 'Quantos projetos e tarefas posso criar?',
+      answer: 'Não há limites! Com a assinatura você pode criar projetos ilimitados, tarefas ilimitadas, adicionar quantos membros precisar e personalizar tudo conforme sua necessidade.'
+    },
+    {
+      question: 'Há suporte técnico disponível?',
+      answer: 'Sim, oferecemos suporte prioritário por e-mail para todos os assinantes. Nossa equipe está pronta para ajudar com qualquer dúvida ou problema.'
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
@@ -157,16 +193,17 @@ const Landing = () => {
             <div className="flex items-center gap-3">
               {isAuthenticated && hasActiveSubscription ? (
                 <Link to="/dashboard">
-                  <Button className="bg-[hsl(207,90%,45%)] hover:bg-[hsl(207,90%,40%)] text-white">
+                  <Button size="sm" className="group">
                     Acessar Dashboard
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
                   </Button>
                 </Link>
               ) : isAuthenticated ? (
                 <Button 
                   onClick={handleSubscribe} 
                   disabled={isLoading}
-                  className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white"
+                  size="sm"
+                  variant="success"
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Assinar Agora
@@ -174,13 +211,16 @@ const Landing = () => {
               ) : (
                 <>
                   <Link to="/auth">
-                    <Button variant="ghost">Entrar</Button>
+                    <Button variant="ghost" size="sm">Entrar</Button>
                   </Link>
                   <Button 
                     onClick={handleSubscribe} 
-                    className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white"
+                    size="sm"
+                    variant="success"
+                    className="group"
                   >
                     Começar Agora
+                    <Sparkles className="w-4 h-4 ml-1" />
                   </Button>
                 </>
               )}
@@ -251,15 +291,22 @@ const Landing = () => {
               className="flex flex-col sm:flex-row justify-center gap-4 mb-8"
             >
               <Button 
-                size="lg" 
+                size="xl" 
                 onClick={handleSubscribe}
                 disabled={isLoading}
-                className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white h-14 px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                variant="success"
+                className="group"
               >
                 {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                 Assinar por R$ 99/mês
-                <ArrowRight className="w-5 h-5 ml-2" />
+                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
+              <Link to="/auth">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                  Conhecer mais
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
             </motion.div>
 
             <motion.div 
@@ -477,11 +524,12 @@ const Landing = () => {
                   size="lg" 
                   onClick={handleSubscribe}
                   disabled={isLoading}
-                  className="w-full bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
+                  variant="success"
+                  className="w-full group"
                 >
                   {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                   Começar Agora
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground mt-4">
@@ -517,31 +565,100 @@ const Landing = () => {
         </div>
       </motion.section>
 
+      {/* FAQ Section */}
+      <section className="py-20 bg-muted/30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-12"
+          >
+            <motion.div 
+              variants={fadeInUp}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(35,95%,55%)]/10 rounded-full text-[hsl(35,95%,55%)] text-sm font-medium mb-4"
+            >
+              <HelpCircle className="w-4 h-4" />
+              Perguntas Frequentes
+            </motion.div>
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl font-bold text-foreground mb-4"
+            >
+              Tire suas dúvidas
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-muted-foreground"
+            >
+              Tudo o que você precisa saber sobre o Tarefaa
+            </motion.p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <Accordion type="single" collapsible className="space-y-4">
+              {faqs.map((faq, index) => (
+                <AccordionItem 
+                  key={index} 
+                  value={`item-${index}`}
+                  className="bg-card border border-border rounded-2xl px-6 overflow-hidden"
+                >
+                  <AccordionTrigger className="text-left text-foreground font-medium py-5 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </motion.div>
+        </div>
+      </section>
+
       {/* CTA Section */}
-      <section className="py-20">
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl opacity-30" />
+        
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center"
+          className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Pare de perder tempo com planilhas
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(130,70%,40%)]/10 rounded-full text-[hsl(130,70%,40%)] text-sm font-medium mb-6">
+            <Zap className="w-4 h-4" />
+            Comece agora mesmo
+          </div>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-6">
+            Pare de perder tempo<br />
+            <span className="text-gradient">com planilhas</span>
           </h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Comece a gerenciar seus projetos de forma profissional hoje mesmo.
+          <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
+            Junte-se a equipes que já transformaram sua gestão de projetos com o Tarefaa.
           </p>
           <Button 
-            size="lg" 
+            size="xl" 
             onClick={handleSubscribe}
             disabled={isLoading}
-            className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white h-14 px-10 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
+            variant="success"
+            className="group"
           >
             {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
             Assinar por R$ 99/mês
-            <ArrowRight className="w-5 h-5 ml-2" />
+            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
+          <p className="text-sm text-muted-foreground mt-6">
+            Acesso imediato • Cancele quando quiser • Suporte prioritário
+          </p>
         </motion.div>
       </section>
 
@@ -604,22 +721,16 @@ const Landing = () => {
               <h4 className="font-semibold mb-4 text-lg">Legal</h4>
               <ul className="space-y-3">
                 <li>
-                  <a href="#" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
+                  <Link to="/terms" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
                     <ChevronRight className="w-3 h-3" />
                     Termos de Uso
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
+                  <Link to="/privacy" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
                     <ChevronRight className="w-3 h-3" />
                     Privacidade
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
-                    <ChevronRight className="w-3 h-3" />
-                    Cookies
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
