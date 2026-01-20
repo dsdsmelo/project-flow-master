@@ -17,7 +17,6 @@ import {
   Lock,
   Sparkles,
   ChevronRight,
-  ChevronDown,
   HelpCircle,
   Zap
 } from 'lucide-react';
@@ -38,6 +37,7 @@ import mockupGantt from '@/assets/mockup-gantt.png';
 import mockupTasks from '@/assets/mockup-tasks.png';
 import logoTarefaa from '@/assets/logo-tarefaa.png';
 import logoIcon from '@/assets/logo-icon.png';
+import demoVideo from '@/assets/demo-video.mp4';
 
 // Animation variants
 const fadeInUp = {
@@ -349,6 +349,66 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Video Demo Section */}
+      <section className="py-20 bg-sidebar relative overflow-hidden">
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.15) 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }} />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[hsl(207,90%,45%)]/20 rounded-full blur-3xl opacity-30" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[hsl(130,70%,40%)]/20 rounded-full blur-3xl opacity-30" />
+        
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-12"
+          >
+            <motion.div 
+              variants={fadeInUp}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(207,90%,45%)]/20 rounded-full text-[hsl(207,90%,45%)] text-sm font-medium mb-4"
+            >
+              <Sparkles className="w-4 h-4" />
+              Veja em ação
+            </motion.div>
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl font-bold text-white mb-4"
+            >
+              Demonstração da plataforma
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-white/70 max-w-2xl mx-auto"
+            >
+              Veja como o Tarefaa pode transformar a gestão dos seus projetos
+            </motion.p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+          >
+            <video 
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              className="w-full h-auto"
+            >
+              <source src={demoVideo} type="video/mp4" />
+              Seu navegador não suporta vídeos.
+            </video>
+            <div className="absolute inset-0 bg-gradient-to-t from-sidebar/50 via-transparent to-transparent pointer-events-none" />
+          </motion.div>
+        </div>
+      </section>
+
       {/* Screenshots Gallery */}
       <section className="py-20 relative overflow-hidden">
         {/* Geometric background pattern */}
@@ -357,7 +417,7 @@ const Landing = () => {
           backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.08) 1px, transparent 0)`,
           backgroundSize: '40px 40px'
         }} />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden"
             whileInView="visible"
@@ -367,10 +427,10 @@ const Landing = () => {
           >
             <motion.div 
               variants={fadeInUp}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(207,90%,45%)]/10 rounded-full text-[hsl(207,90%,45%)] text-sm font-medium mb-4"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(130,70%,40%)]/10 rounded-full text-[hsl(130,70%,40%)] text-sm font-medium mb-4"
             >
-              <Sparkles className="w-4 h-4" />
-              Veja na prática
+              <Layers className="w-4 h-4" />
+              Screenshots
             </motion.div>
             <motion.h2 
               variants={fadeInUp}
@@ -670,13 +730,13 @@ const Landing = () => {
           backgroundImage: `linear-gradient(135deg, hsl(207 90% 45% / 0.03) 25%, transparent 25%, transparent 50%, hsl(207 90% 45% / 0.03) 50%, hsl(207 90% 45% / 0.03) 75%, transparent 75%, transparent)`,
           backgroundSize: '60px 60px'
         }} />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-12"
+            className="text-center mb-16"
           >
             <motion.div 
               variants={fadeInUp}
@@ -704,23 +764,45 @@ const Landing = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
+            className="grid md:grid-cols-2 gap-6"
           >
-            <Accordion type="single" collapsible className="space-y-4">
-              {faqs.map((faq, index) => (
-                <AccordionItem 
-                  key={index} 
-                  value={`item-${index}`}
-                  className="bg-card border border-border rounded-2xl px-6 overflow-hidden"
-                >
-                  <AccordionTrigger className="text-left text-foreground font-medium py-5 hover:no-underline [&[data-state=open]>svg]:rotate-180">
-                    {faq.question}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
-                    {faq.answer}
-                  </AccordionContent>
-                </AccordionItem>
+            {/* Left column */}
+            <div className="space-y-4">
+              {faqs.slice(0, 3).map((faq, index) => (
+                <Accordion key={index} type="single" collapsible>
+                  <AccordionItem 
+                    value={`item-${index}`}
+                    className="bg-card border border-border rounded-2xl px-6 overflow-hidden"
+                  >
+                    <AccordionTrigger className="text-left text-foreground font-medium py-5 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               ))}
-            </Accordion>
+            </div>
+            
+            {/* Right column */}
+            <div className="space-y-4">
+              {faqs.slice(3).map((faq, index) => (
+                <Accordion key={index + 3} type="single" collapsible>
+                  <AccordionItem 
+                    value={`item-${index + 3}`}
+                    className="bg-card border border-border rounded-2xl px-6 overflow-hidden"
+                  >
+                    <AccordionTrigger className="text-left text-foreground font-medium py-5 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              ))}
+            </div>
           </motion.div>
         </div>
       </section>
