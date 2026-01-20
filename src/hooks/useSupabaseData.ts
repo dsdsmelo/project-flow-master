@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone } from '@/lib/types';
+import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
 
 export function useSupabaseData() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -10,6 +10,7 @@ export function useSupabaseData() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +28,7 @@ export function useSupabaseData() {
         { data: tasksData, error: tasksError },
         { data: columnsData, error: columnsError },
         { data: milestonesData, error: milestonesError },
+        { data: meetingNotesData, error: meetingNotesError },
       ] = await Promise.all([
         supabase.from('people').select('*').order('name'),
         supabase.from('projects').select('*').order('name'),
@@ -35,6 +37,7 @@ export function useSupabaseData() {
         supabase.from('tasks').select('*').order('updated_at', { ascending: false }),
         supabase.from('custom_columns').select('*').order('order'),
         supabase.from('milestones').select('*').order('name'),
+        supabase.from('meeting_notes').select('*').order('meeting_date', { ascending: false }),
       ]);
 
       if (peopleError) throw peopleError;
@@ -44,6 +47,7 @@ export function useSupabaseData() {
       if (tasksError) throw tasksError;
       if (columnsError) throw columnsError;
       if (milestonesError) throw milestonesError;
+      if (meetingNotesError) throw meetingNotesError;
 
       // Map snake_case to camelCase
       setPeople((peopleData || []).map(mapPerson));
@@ -53,6 +57,7 @@ export function useSupabaseData() {
       setTasks((tasksData || []).map(mapTask));
       setCustomColumns((columnsData || []).map(mapCustomColumn));
       setMilestones((milestonesData || []).map(mapMilestone));
+      setMeetingNotes((meetingNotesData || []).map(mapMeetingNote));
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setError(err.message);
@@ -262,12 +267,40 @@ export function useSupabaseData() {
     setMilestones(prev => prev.filter(m => m.id !== id));
   };
 
+  // CRUD operations for Meeting Notes
+  const addMeetingNote = async (note: Omit<MeetingNote, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const { data, error } = await supabase
+      .from('meeting_notes')
+      .insert([meetingNoteToDb(note)])
+      .select()
+      .single();
+    if (error) throw error;
+    const newNote = mapMeetingNote(data);
+    setMeetingNotes(prev => [newNote, ...prev]);
+    return newNote;
+  };
+
+  const updateMeetingNote = async (id: string, updates: Partial<MeetingNote>) => {
+    const { error } = await supabase
+      .from('meeting_notes')
+      .update(meetingNoteToDb(updates))
+      .eq('id', id);
+    if (error) throw error;
+    setMeetingNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n));
+  };
+
+  const deleteMeetingNote = async (id: string) => {
+    const { error } = await supabase.from('meeting_notes').delete().eq('id', id);
+    if (error) throw error;
+    setMeetingNotes(prev => prev.filter(n => n.id !== id));
+  };
+
   return {
     // Data
-    people, projects, phases, cells, tasks, customColumns, milestones,
+    people, projects, phases, cells, tasks, customColumns, milestones, meetingNotes,
     loading, error,
     // State setters for local updates
-    setPeople, setProjects, setPhases, setCells, setTasks, setCustomColumns, setMilestones,
+    setPeople, setProjects, setPhases, setCells, setTasks, setCustomColumns, setMilestones, setMeetingNotes,
     // Refresh
     refetch: fetchData,
     // People CRUD
@@ -284,6 +317,8 @@ export function useSupabaseData() {
     addCustomColumn, updateCustomColumn, deleteCustomColumn,
     // Milestones CRUD
     addMilestone, updateMilestone, deleteMilestone,
+    // Meeting Notes CRUD
+    addMeetingNote, updateMeetingNote, deleteMeetingNote,
   };
 }
 
@@ -461,5 +496,28 @@ function milestoneToDb(milestone: Partial<Milestone>): any {
   if (milestone.color !== undefined) result.color = milestone.color;
   if (milestone.date !== undefined) result.date = milestone.date;
   if (milestone.usePhaseEndDate !== undefined) result.use_phase_end_date = milestone.usePhaseEndDate;
+  return result;
+}
+
+function mapMeetingNote(data: any): MeetingNote {
+  return {
+    id: data.id,
+    projectId: data.project_id,
+    title: data.title,
+    content: data.content,
+    meetingDate: data.meeting_date,
+    participants: data.participants,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+function meetingNoteToDb(note: Partial<MeetingNote>): any {
+  const result: any = {};
+  if (note.projectId !== undefined) result.project_id = note.projectId;
+  if (note.title !== undefined) result.title = note.title;
+  if (note.content !== undefined) result.content = note.content;
+  if (note.meetingDate !== undefined) result.meeting_date = note.meetingDate;
+  if (note.participants !== undefined) result.participants = note.participants;
   return result;
 }

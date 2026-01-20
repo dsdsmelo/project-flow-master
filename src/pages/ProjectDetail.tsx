@@ -17,7 +17,8 @@ import {
   Flag,
   Pencil,
   Trash2,
-  Layers
+  Layers,
+  FileText
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -36,6 +37,7 @@ import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { MilestoneFormModal } from '@/components/modals/MilestoneFormModal';
 import { ProjectTasksTable } from '@/components/tasks/ProjectTasksTable';
 import { PhaseManagerSheet } from '@/components/phases/PhaseManagerSheet';
+import { MeetingNotesTab } from '@/components/meetings/MeetingNotesTab';
 import { 
   BarChart, 
   Bar, 
@@ -248,7 +250,7 @@ const ProjectDetail = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="h-12 p-1 bg-muted/80 border border-border rounded-xl shadow-sm w-full max-w-xl">
+          <TabsList className="h-12 p-1 bg-muted/80 border border-border rounded-xl shadow-sm w-full max-w-2xl">
             <TabsTrigger 
               value="dashboard" 
               className="flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary transition-all"
@@ -269,6 +271,13 @@ const ProjectDetail = () => {
             >
               <GanttChart className="w-4 h-4" />
               Gantt
+            </TabsTrigger>
+            <TabsTrigger 
+              value="meetings" 
+              className="flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary transition-all"
+            >
+              <FileText className="w-4 h-4" />
+              Reuniões
             </TabsTrigger>
           </TabsList>
 
@@ -601,6 +610,11 @@ const ProjectDetail = () => {
               milestones={milestones}
               onAddMilestone={() => setMilestoneModalOpen(true)}
             />
+          </TabsContent>
+
+          {/* Meetings Tab */}
+          <TabsContent value="meetings" className="mt-6">
+            <MeetingNotesTab projectId={projectId || ''} />
           </TabsContent>
         </Tabs>
       </div>
