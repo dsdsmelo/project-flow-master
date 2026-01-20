@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -63,13 +63,45 @@ const scaleIn = {
   visible: { opacity: 1, scale: 1 }
 };
 
+// Format price from cents to BRL
+const formatPrice = (amountInCents: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amountInCents / 100);
+};
+
 const Landing = () => {
   const { isAuthenticated, hasActiveSubscription } = useAuth();
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [priceAmount, setPriceAmount] = useState<number | null>(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const { toast } = useToast();
 
   const subscriptionRequired = searchParams.get('subscription') === 'required';
+
+  // Fetch price from Stripe on mount
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-stripe-price');
+        if (error) throw error;
+        if (data?.amount) {
+          setPriceAmount(data.amount);
+        }
+      } catch (error) {
+        console.error('Error fetching price:', error);
+        // Fallback to default price if fetch fails
+        setPriceAmount(6900); // R$ 69 in cents
+      } finally {
+        setPriceLoading(false);
+      }
+    };
+    fetchPrice();
+  }, []);
 
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
@@ -285,7 +317,7 @@ const Landing = () => {
                   className="group"
                 >
                   {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-                  Assinar por R$ 69/mês
+                  {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
                 <Link to="/auth">
@@ -576,7 +608,11 @@ const Landing = () => {
 
                   <div className="mb-6">
                     <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-5xl font-bold text-foreground">R$ 69</span>
+                      {priceLoading ? (
+                        <span className="text-5xl font-bold text-foreground">...</span>
+                      ) : (
+                        <span className="text-5xl font-bold text-foreground">{formatPrice(priceAmount!)}</span>
+                      )}
                       <span className="text-lg text-muted-foreground">/mês</span>
                     </div>
                   </div>
