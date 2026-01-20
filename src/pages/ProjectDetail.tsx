@@ -14,7 +14,9 @@ import {
   LayoutDashboard,
   Plus,
   ClipboardList,
-  Flag
+  Flag,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -63,10 +65,11 @@ const statusColors = {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, tasks, people, phases, cells, customColumns, milestones, loading, error } = useData();
+  const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<typeof milestones[0] | undefined>(undefined);
 
   const project = useMemo(() => {
     return projects.find(p => p.id === projectId);
@@ -337,7 +340,7 @@ const ProjectDetail = () => {
                     return (
                       <div 
                         key={milestone.id} 
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50"
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50 group hover:bg-muted/80 transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <Flag 
@@ -351,6 +354,12 @@ const ProjectDetail = () => {
                             <span className="font-medium">{milestone.name}</span>
                             {milestone.description && (
                               <p className="text-xs text-muted-foreground">{milestone.description}</p>
+                            )}
+                            {milestone.date && !milestone.usePhaseEndDate && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(milestone.date).toLocaleDateString('pt-BR')}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -366,6 +375,35 @@ const ProjectDetail = () => {
                               {phase.name}
                             </span>
                           )}
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => {
+                                setEditingMilestone(milestone);
+                                setMilestoneModalOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={async () => {
+                                if (confirm('Tem certeza que deseja excluir este marco?')) {
+                                  try {
+                                    await deleteMilestone(milestone.id);
+                                  } catch (err) {
+                                    console.error('Error deleting milestone:', err);
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -570,8 +608,12 @@ const ProjectDetail = () => {
       {/* Milestone Modal */}
       <MilestoneFormModal
         open={milestoneModalOpen}
-        onOpenChange={setMilestoneModalOpen}
+        onOpenChange={(open) => {
+          setMilestoneModalOpen(open);
+          if (!open) setEditingMilestone(undefined);
+        }}
         projectId={projectId || ''}
+        milestone={editingMilestone}
       />
     </MainLayout>
     </TooltipProvider>
