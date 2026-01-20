@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS phases (
   "order" INTEGER NOT NULL DEFAULT 0,
   color TEXT,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  start_date DATE,
+  end_date DATE,
+  description TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -109,11 +112,10 @@ CREATE TABLE IF NOT EXISTS milestones (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  phase_id UUID NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
   description TEXT,
-  color TEXT DEFAULT '#EAB308',
-  date DATE,
-  use_phase_end_date BOOLEAN NOT NULL DEFAULT true,
+  color TEXT DEFAULT '#3B82F6',
+  date DATE NOT NULL,
+  completed BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
