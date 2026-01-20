@@ -6,111 +6,118 @@
 
 @layer base {
   :root {
-    /* Professional Navy/Slate Theme */
-    --background: 220 20% 97%;
-    --foreground: 222 47% 11%;
+    /* Tarefaa Brand Colors - Blue, Green, Orange */
+    --background: 210 20% 98%;
+    --foreground: 210 40% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 210 40% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 210 40% 14%;
 
-    --primary: 217 91% 60%;
+    /* Primary: Tarefaa Blue */
+    --primary: 207 90% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 210 40% 14%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 210 15% 46%;
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 210 20% 96%;
+    --accent-foreground: 210 40% 14%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 207 90% 45%;
 
     --radius: 0.5rem;
 
+    /* Tarefaa Brand Colors */
+    --tarefaa-blue: 207 90% 45%;
+    --tarefaa-green: 130 70% 40%;
+    --tarefaa-orange: 35 95% 55%;
+
     /* Status Colors */
-    --status-pending: 45 93% 47%;
-    --status-progress: 217 91% 60%;
+    --status-pending: 35 95% 55%;
+    --status-progress: 207 90% 45%;
     --status-blocked: 0 84% 60%;
-    --status-completed: 142 76% 36%;
-    --status-cancelled: 220 9% 46%;
+    --status-completed: 130 70% 40%;
+    --status-cancelled: 210 15% 46%;
 
     /* Priority Colors */
-    --priority-low: 220 9% 46%;
-    --priority-medium: 217 91% 60%;
-    --priority-high: 25 95% 53%;
+    --priority-low: 210 15% 46%;
+    --priority-medium: 207 90% 45%;
+    --priority-high: 35 95% 55%;
     --priority-urgent: 0 84% 60%;
 
     /* Chart Colors */
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 45 93% 47%;
+    --chart-1: 207 90% 45%;
+    --chart-2: 130 70% 40%;
+    --chart-3: 35 95% 55%;
     --chart-4: 0 84% 60%;
     --chart-5: 262 83% 58%;
 
     /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 220 14% 96%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 210 40% 14%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 207 90% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 220 14% 96%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 210 40% 20%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 210 40% 20%;
+    --sidebar-ring: 207 90% 45%;
 
     /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
-    --gradient-warning: linear-gradient(135deg, hsl(45 93% 47%), hsl(25 95% 53%));
+    --gradient-primary: linear-gradient(135deg, hsl(207 90% 45%), hsl(207 90% 35%));
+    --gradient-success: linear-gradient(135deg, hsl(130 70% 40%), hsl(130 70% 50%));
+    --gradient-warning: linear-gradient(135deg, hsl(35 95% 55%), hsl(25 95% 53%));
     --gradient-danger: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 50%));
+    --gradient-brand: linear-gradient(135deg, hsl(207 90% 45%), hsl(130 70% 40%));
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 220 14% 96%;
+    --background: 210 40% 6%;
+    --foreground: 210 20% 96%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 220 14% 96%;
+    --card: 210 40% 11%;
+    --card-foreground: 210 20% 96%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 220 14% 96%;
+    --popover: 210 40% 11%;
+    --popover-foreground: 210 20% 96%;
 
-    --primary: 217 91% 60%;
+    --primary: 207 90% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 18%;
-    --secondary-foreground: 220 14% 96%;
+    --secondary: 210 40% 18%;
+    --secondary-foreground: 210 20% 96%;
 
-    --muted: 222 47% 18%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 210 40% 18%;
+    --muted-foreground: 210 15% 60%;
 
-    --accent: 222 47% 18%;
-    --accent-foreground: 220 14% 96%;
+    --accent: 210 40% 18%;
+    --accent-foreground: 210 20% 96%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
-    --ring: 217 91% 60%;
+    --border: 210 40% 18%;
+    --input: 210 40% 18%;
+    --ring: 207 90% 50%;
 
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 220 14% 96%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 210 40% 6%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 207 90% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 11%;
-    --sidebar-accent-foreground: 220 14% 96%;
-    --sidebar-border: 222 47% 11%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 210 40% 11%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 210 40% 11%;
+    --sidebar-ring: 207 90% 50%;
   }
 }
 
@@ -150,8 +157,12 @@
     background: var(--gradient-danger);
   }
 
+  .gradient-brand {
+    background: var(--gradient-brand);
+  }
+
   .text-gradient {
-    background: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
+    background: linear-gradient(135deg, hsl(207 90% 45%), hsl(130 70% 40%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
