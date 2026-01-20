@@ -84,6 +84,17 @@ export interface Milestone {
   usePhaseEndDate: boolean; // true = usa data final da fase automaticamente
 }
 
+export interface MeetingNote {
+  id: string;
+  projectId: string;
+  title: string;
+  content: string;
+  meetingDate: string;
+  participants?: string[]; // Array of person IDs
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Helper types
 export type TaskStatus = Task['status'];
 export type TaskPriority = Task['priority'];
