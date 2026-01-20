@@ -41,9 +41,10 @@ interface TaskFormModalProps {
   onOpenChange: (open: boolean) => void;
   task?: Task;
   defaultProjectId?: string;
+  defaultResponsibleId?: string;
 }
 
-export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: TaskFormModalProps) {
+export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defaultResponsibleId }: TaskFormModalProps) {
   const { projects, people, addTask, updateTask } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,7 +54,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
       name: '',
       description: '',
       projectId: defaultProjectId || '',
-      responsibleId: '',
+      responsibleId: defaultResponsibleId || '',
       startDate: '',
       endDate: '',
       priority: 'medium',
@@ -76,13 +77,13 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId }: Ta
         name: '',
         description: '',
         projectId: defaultProjectId || '',
-        responsibleId: '',
+        responsibleId: defaultResponsibleId || '',
         startDate: '',
         endDate: '',
         priority: 'medium',
       });
     }
-  }, [task, defaultProjectId, form, open]);
+  }, [task, defaultProjectId, defaultResponsibleId, form, open]);
 
   const onSubmit = async (data: TaskFormData) => {
     setIsSubmitting(true);

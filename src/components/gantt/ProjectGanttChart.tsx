@@ -24,7 +24,7 @@ interface ProjectGanttChartProps {
   onEditMilestone?: (milestone: Milestone) => void;
   onDeleteMilestone?: (milestoneId: string) => void;
   onUpdateMilestone?: (milestoneId: string, data: Partial<Milestone>) => void;
-  onAddTask?: () => void;
+  onAddTask?: (responsibleId?: string) => void;
   onEditTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => void;
 }
@@ -400,21 +400,21 @@ export const ProjectGanttChart = ({
                       className="flex border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => toggleGroup(group.id)}
                     >
-                      <div className="w-56 flex-shrink-0 p-4 font-semibold text-base flex items-center gap-3">
+                      <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2">
                         {isCollapsed ? (
-                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         ) : (
-                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         )}
                         <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0"
                           style={{ backgroundColor: group.color || 'hsl(var(--muted-foreground))' }}
                         >
                           {initials}
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="truncate">{group.name}</span>
-                          <span className="text-xs text-muted-foreground font-normal">{group.tasks.length} tarefa{group.tasks.length !== 1 ? 's' : ''}</span>
+                          <span className="text-[11px] text-muted-foreground font-normal">{group.tasks.length} tarefa{group.tasks.length !== 1 ? 's' : ''}</span>
                         </div>
                       </div>
                       <div className="flex-1" />
@@ -502,14 +502,17 @@ export const ProjectGanttChart = ({
                         })}
                         
                         {/* Add Task Button inside group */}
-                        {onAddTask && (
+                        {onAddTask && group.id !== 'unassigned' && (
                           <div className="flex border-b border-border/50">
-                            <div className="w-56 flex-shrink-0 py-1 pl-14">
+                            <div className="w-56 flex-shrink-0 py-1 pl-12">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 text-xs text-muted-foreground hover:text-foreground"
-                                onClick={onAddTask}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddTask(group.id);
+                                }}
                               >
                                 <Plus className="w-3 h-3 mr-1" />
                                 Nova tarefa
