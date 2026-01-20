@@ -386,45 +386,65 @@ export const ProjectGanttChart = ({
 
               {groupedTasks.map((group) => {
                 const isCollapsed = collapsedGroups.has(group.id);
+                const initials = group.name
+                  .split(' ')
+                  .map(n => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
                 
                 return (
                   <div key={group.id}>
-                    {/* Group Header - Collapsible */}
+                    {/* Group Header - Collapsible with larger name and initials */}
                     <div 
                       className="flex border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => toggleGroup(group.id)}
                     >
-                      <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2">
+                      <div className="w-56 flex-shrink-0 p-4 font-semibold text-base flex items-center gap-3">
                         {isCollapsed ? (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
                         )}
-                        {group.color && (
-                          <div 
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: group.color }}
-                          />
-                        )}
-                        <span className="truncate">{group.name}</span>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">({group.tasks.length})</span>
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                          style={{ backgroundColor: group.color || 'hsl(var(--muted-foreground))' }}
+                        >
+                          {initials}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{group.name}</span>
+                          <span className="text-xs text-muted-foreground font-normal">{group.tasks.length} tarefa{group.tasks.length !== 1 ? 's' : ''}</span>
+                        </div>
                       </div>
                       <div className="flex-1" />
                     </div>
 
-                    {/* Tasks - Collapsible */}
+                    {/* Tasks - Collapsible with smaller bullet style */}
                     {!isCollapsed && (
                       <>
                         {group.tasks.map((task) => {
                           const position = getTaskPosition(task);
                           const overdue = isTaskOverdue(task);
-                          const person = people.find(p => p.id === task.responsibleId);
 
                           return (
-                            <div key={task.id} className="flex border-b border-border/50 hover:bg-muted/20 group/task">
-                              <div className="w-56 flex-shrink-0 p-3 text-sm flex items-center gap-2 pl-10">
-                                {person && <AvatarCircle name={person.name} color={person.color} size="sm" />}
-                                <span className={cn("truncate flex-1", overdue && "text-status-blocked")}>
+                            <div 
+                              key={task.id} 
+                              className="flex border-b border-border/50 hover:bg-muted/20 group/task cursor-pointer"
+                              onClick={() => onEditTask?.(task)}
+                            >
+                              <div className="w-56 flex-shrink-0 py-2 px-3 text-xs flex items-center gap-2 pl-14">
+                                <div 
+                                  className={cn(
+                                    "w-2 h-2 rounded-full flex-shrink-0",
+                                    overdue ? "bg-status-blocked" : 
+                                    task.status === 'completed' ? "bg-status-completed" :
+                                    task.status === 'in_progress' ? "bg-status-progress" :
+                                    task.status === 'blocked' ? "bg-status-blocked" :
+                                    "bg-status-pending"
+                                  )}
+                                />
+                                <span className={cn("truncate flex-1 text-muted-foreground", overdue && "text-status-blocked")}>
                                   {task.name}
                                 </span>
                                 <div className="flex gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity">
@@ -432,7 +452,7 @@ export const ProjectGanttChart = ({
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6"
+                                      className="h-5 w-5"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         onEditTask(task);
@@ -445,7 +465,7 @@ export const ProjectGanttChart = ({
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      className="h-5 w-5 text-destructive hover:text-destructive"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         if (confirm('Excluir tarefa?')) {
@@ -458,11 +478,11 @@ export const ProjectGanttChart = ({
                                   )}
                                 </div>
                               </div>
-                              <div className="flex-1 relative h-12">
+                              <div className="flex-1 relative h-8">
                                 {position && (
                                   <div
                                     className={cn(
-                                      "absolute top-2 h-8 rounded-md cursor-pointer transition-all hover:shadow-md",
+                                      "absolute top-1.5 h-5 rounded cursor-pointer transition-all hover:shadow-md",
                                       overdue ? "bg-status-blocked" : 
                                       task.status === 'completed' ? "bg-status-completed" :
                                       task.status === 'in_progress' ? "bg-status-progress" :
@@ -472,13 +492,9 @@ export const ProjectGanttChart = ({
                                     style={{
                                       left: position.left,
                                       width: position.width,
-                                      minWidth: '20px',
+                                      minWidth: '16px',
                                     }}
-                                  >
-                                    <div className="h-full flex items-center px-2 text-xs text-white font-medium truncate">
-                                      {task.name}
-                                    </div>
-                                  </div>
+                                  />
                                 )}
                               </div>
                             </div>
@@ -488,11 +504,11 @@ export const ProjectGanttChart = ({
                         {/* Add Task Button inside group */}
                         {onAddTask && (
                           <div className="flex border-b border-border/50">
-                            <div className="w-56 flex-shrink-0 p-2 pl-10">
+                            <div className="w-56 flex-shrink-0 py-1 pl-14">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                                className="h-6 text-xs text-muted-foreground hover:text-foreground"
                                 onClick={onAddTask}
                               >
                                 <Plus className="w-3 h-3 mr-1" />
