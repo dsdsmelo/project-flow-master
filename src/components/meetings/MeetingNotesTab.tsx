@@ -18,7 +18,10 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Save
+  Save,
+  Download,
+  Mail,
+  Share2
 } from 'lucide-react';
 import {
   Dialog,
@@ -42,6 +45,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -175,6 +184,122 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
       .filter(Boolean);
   };
 
+  const generateNoteText = (note: MeetingNote) => {
+    const participants = getParticipantNames(note.participants);
+    const participantNames = participants.map((p: any) => p.name).join(', ');
+    
+    return `
+ANOTAÇÃO DE REUNIÃO
+==================
+
+Título: ${note.title}
+Data: ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}
+${participantNames ? `Participantes: ${participantNames}` : ''}
+
+CONTEÚDO
+--------
+${note.content}
+
+---
+Última atualização: ${format(new Date(note.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+    `.trim();
+  };
+
+  const handleExportPDF = (note: MeetingNote) => {
+    const participants = getParticipantNames(note.participants);
+    const participantNames = participants.map((p: any) => p.name).join(', ');
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${note.title}</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            padding: 40px; 
+            max-width: 800px; 
+            margin: 0 auto;
+            color: #333;
+            line-height: 1.6;
+          }
+          h1 { 
+            color: #1a1a1a; 
+            border-bottom: 2px solid #e5e5e5; 
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+          }
+          .meta { 
+            background: #f5f5f5; 
+            padding: 15px 20px; 
+            border-radius: 8px; 
+            margin-bottom: 25px;
+          }
+          .meta p { margin: 5px 0; color: #666; }
+          .meta strong { color: #333; }
+          .content { 
+            white-space: pre-wrap; 
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+          }
+          .footer { 
+            margin-top: 30px; 
+            font-size: 12px; 
+            color: #999; 
+            border-top: 1px solid #e5e5e5;
+            padding-top: 15px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${note.title}</h1>
+        <div class="meta">
+          <p><strong>Data da Reunião:</strong> ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}</p>
+          ${participantNames ? `<p><strong>Participantes:</strong> ${participantNames}</p>` : ''}
+        </div>
+        <h2>Conteúdo</h2>
+        <div class="content">${note.content}</div>
+        <div class="footer">
+          Última atualização: ${format(new Date(note.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+      toast.success('Janela de impressão aberta - salve como PDF');
+    } else {
+      toast.error('Não foi possível abrir a janela de impressão');
+    }
+  };
+
+  const handleShareEmail = (note: MeetingNote) => {
+    const text = generateNoteText(note);
+    const subject = encodeURIComponent(`Anotação de Reunião: ${note.title}`);
+    const body = encodeURIComponent(text);
+    
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    toast.success('Cliente de email aberto');
+  };
+
+  const handleCopyToClipboard = async (note: MeetingNote) => {
+    const text = generateNoteText(note);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Anotação copiada para a área de transferência');
+    } catch (err) {
+      toast.error('Erro ao copiar');
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -248,7 +373,34 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Share Menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => handleExportPDF(note)}>
+                          <Download className="w-4 h-4 mr-2" />
+                          Exportar PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShareEmail(note)}>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Enviar por Email
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopyToClipboard(note)}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Copiar Texto
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="ghost"
                       size="icon"
