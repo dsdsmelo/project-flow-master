@@ -9,6 +9,7 @@ import { AdminUsersTab, UserWithSubscription } from '@/components/admin/AdminUse
 import { AdminLogsTab } from '@/components/admin/AdminLogsTab';
 import { AdminInfraTab } from '@/components/admin/AdminInfraTab';
 import { TwoFactorSetup } from '@/components/admin/TwoFactorSetup';
+import { PasswordChangeCard } from '@/components/admin/PasswordChangeCard';
 
 const AdminPanel = () => {
   const [users, setUsers] = useState<UserWithSubscription[]>([]);
@@ -162,6 +163,7 @@ const AdminPanel = () => {
       case 'security':
         return (
           <div className="space-y-6">
+            <PasswordChangeCard userEmail={adminEmail} />
             <TwoFactorSetup 
               userId={sessionStorage.getItem('adminUserId') || ''} 
               userEmail={adminEmail}
