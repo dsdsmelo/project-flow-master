@@ -24,28 +24,45 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // Create Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
-    // Get user from auth header
+    // Get auth header
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
+    if (!authHeader?.startsWith("Bearer ")) {
+      logStep("No auth header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
     logStep("Auth header found");
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+    // Create Supabase client with auth header
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    if (userError || !user?.email) {
-      logStep("Auth error", { error: userError?.message });
-      throw new Error("User not authenticated or email not available");
+    // Validate JWT using getClaims
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims) {
+      logStep("JWT validation failed", { error: claimsError?.message });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
     }
 
-    logStep("User authenticated", { email: user.email, userId: user.id });
+    const userId = claimsData.claims.sub as string;
+    const userEmail = claimsData.claims.email as string;
+
+    if (!userEmail) {
+      logStep("No email in claims");
+      throw new Error("User email not available");
+    }
+
+    logStep("User authenticated", { email: userEmail, userId });
 
     // Initialize Stripe
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -59,7 +76,7 @@ serve(async (req) => {
     });
 
     // Check if customer already exists
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
     let customerId: string | undefined;
 
     if (customers.data.length > 0) {
@@ -68,9 +85,9 @@ serve(async (req) => {
     } else {
       // Create new customer
       const newCustomer = await stripe.customers.create({
-        email: user.email,
+        email: userEmail,
         metadata: {
-          supabase_user_id: user.id,
+          supabase_user_id: userId,
         },
       });
       customerId = newCustomer.id;
@@ -94,7 +111,7 @@ serve(async (req) => {
       success_url: `${origin}/dashboard?subscription=success`,
       cancel_url: `${origin}/?subscription=cancelled`,
       metadata: {
-        supabase_user_id: user.id,
+        supabase_user_id: userId,
       },
     });
 
