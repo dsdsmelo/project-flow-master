@@ -4,7 +4,6 @@ import { MeetingNote } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -17,7 +16,6 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
-  X,
   Save,
   Download,
   Mail,
@@ -52,7 +50,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 interface MeetingNotesTabProps {
@@ -72,7 +69,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [meetingDate, setMeetingDate] = useState<Date | undefined>(new Date());
-  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [participants, setParticipants] = useState('');
   
   const projectNotes = useMemo(() => {
     return meetingNotes
@@ -88,7 +85,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
     setTitle('');
     setContent('');
     setMeetingDate(new Date());
-    setSelectedParticipants([]);
+    setParticipants('');
     setEditingNote(null);
   };
 
@@ -98,7 +95,16 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
       setTitle(note.title);
       setContent(note.content);
       setMeetingDate(new Date(note.meetingDate));
-      setSelectedParticipants(note.participants || []);
+      // Handle participants - could be string[] (old) or string (new)
+      if (Array.isArray(note.participants)) {
+        // Convert old format: look up names or join IDs
+        const names = note.participants
+          .map(id => people.find(p => p.id === id)?.name || id)
+          .join(', ');
+        setParticipants(names);
+      } else {
+        setParticipants((note.participants as unknown as string) || '');
+      }
     } else {
       resetForm();
     }
@@ -125,12 +131,18 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
     }
 
     try {
+      // Parse participants text to array (split by comma, trim whitespace)
+      const participantsArray = participants
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+        
       if (editingNote) {
         await updateMeetingNote(editingNote.id, {
           title: title.trim(),
           content: content.trim(),
           meetingDate: meetingDate.toISOString().split('T')[0],
-          participants: selectedParticipants,
+          participants: participantsArray,
         });
         toast.success('Anotação atualizada!');
       } else {
@@ -139,7 +151,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
           title: title.trim(),
           content: content.trim(),
           meetingDate: meetingDate.toISOString().split('T')[0],
-          participants: selectedParticipants,
+          participants: participantsArray,
         });
         toast.success('Anotação criada!');
       }
@@ -169,24 +181,26 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
     }
   };
 
-  const toggleParticipant = (personId: string) => {
-    setSelectedParticipants(prev => 
-      prev.includes(personId) 
-        ? prev.filter(id => id !== personId)
-        : [...prev, personId]
-    );
-  };
-
-  const getParticipantNames = (participantIds?: string[]) => {
-    if (!participantIds || participantIds.length === 0) return [];
-    return participantIds
-      .map(id => people.find(p => p.id === id))
-      .filter(Boolean);
+  // Get participant display text (handles both old format with IDs and new format with names)
+  const getParticipantDisplay = (participantData?: string[]) => {
+    if (!participantData || participantData.length === 0) return '';
+    
+    // Check if entries look like UUIDs (old format) or names (new format)
+    const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    
+    return participantData
+      .map(entry => {
+        if (isUUID(entry)) {
+          const person = people.find(p => p.id === entry);
+          return person?.name || entry;
+        }
+        return entry;
+      })
+      .join(', ');
   };
 
   const generateNoteText = (note: MeetingNote) => {
-    const participants = getParticipantNames(note.participants);
-    const participantNames = participants.map((p: any) => p.name).join(', ');
+    const participantNames = getParticipantDisplay(note.participants);
     
     return `
 ANOTAÇÃO DE REUNIÃO
@@ -206,8 +220,7 @@ ${note.content}
   };
 
   const handleExportPDF = (note: MeetingNote) => {
-    const participants = getParticipantNames(note.participants);
-    const participantNames = participants.map((p: any) => p.name).join(', ');
+    const participantNames = getParticipantDisplay(note.participants);
     
     const printContent = `
       <!DOCTYPE html>
@@ -332,7 +345,7 @@ ${note.content}
         <div className="space-y-3">
           {projectNotes.map((note) => {
             const isExpanded = expandedNote === note.id;
-            const participants = getParticipantNames(note.participants);
+            const participantText = getParticipantDisplay(note.participants);
             
             return (
               <div 
@@ -352,24 +365,12 @@ ${note.content}
                       </span>
                     </div>
                     <h4 className="font-medium truncate">{note.title}</h4>
-                    {participants.length > 0 && (
+                    {participantText && (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <Users className="w-4 h-4 text-muted-foreground" />
-                        <div className="flex -space-x-2">
-                          {participants.slice(0, 3).map((person: any) => (
-                            <AvatarCircle 
-                              key={person.id} 
-                              name={person.name} 
-                              color={person.color} 
-                              size="sm" 
-                            />
-                          ))}
-                          {participants.length > 3 && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              +{participants.length - 3}
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                          {participantText}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -439,20 +440,10 @@ ${note.content}
                         {note.content}
                       </div>
                     </div>
-                    {participants.length > 0 && (
+                    {participantText && (
                       <div className="mt-4 pt-4 border-t border-border">
                         <p className="text-xs text-muted-foreground mb-2">Participantes:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {participants.map((person: any) => (
-                            <div 
-                              key={person.id}
-                              className="flex items-center gap-2 px-2 py-1 bg-muted rounded-full"
-                            >
-                              <AvatarCircle name={person.name} color={person.color} size="sm" />
-                              <span className="text-sm">{person.name}</span>
-                            </div>
-                          ))}
-                        </div>
+                        <p className="text-sm">{participantText}</p>
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground mt-4">
@@ -517,36 +508,17 @@ ${note.content}
               </Popover>
             </div>
 
-            {/* Participants */}
+            {/* Participants - Free text input */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Participantes</label>
-              <div className="border rounded-lg p-3 max-h-40 overflow-y-auto">
-                {activePeople.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhuma pessoa cadastrada</p>
-                ) : (
-                  <div className="space-y-2">
-                    {activePeople.map((person) => (
-                      <div 
-                        key={person.id}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
-                        onClick={() => toggleParticipant(person.id)}
-                      >
-                        <Checkbox 
-                          checked={selectedParticipants.includes(person.id)}
-                          onCheckedChange={() => toggleParticipant(person.id)}
-                        />
-                        <AvatarCircle name={person.name} color={person.color} size="sm" />
-                        <span className="text-sm">{person.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {selectedParticipants.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {selectedParticipants.length} participante(s) selecionado(s)
-                </p>
-              )}
+              <Input
+                value={participants}
+                onChange={(e) => setParticipants(e.target.value)}
+                placeholder="Ex: João Silva, Maria Santos, Pedro Oliveira..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Separe os nomes por vírgula
+              </p>
             </div>
 
             {/* Content */}
