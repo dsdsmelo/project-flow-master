@@ -182,7 +182,7 @@ const Landing = () => {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border"
+        className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -229,23 +229,8 @@ const Landing = () => {
         </div>
       </motion.header>
 
-      {/* Subscription Required Alert */}
-      {subscriptionRequired && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[hsl(35,95%,55%)]/10 border-b border-[hsl(35,95%,55%)]/20 py-3"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-sm text-[hsl(35,95%,55%)] font-medium">
-              🔒 Assine o Tarefaa para acessar o sistema completo
-            </p>
-          </div>
-        </motion.div>
-      )}
-
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-16 lg:py-24">
+      <section className="relative overflow-hidden pt-24 pb-12 lg:pt-28 lg:pb-16">
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5" />
         <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl opacity-50" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[hsl(130,70%,40%)]/10 rounded-full blur-3xl opacity-50" />
@@ -256,7 +241,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-12"
+            className="text-center mb-8"
           >
             <motion.div 
               variants={fadeInUp}
@@ -335,7 +320,7 @@ const Landing = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="relative mt-12"
+            className="relative mt-8"
           >
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
             <div className="rounded-2xl overflow-hidden shadow-2xl border border-border/50">
@@ -350,7 +335,7 @@ const Landing = () => {
       </section>
 
       {/* Video Demo Section */}
-      <section className="py-20 bg-sidebar relative overflow-hidden">
+      <section className="py-12 bg-sidebar relative overflow-hidden">
         <div className="absolute inset-0" style={{ 
           backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.15) 1px, transparent 0)`,
           backgroundSize: '40px 40px'
@@ -364,7 +349,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-12"
+            className="text-center mb-8"
           >
             <motion.div 
               variants={fadeInUp}
@@ -410,7 +395,7 @@ const Landing = () => {
       </section>
 
       {/* Screenshots Gallery */}
-      <section className="py-20 relative overflow-hidden">
+      <section className="py-12 relative overflow-hidden">
         {/* Geometric background pattern */}
         <div className="absolute inset-0 bg-gradient-to-b from-[hsl(207,90%,45%)]/5 to-[hsl(130,70%,40%)]/5" />
         <div className="absolute inset-0" style={{ 
@@ -423,7 +408,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <motion.div 
               variants={fadeInUp}
@@ -451,7 +436,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid lg:grid-cols-3 gap-8"
+            className="grid lg:grid-cols-3 gap-6"
           >
             {screenshots.map((item, index) => (
               <motion.div
@@ -468,7 +453,7 @@ const Landing = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
-                <div className="p-6">
+                <div className="p-4">
                   <h3 className="text-lg font-semibold text-foreground mb-2">
                     {item.title}
                   </h3>
@@ -483,7 +468,7 @@ const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-sidebar/5 relative overflow-hidden">
+      <section className="py-12 bg-sidebar/5 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-96 h-96 bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-[hsl(130,70%,40%)]/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -492,7 +477,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <motion.h2 
               variants={fadeInUp}
@@ -521,9 +506,9 @@ const Landing = () => {
                 variants={fadeInUp}
                 transition={{ duration: 0.5 }}
                 whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-[hsl(207,90%,45%)]/20 transition-all duration-300"
+                className="bg-card rounded-2xl p-5 border border-border shadow-sm hover:shadow-lg hover:border-[hsl(207,90%,45%)]/20 transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] flex items-center justify-center mb-3">
                   <feature.icon className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -539,7 +524,7 @@ const Landing = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-24 relative overflow-hidden bg-gradient-to-br from-sidebar via-sidebar to-[hsl(210,40%,10%)]">
+      <section className="py-16 relative overflow-hidden bg-gradient-to-br from-sidebar via-sidebar to-[hsl(210,40%,10%)]">
         {/* Background decorations */}
         <div className="absolute inset-0" style={{ 
           backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.1) 1px, transparent 0)`,
@@ -554,7 +539,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <motion.div 
               variants={fadeInUp}
@@ -696,10 +681,10 @@ const Landing = () => {
         whileInView="visible"
         viewport={{ once: true }}
         variants={staggerContainer}
-        className="py-20 bg-gradient-to-r from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5"
+        className="py-12 bg-gradient-to-r from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {[
               { value: '100%', label: 'Personalizável', icon: Layers, color: 'hsl(207,90%,45%)' },
               { value: '∞', label: 'Projetos ilimitados', icon: FolderKanban, color: 'hsl(130,70%,40%)' },
@@ -708,10 +693,10 @@ const Landing = () => {
               <motion.div 
                 key={index} 
                 variants={fadeInUp}
-                className="text-center p-8 rounded-2xl bg-card border border-border shadow-sm"
+                className="text-center p-6 rounded-2xl bg-card border border-border shadow-sm"
               >
                 <div 
-                  className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                  className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center"
                   style={{ backgroundColor: `${stat.color.replace(')', ' / 0.1)')}` }}
                 >
                   <stat.icon className="w-7 h-7" style={{ color: stat.color }} />
@@ -725,10 +710,9 @@ const Landing = () => {
       </motion.section>
 
       {/* FAQ Section */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0" style={{ 
-          backgroundImage: `linear-gradient(135deg, hsl(207 90% 45% / 0.03) 25%, transparent 25%, transparent 50%, hsl(207 90% 45% / 0.03) 50%, hsl(207 90% 45% / 0.03) 75%, transparent 75%, transparent)`,
-          backgroundSize: '60px 60px'
+      <section className="py-16 relative overflow-hidden bg-gradient-to-br from-muted/50 via-background to-muted/30">
+        <div className="absolute inset-0 opacity-50" style={{ 
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230a7cc4' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }} />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
@@ -736,7 +720,7 @@ const Landing = () => {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <motion.div 
               variants={fadeInUp}
@@ -764,20 +748,20 @@ const Landing = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="grid md:grid-cols-2 gap-6"
+            className="grid md:grid-cols-2 gap-4"
           >
             {/* Left column */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {faqs.slice(0, 3).map((faq, index) => (
                 <Accordion key={index} type="single" collapsible>
                   <AccordionItem 
                     value={`item-${index}`}
-                    className="bg-card border border-border rounded-2xl px-6 overflow-hidden"
+                    className="bg-card border border-border rounded-xl px-5 overflow-hidden shadow-sm"
                   >
-                    <AccordionTrigger className="text-left text-foreground font-medium py-5 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    <AccordionTrigger className="text-left text-foreground font-medium py-4 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       {faq.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
+                    <AccordionContent className="text-muted-foreground pb-4 leading-relaxed text-sm">
                       {faq.answer}
                     </AccordionContent>
                   </AccordionItem>
@@ -786,17 +770,17 @@ const Landing = () => {
             </div>
             
             {/* Right column */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {faqs.slice(3).map((faq, index) => (
                 <Accordion key={index + 3} type="single" collapsible>
                   <AccordionItem 
                     value={`item-${index + 3}`}
-                    className="bg-card border border-border rounded-2xl px-6 overflow-hidden"
+                    className="bg-card border border-border rounded-xl px-5 overflow-hidden shadow-sm"
                   >
-                    <AccordionTrigger className="text-left text-foreground font-medium py-5 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    <AccordionTrigger className="text-left text-foreground font-medium py-4 hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       {faq.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
+                    <AccordionContent className="text-muted-foreground pb-4 leading-relaxed text-sm">
                       {faq.answer}
                     </AccordionContent>
                   </AccordionItem>
@@ -808,7 +792,7 @@ const Landing = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 relative overflow-hidden">
+      <section className="py-16 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl opacity-30" />
         
@@ -819,15 +803,15 @@ const Landing = () => {
           transition={{ duration: 0.6 }}
           className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(130,70%,40%)]/10 rounded-full text-[hsl(130,70%,40%)] text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(130,70%,40%)]/10 rounded-full text-[hsl(130,70%,40%)] text-sm font-medium mb-4">
             <Zap className="w-4 h-4" />
             Comece agora mesmo
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-6">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             Pare de perder tempo<br />
             <span className="text-gradient">com planilhas</span>
           </h2>
-          <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
+          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
             Junte-se a equipes que já transformaram sua gestão de projetos com o Tarefaa.
           </p>
           <Button 
