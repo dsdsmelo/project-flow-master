@@ -350,7 +350,13 @@ const Landing = () => {
       </section>
 
       {/* Screenshots Gallery */}
-      <section className="py-20 bg-muted/30">
+      <section className="py-20 relative overflow-hidden">
+        {/* Geometric background pattern */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(207,90%,45%)]/5 to-[hsl(130,70%,40%)]/5" />
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.08) 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }} />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden"
@@ -417,7 +423,9 @@ const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20">
+      <section className="py-20 bg-sidebar/5 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-[hsl(130,70%,40%)]/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden"
@@ -471,72 +479,153 @@ const Landing = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-24 relative overflow-hidden bg-gradient-to-br from-sidebar via-sidebar to-[hsl(210,40%,10%)]">
+        {/* Background decorations */}
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.1) 1px, transparent 0)`,
+          backgroundSize: '32px 32px'
+        }} />
+        <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-[hsl(207,90%,45%)]/20 rounded-full blur-3xl opacity-50" />
+        <div className="absolute bottom-1/4 right-0 w-[400px] h-[400px] bg-[hsl(130,70%,40%)]/20 rounded-full blur-3xl opacity-50" />
+        
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            variants={scaleIn}
-            transition={{ duration: 0.6 }}
-            className="max-w-lg mx-auto"
+            variants={staggerContainer}
+            className="text-center mb-16"
           >
-            <div className="bg-card rounded-3xl border-2 border-[hsl(130,70%,40%)]/30 shadow-2xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[hsl(207,90%,45%)]/10 rounded-full blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[hsl(130,70%,40%)]/10 rounded-full blur-xl" />
+            <motion.div 
+              variants={fadeInUp}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(35,95%,55%)]/20 rounded-full text-[hsl(35,95%,55%)] text-sm font-medium mb-4"
+            >
+              <CreditCard className="w-4 h-4" />
+              Investimento
+            </motion.div>
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4"
+            >
+              Um único plano,<br />
+              <span className="text-gradient">tudo incluso</span>
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-white/70 max-w-2xl mx-auto"
+            >
+              Sem surpresas, sem taxas ocultas. Acesso completo a todas as funcionalidades.
+            </motion.p>
+          </motion.div>
+          
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid lg:grid-cols-2 gap-8 items-center"
+          >
+            {/* Left column - Benefits */}
+            <motion.div 
+              variants={fadeInUp}
+              className="space-y-6"
+            >
+              <h3 className="text-2xl font-bold text-white mb-6">
+                Por que escolher o Tarefaa?
+              </h3>
               
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="px-3 py-1 bg-[hsl(35,95%,55%)]/10 rounded-full text-[hsl(35,95%,55%)] text-xs font-semibold uppercase tracking-wide">
-                    Plano Completo
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-bold text-foreground">R$ 99</span>
-                    <span className="text-muted-foreground">/mês</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Acesso completo a todas as funcionalidades
-                  </p>
-                </div>
-
-                <div className="space-y-3 mb-8">
-                  {benefits.map((benefit, index) => (
-                    <motion.div 
-                      key={index} 
-                      initial={{ opacity: 0, x: -10 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-3"
-                    >
-                      <div className="w-5 h-5 rounded-full bg-[hsl(130,70%,40%)]/10 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[hsl(130,70%,40%)]" />
-                      </div>
-                      <span className="text-foreground">{benefit}</span>
-                    </motion.div>
-                  ))}
-                </div>
-
-                <Button 
-                  size="lg" 
-                  onClick={handleSubscribe}
-                  disabled={isLoading}
-                  variant="success"
-                  className="w-full group"
-                >
-                  {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-                  Começar Agora
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
-
-                <p className="text-xs text-center text-muted-foreground mt-4">
-                  Pagamento seguro via Stripe. Cancele a qualquer momento.
-                </p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[
+                  { icon: FolderKanban, title: 'Projetos ilimitados', desc: 'Crie quantos projetos precisar' },
+                  { icon: CheckCircle2, title: 'Tarefas ilimitadas', desc: 'Sem limites de tarefas' },
+                  { icon: Layers, title: 'Colunas personalizáveis', desc: 'Adapte ao seu fluxo' },
+                  { icon: BarChart3, title: 'Dashboard completo', desc: 'Métricas em tempo real' },
+                  { icon: GanttChart, title: 'Gráfico de Gantt', desc: 'Visualize cronogramas' },
+                  { icon: Users, title: 'Gestão de equipe', desc: 'Controle de responsáveis' },
+                  { icon: Shield, title: 'Dados seguros', desc: 'Criptografia ponta a ponta' },
+                  { icon: Mail, title: 'Suporte prioritário', desc: 'Atendimento dedicado' },
+                ].map((item, index) => (
+                  <motion.div 
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.05 }}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] flex items-center justify-center flex-shrink-0">
+                      <item.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white text-sm">{item.title}</h4>
+                      <p className="text-white/60 text-xs">{item.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            </div>
+            </motion.div>
+
+            {/* Right column - Price card */}
+            <motion.div 
+              variants={scaleIn}
+              className="relative"
+            >
+              <div className="bg-white dark:bg-card rounded-3xl p-8 lg:p-10 shadow-2xl relative overflow-hidden">
+                {/* Decorative elements */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-[hsl(130,70%,40%)]/10 rounded-full blur-2xl" />
+                
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="px-4 py-1.5 bg-gradient-to-r from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] rounded-full text-white text-xs font-semibold uppercase tracking-wide">
+                      Plano Profissional
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-6xl font-bold text-foreground">R$ 99</span>
+                      <span className="text-xl text-muted-foreground">/mês</span>
+                    </div>
+                    <p className="text-muted-foreground mt-3">
+                      Tudo que você precisa para gerenciar projetos de forma profissional
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 mb-8">
+                    {benefits.map((benefit, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-[hsl(130,70%,40%)]/10 flex items-center justify-center flex-shrink-0">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[hsl(130,70%,40%)]" />
+                        </div>
+                        <span className="text-foreground">{benefit}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button 
+                    size="xl" 
+                    onClick={handleSubscribe}
+                    disabled={isLoading}
+                    variant="success"
+                    className="w-full group"
+                  >
+                    {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
+                    Começar Agora
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+
+                  <div className="flex items-center justify-center gap-4 mt-6 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Lock className="w-4 h-4" />
+                      <span>Pagamento seguro</span>
+                    </div>
+                    <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+                    <span>Cancele quando quiser</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </section>
@@ -547,16 +636,26 @@ const Landing = () => {
         whileInView="visible"
         viewport={{ once: true }}
         variants={staggerContainer}
-        className="py-16 border-y border-border"
+        className="py-20 bg-gradient-to-r from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8 text-center">
+          <div className="grid md:grid-cols-3 gap-8">
             {[
-              { value: '100%', label: 'Personalizável' },
-              { value: '∞', label: 'Projetos ilimitados' },
-              { value: '24/7', label: 'Acesso disponível' }
+              { value: '100%', label: 'Personalizável', icon: Layers, color: 'hsl(207,90%,45%)' },
+              { value: '∞', label: 'Projetos ilimitados', icon: FolderKanban, color: 'hsl(130,70%,40%)' },
+              { value: '24/7', label: 'Acesso disponível', icon: Zap, color: 'hsl(35,95%,55%)' }
             ].map((stat, index) => (
-              <motion.div key={index} variants={fadeInUp}>
+              <motion.div 
+                key={index} 
+                variants={fadeInUp}
+                className="text-center p-8 rounded-2xl bg-card border border-border shadow-sm"
+              >
+                <div 
+                  className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                  style={{ backgroundColor: `${stat.color.replace(')', ' / 0.1)')}` }}
+                >
+                  <stat.icon className="w-7 h-7" style={{ color: stat.color }} />
+                </div>
                 <div className="text-4xl font-bold text-foreground mb-2">{stat.value}</div>
                 <p className="text-muted-foreground">{stat.label}</p>
               </motion.div>
@@ -566,7 +665,11 @@ const Landing = () => {
       </motion.section>
 
       {/* FAQ Section */}
-      <section className="py-20 bg-muted/30">
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `linear-gradient(135deg, hsl(207 90% 45% / 0.03) 25%, transparent 25%, transparent 50%, hsl(207 90% 45% / 0.03) 50%, hsl(207 90% 45% / 0.03) 75%, transparent 75%, transparent)`,
+          backgroundSize: '60px 60px'
+        }} />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             initial="hidden"
