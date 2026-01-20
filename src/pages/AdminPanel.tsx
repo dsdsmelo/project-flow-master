@@ -1,18 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  Activity,
-  Server,
-  RefreshCw,
-  Shield,
-  LogOut,
-  Settings
-} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminStatsCards } from '@/components/admin/AdminStatsCards';
 import { AdminUsersTab, UserWithSubscription } from '@/components/admin/AdminUsersTab';
 import { AdminLogsTab } from '@/components/admin/AdminLogsTab';
@@ -153,87 +144,70 @@ const AdminPanel = () => {
     }
   }, []);
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Admin Header */}
-      <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Shield className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg">Painel Admin</h1>
-              <p className="text-xs text-muted-foreground">Tarefaa SaaS</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={fetchUsers} variant="outline" size="sm">
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
-            <Button onClick={handleLogout} variant="ghost" size="sm">
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="overview" className="gap-2">
-              <Activity className="w-4 h-4" />
-              <span className="hidden sm:inline">Visão Geral</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Clientes</span>
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-2">
-              <Activity className="w-4 h-4" />
-              <span className="hidden sm:inline">Logs</span>
-            </TabsTrigger>
-            <TabsTrigger value="infra" className="gap-2">
-              <Server className="w-4 h-4" />
-              <span className="hidden sm:inline">Infraestrutura</span>
-            </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2">
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Segurança</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <div className="space-y-6">
             <AdminStatsCards stats={stats} />
             <AdminUsersTab users={users} isLoading={isLoading} onRefresh={fetchUsers} />
-          </TabsContent>
+          </div>
+        );
+      case 'users':
+        return <AdminUsersTab users={users} isLoading={isLoading} onRefresh={fetchUsers} />;
+      case 'logs':
+        return <AdminLogsTab />;
+      case 'infra':
+        return <AdminInfraTab />;
+      case 'security':
+        return (
+          <div className="space-y-6">
+            <TwoFactorSetup 
+              userId={sessionStorage.getItem('adminUserId') || ''} 
+              userEmail={adminEmail}
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
-          <TabsContent value="users">
-            <AdminUsersTab users={users} isLoading={isLoading} onRefresh={fetchUsers} />
-          </TabsContent>
-
-          <TabsContent value="logs">
-            <AdminLogsTab />
-          </TabsContent>
-
-          <TabsContent value="infra">
-            <AdminInfraTab />
-          </TabsContent>
-
-          <TabsContent value="security">
-            <div className="space-y-6">
-              <TwoFactorSetup 
-                userId={sessionStorage.getItem('adminUserId') || ''} 
-                userEmail={adminEmail}
-              />
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex w-full bg-background">
+        <AdminSidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onRefresh={fetchUsers}
+          onLogout={handleLogout}
+          isLoading={isLoading}
+        />
+        
+        <main className="flex-1 flex flex-col min-w-0">
+          {/* Header with trigger */}
+          <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center gap-4 px-4 py-3">
+              <SidebarTrigger />
+              <div>
+                <h2 className="font-semibold">
+                  {activeTab === 'overview' && 'Visão Geral'}
+                  {activeTab === 'users' && 'Clientes'}
+                  {activeTab === 'logs' && 'Logs de Auditoria'}
+                  {activeTab === 'infra' && 'Infraestrutura'}
+                  {activeTab === 'security' && 'Segurança'}
+                </h2>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+          </header>
+
+          {/* Content */}
+          <div className="flex-1 p-6 overflow-auto">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 };
 

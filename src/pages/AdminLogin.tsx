@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import { logAuditEvent } from '@/lib/auditLog';
 import * as OTPAuth from 'otpauth';
 
 type ViewMode = 'login' | 'forgot-password' | 'reset-sent' | '2fa-verify' | '2fa-blocked';
@@ -76,7 +77,7 @@ const AdminLogin = () => {
     return () => clearInterval(interval);
   }, [lockout.lockedUntil]);
 
-  const recordFailedAttempt = () => {
+  const recordFailedAttempt = async (userEmail?: string) => {
     const newAttempts = lockout.attempts + 1;
     let newLockout: LockoutState;
 
@@ -91,12 +92,28 @@ const AdminLogin = () => {
         description: `Muitas tentativas incorretas. Tente novamente em 15 minutos.`,
         variant: 'destructive',
       });
+      
+      // Log blocked event
+      await logAuditEvent({
+        user_email: userEmail,
+        action: '2fa_blocked',
+        details: `Conta bloqueada após ${MAX_ATTEMPTS} tentativas falhas de 2FA`,
+        level: 'error',
+      });
     } else {
       newLockout = { attempts: newAttempts, lockedUntil: null };
       toast({
         title: 'Código inválido',
         description: `Tentativa ${newAttempts} de ${MAX_ATTEMPTS}. ${MAX_ATTEMPTS - newAttempts} tentativas restantes.`,
         variant: 'destructive',
+      });
+      
+      // Log failed 2FA attempt
+      await logAuditEvent({
+        user_email: userEmail,
+        action: '2fa_failed',
+        details: `Tentativa ${newAttempts} de ${MAX_ATTEMPTS} - código 2FA inválido`,
+        level: 'warning',
       });
     }
 
@@ -138,6 +155,16 @@ const AdminLogin = () => {
 
       if (!roleData) {
         await supabase.auth.signOut();
+        
+        // Log unauthorized access attempt
+        await logAuditEvent({
+          user_id: authData.user.id,
+          user_email: email,
+          action: 'login_failed',
+          details: 'Tentativa de acesso ao painel admin sem permissões de administrador',
+          level: 'warning',
+        });
+        
         throw new Error('Acesso negado. Você não tem permissões de administrador.');
       }
 
@@ -157,9 +184,18 @@ const AdminLogin = () => {
       }
 
       // No 2FA, complete login
-      completeLogin(authData.user.id);
+      completeLogin(authData.user.id, authData.user.email);
     } catch (error: any) {
       console.error('Admin login error:', error);
+      
+      // Log failed login attempt
+      await logAuditEvent({
+        user_email: email,
+        action: 'login_failed',
+        details: error.message || 'Credenciais inválidas',
+        level: 'error',
+      });
+      
       toast({
         title: 'Erro no login',
         description: error.message || 'Credenciais inválidas ou sem permissão de admin.',
@@ -215,7 +251,7 @@ const AdminLogin = () => {
 
       if (delta === null) {
         // Invalid code - record failed attempt
-        recordFailedAttempt();
+        await recordFailedAttempt(pendingAuth.email);
         setTotpCode('');
         setIsLoading(false);
         return;
@@ -223,7 +259,17 @@ const AdminLogin = () => {
 
       // 2FA verified, clear lockout and complete login
       clearLockout();
-      completeLogin(pendingAuth.userId);
+      
+      // Log successful 2FA verification
+      await logAuditEvent({
+        user_id: pendingAuth.userId,
+        user_email: pendingAuth.email,
+        action: '2fa_success',
+        details: 'Verificação 2FA bem-sucedida',
+        level: 'success',
+      });
+      
+      completeLogin(pendingAuth.userId, pendingAuth.email);
     } catch (error: any) {
       console.error('2FA verification error:', error);
       toast({
@@ -235,9 +281,18 @@ const AdminLogin = () => {
     }
   };
 
-  const completeLogin = (userId: string) => {
+  const completeLogin = async (userId: string, userEmail?: string) => {
     sessionStorage.setItem('adminAuthenticated', 'true');
     sessionStorage.setItem('adminUserId', userId);
+
+    // Log successful login
+    await logAuditEvent({
+      user_id: userId,
+      user_email: userEmail || email,
+      action: 'login',
+      details: 'Login administrativo bem-sucedido',
+      level: 'success',
+    });
 
     toast({
       title: 'Bem-vindo, Admin!',
