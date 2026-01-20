@@ -447,6 +447,8 @@ function mapMilestone(data: any): Milestone {
     phaseId: data.phase_id,
     description: data.description,
     color: data.color,
+    date: data.date,
+    usePhaseEndDate: data.use_phase_end_date ?? true,
   };
 }
 
@@ -457,5 +459,7 @@ function milestoneToDb(milestone: Partial<Milestone>): any {
   if (milestone.phaseId !== undefined) result.phase_id = milestone.phaseId;
   if (milestone.description !== undefined) result.description = milestone.description;
   if (milestone.color !== undefined) result.color = milestone.color;
+  if (milestone.date !== undefined) result.date = milestone.date;
+  if (milestone.usePhaseEndDate !== undefined) result.use_phase_end_date = milestone.usePhaseEndDate;
   return result;
 }

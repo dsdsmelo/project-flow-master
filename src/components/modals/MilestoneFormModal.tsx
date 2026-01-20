@@ -1,13 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { useData } from '@/contexts/DataContext';
 import { Milestone } from '@/lib/types';
 import { toast } from 'sonner';
+import { Calendar, Info } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +24,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -30,12 +33,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const milestoneSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   phaseId: z.string().min(1, 'Fase é obrigatória'),
   description: z.string().optional(),
   color: z.string().optional(),
+  usePhaseEndDate: z.boolean(),
+  date: z.string().optional(),
+}).refine((data) => {
+  // Se não usar data da fase, precisa ter data manual
+  if (!data.usePhaseEndDate && !data.date) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Selecione uma data ou ative 'Usar data final da fase'",
+  path: ["date"],
 });
 
 type MilestoneFormData = z.infer<typeof milestoneSchema>;
@@ -72,8 +95,12 @@ export const MilestoneFormModal = ({
       phaseId: '',
       description: '',
       color: '#EAB308',
+      usePhaseEndDate: true,
+      date: undefined,
     },
   });
+
+  const usePhaseEndDate = form.watch('usePhaseEndDate');
 
   useEffect(() => {
     if (milestone) {
@@ -82,6 +109,8 @@ export const MilestoneFormModal = ({
         phaseId: milestone.phaseId,
         description: milestone.description || '',
         color: milestone.color || '#EAB308',
+        usePhaseEndDate: milestone.usePhaseEndDate ?? true,
+        date: milestone.date || undefined,
       });
     } else {
       form.reset({
@@ -89,6 +118,8 @@ export const MilestoneFormModal = ({
         phaseId: projectPhases[0]?.id || '',
         description: '',
         color: '#EAB308',
+        usePhaseEndDate: true,
+        date: undefined,
       });
     }
   }, [milestone, open, projectPhases, form]);
@@ -101,6 +132,8 @@ export const MilestoneFormModal = ({
           phaseId: data.phaseId,
           description: data.description,
           color: data.color,
+          usePhaseEndDate: data.usePhaseEndDate,
+          date: data.usePhaseEndDate ? undefined : data.date,
         });
         toast.success('Marco atualizado com sucesso!');
       } else {
@@ -110,6 +143,8 @@ export const MilestoneFormModal = ({
           projectId,
           description: data.description,
           color: data.color,
+          usePhaseEndDate: data.usePhaseEndDate,
+          date: data.usePhaseEndDate ? undefined : data.date,
         });
         toast.success('Marco criado com sucesso!');
       }
@@ -138,7 +173,7 @@ export const MilestoneFormModal = ({
                 <FormItem>
                   <FormLabel>Nome</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Entrega Final" {...field} />
+                    <Input placeholder="Ex: Entrega Sprint 1, Go-Live, etc." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -150,7 +185,7 @@ export const MilestoneFormModal = ({
               name="phaseId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Fase</FormLabel>
+                  <FormLabel>Fase/Sprint</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -177,6 +212,70 @@ export const MilestoneFormModal = ({
                 </FormItem>
               )}
             />
+
+            {/* Toggle: Usar data da fase ou manual */}
+            <FormField
+              control={form.control}
+              name="usePhaseEndDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Usar data final da fase</FormLabel>
+                    <FormDescription className="text-xs">
+                      O marco será posicionado na última tarefa da fase
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Data manual (só aparece se usePhaseEndDate = false) */}
+            {!usePhaseEndDate && (
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data do Marco</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), 'PPP', { locale: ptBR })
+                            ) : (
+                              <span>Selecione uma data</span>
+                            )}
+                            <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

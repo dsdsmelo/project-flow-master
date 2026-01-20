@@ -80,6 +80,8 @@ export interface Milestone {
   phaseId: string;
   description?: string;
   color?: string;
+  date?: string; // Data específica (se definida) ou usa a data final da fase
+  usePhaseEndDate: boolean; // true = usa data final da fase automaticamente
 }
 
 // Helper types
