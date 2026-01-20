@@ -38,13 +38,19 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
+  Tooltip as RechartsTooltip, 
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
   Legend
 } from 'recharts';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const statusColors = {
   planning: 'bg-purple-500',
@@ -196,6 +202,7 @@ const ProjectDetail = () => {
   }
 
   return (
+    <TooltipProvider>
     <MainLayout>
       <Header 
         title={project.name} 
@@ -300,14 +307,26 @@ const ProjectDetail = () => {
                 <Flag className="w-5 h-5 text-amber-500" />
                 <h3 className="text-lg font-semibold">Marcos do Projeto</h3>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMilestoneModalOpen(true)}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Novo Marco
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setMilestoneModalOpen(true)}
+                      disabled={projectPhases.length === 0}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Novo Marco
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {projectPhases.length === 0 && (
+                  <TooltipContent>
+                    <p>Cadastre pelo menos uma fase/sprint para adicionar marcos</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
             {milestones.filter(m => m.projectId === projectId).length > 0 ? (
               <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -382,7 +401,7 @@ const ProjectDetail = () => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -402,7 +421,7 @@ const ProjectDetail = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis />
-                    <Tooltip />
+                    <RechartsTooltip />
                     <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
                       {tasksByPerson.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -555,6 +574,7 @@ const ProjectDetail = () => {
         projectId={projectId || ''}
       />
     </MainLayout>
+    </TooltipProvider>
   );
 };
 

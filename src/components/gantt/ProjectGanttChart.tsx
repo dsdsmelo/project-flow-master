@@ -200,10 +200,26 @@ export const ProjectGanttChart = ({
           </Select>
           
           {onAddMilestone && (
-            <Button variant="outline" size="sm" onClick={onAddMilestone}>
-              <Flag className="w-4 h-4 mr-2" />
-              Novo Marco
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={onAddMilestone}
+                    disabled={projectPhases.length === 0}
+                  >
+                    <Flag className="w-4 h-4 mr-2" />
+                    Novo Marco
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {projectPhases.length === 0 && (
+                <TooltipContent>
+                  <p>Cadastre pelo menos uma fase/sprint para adicionar marcos</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
           )}
         </div>
 
