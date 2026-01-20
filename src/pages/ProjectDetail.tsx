@@ -236,10 +236,12 @@ const ProjectDetail = () => {
               <Layers className="w-4 h-4 mr-2" />
               Fases
             </Button>
-            <Button className="gradient-primary text-white" onClick={() => setTaskModalOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Tarefa
-            </Button>
+            {activeTab !== 'gantt' && (
+              <Button className="gradient-primary text-white" onClick={() => setTaskModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Tarefa
+              </Button>
+            )}
           </div>
         </div>
 
