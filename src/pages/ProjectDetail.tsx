@@ -14,18 +14,13 @@ import {
   LayoutDashboard,
   Plus,
   ClipboardList,
-  Flag,
-  Pencil,
-  Trash2,
   Layers,
   FileText
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatCard } from '@/components/ui/stat-card';
-import { StatusBadge } from '@/components/ui/status-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useData } from '@/contexts/DataContext';
@@ -318,124 +313,7 @@ const ProjectDetail = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Milestones */}
-          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-soft">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Flag className="w-5 h-5 text-amber-500" />
-                <h3 className="text-lg font-semibold">Marcos do Projeto</h3>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setMilestoneModalOpen(true)}
-                      disabled={projectPhases.length === 0}
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Novo Marco
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {projectPhases.length === 0 && (
-                  <TooltipContent>
-                    <p>Cadastre pelo menos uma fase/sprint para adicionar marcos</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </div>
-            {milestones.filter(m => m.projectId === projectId).length > 0 ? (
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {milestones
-                  .filter(m => m.projectId === projectId)
-                  .map((milestone) => {
-                    const phase = phases.find(p => p.id === milestone.phaseId);
-                    return (
-                      <div 
-                        key={milestone.id} 
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50 group hover:bg-muted/80 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Flag 
-                            className="w-5 h-5" 
-                            style={{ 
-                              color: milestone.color || '#EAB308',
-                              fill: milestone.color || '#EAB308',
-                            }} 
-                          />
-                          <div>
-                            <span className="font-medium">{milestone.name}</span>
-                            {milestone.description && (
-                              <p className="text-xs text-muted-foreground">{milestone.description}</p>
-                            )}
-                            {milestone.date && !milestone.usePhaseEndDate && (
-                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(milestone.date).toLocaleDateString('pt-BR')}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {phase && (
-                            <span className="text-xs px-2 py-1 bg-muted rounded-full flex items-center gap-1">
-                              {phase.color && (
-                                <div 
-                                  className="w-2 h-2 rounded-full" 
-                                  style={{ backgroundColor: phase.color }} 
-                                />
-                              )}
-                              {phase.name}
-                            </span>
-                          )}
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => {
-                                setEditingMilestone(milestone);
-                                setMilestoneModalOpen(true);
-                              }}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={async () => {
-                                if (confirm('Tem certeza que deseja excluir este marco?')) {
-                                  try {
-                                    await deleteMilestone(milestone.id);
-                                  } catch (err) {
-                                    console.error('Error deleting milestone:', err);
-                                  }
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-                <Flag className="w-12 h-12 mb-3 opacity-50" />
-                <p className="text-center">Nenhum marco configurado</p>
-                <p className="text-xs text-center mt-1">
-                  Adicione marcos para acompanhar entregas importantes
-                </p>
-              </div>
-            )}
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Status Distribution */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Distribuição por Status</h3>
