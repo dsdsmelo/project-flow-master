@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
-import { Task, Person, Phase } from '@/lib/types';
+import { Task, Person, Phase, CustomColumn } from '@/lib/types';
+import { Flag } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -20,11 +21,41 @@ interface ProjectGanttChartProps {
   phases: Phase[];
   people: Person[];
   projectId: string;
+  customColumns?: CustomColumn[];
 }
 
-export const ProjectGanttChart = ({ tasks, phases, people, projectId }: ProjectGanttChartProps) => {
+export const ProjectGanttChart = ({ tasks, phases, people, projectId, customColumns = [] }: ProjectGanttChartProps) => {
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('phase');
+
+  // Get milestone columns for this project
+  const milestoneColumns = useMemo(() => {
+    return customColumns.filter(col => col.projectId === projectId && col.isMilestone && col.active && col.type === 'date');
+  }, [customColumns, projectId]);
+
+  // Get milestones from task custom values
+  const milestones = useMemo(() => {
+    const results: { date: Date; name: string; taskId: string; taskName: string }[] = [];
+    
+    milestoneColumns.forEach(col => {
+      tasks.forEach(task => {
+        const value = task.customValues?.[col.id];
+        if (value) {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            results.push({
+              date,
+              name: col.name,
+              taskId: task.id,
+              taskName: task.name,
+            });
+          }
+        }
+      });
+    });
+    
+    return results;
+  }, [milestoneColumns, tasks]);
 
   // Calculate date range based on project tasks
   const dateRange = useMemo(() => {
@@ -140,8 +171,16 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId }: ProjectG
 
   const getTodayPosition = () => {
     const today = new Date();
+    // Normalize to start of day for accurate positioning
+    today.setHours(12, 0, 0, 0);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (today.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+    return `${(offset / totalDays) * 100}%`;
+  };
+
+  const getMilestonePosition = (date: Date) => {
+    const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+    const offset = (date.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
   };
 
@@ -290,13 +329,29 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId }: ProjectG
                           {/* Sprint marker */}
                           {task.sprintDate && (
                             <div
-                              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-purple-500 transform rotate-45"
+                              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-purple-500 transform rotate-45 z-20"
                               style={{
                                 left: `${((new Date(task.sprintDate).getTime() - dateRange.start.getTime()) / (dateRange.end.getTime() - dateRange.start.getTime())) * 100}%`,
                               }}
                               title={`Sprint: ${new Date(task.sprintDate).toLocaleDateString('pt-BR')}`}
                             />
                           )}
+
+                          {/* Milestone markers for this task */}
+                          {milestones
+                            .filter(m => m.taskId === task.id)
+                            .map((milestone, idx) => (
+                              <div
+                                key={`${milestone.taskId}-${idx}`}
+                                className="absolute top-1/2 -translate-y-1/2 z-20 flex items-center justify-center"
+                                style={{
+                                  left: getMilestonePosition(milestone.date),
+                                }}
+                                title={`${milestone.name}: ${milestone.date.toLocaleDateString('pt-BR')}`}
+                              >
+                                <Flag className="w-5 h-5 text-amber-500 fill-amber-500" />
+                              </div>
+                            ))}
                         </div>
                       </div>
                     );
@@ -329,6 +384,10 @@ export const ProjectGanttChart = ({ tasks, phases, people, projectId }: ProjectG
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-purple-500 transform rotate-45" />
           <span>Sprint</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Flag className="w-4 h-4 text-amber-500 fill-amber-500" />
+          <span>Marco</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-primary rounded" />
