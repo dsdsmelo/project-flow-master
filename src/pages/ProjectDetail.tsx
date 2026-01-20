@@ -232,10 +232,7 @@ const ProjectDetail = () => {
                 </span>
               </div>
             )}
-            <Button variant="outline" onClick={() => setPhaseManagerOpen(true)}>
-              <Layers className="w-4 h-4 mr-2" />
-              Fases
-            </Button>
+{/* Botão Fases removido conforme solicitado */}
             {activeTab !== 'gantt' && (
               <Button className="gradient-primary text-white" onClick={() => setTaskModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -484,7 +481,6 @@ const ProjectDetail = () => {
           <TabsContent value="gantt" className="mt-6">
             <ProjectGanttChart 
               tasks={projectTasks} 
-              phases={projectPhases} 
               people={people} 
               projectId={projectId || ''} 
               milestones={milestones}
@@ -507,6 +503,7 @@ const ProjectDetail = () => {
                   console.error('Error updating milestone:', err);
                 }
               }}
+              onAddTask={() => setTaskModalOpen(true)}
             />
           </TabsContent>
 

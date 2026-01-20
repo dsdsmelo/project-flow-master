@@ -77,12 +77,12 @@ export interface Milestone {
   id: string;
   name: string;
   projectId: string;
-  phaseId?: string; // Opcional - mantido para compatibilidade
   description?: string;
   color?: string;
-  date?: string; // Data específica do marco
+  startDate?: string; // Data de início do marco
+  endDate?: string; // Data de término do marco
+  date?: string; // Depreciado - mantido para compatibilidade
   completed?: boolean; // Indica se o marco foi concluído
-  usePhaseEndDate?: boolean; // Depreciado - mantido para compatibilidade
 }
 
 export interface MeetingNote {

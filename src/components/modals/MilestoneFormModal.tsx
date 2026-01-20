@@ -45,7 +45,8 @@ const milestoneSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
   color: z.string().optional(),
-  date: z.string().min(1, 'Data é obrigatória'),
+  startDate: z.string().min(1, 'Data de início é obrigatória'),
+  endDate: z.string().optional(),
 });
 
 type MilestoneFormData = z.infer<typeof milestoneSchema>;
@@ -80,7 +81,8 @@ export const MilestoneFormModal = ({
       name: '',
       description: '',
       color: '#EAB308',
-      date: '',
+      startDate: '',
+      endDate: '',
     },
   });
 
@@ -90,14 +92,16 @@ export const MilestoneFormModal = ({
         name: milestone.name,
         description: milestone.description || '',
         color: milestone.color || '#EAB308',
-        date: milestone.date || '',
+        startDate: milestone.startDate || milestone.date || '',
+        endDate: milestone.endDate || '',
       });
     } else {
       form.reset({
         name: '',
         description: '',
         color: '#EAB308',
-        date: '',
+        startDate: '',
+        endDate: '',
       });
     }
   }, [milestone, open, form]);
@@ -109,7 +113,8 @@ export const MilestoneFormModal = ({
           name: data.name,
           description: data.description,
           color: data.color,
-          date: data.date,
+          startDate: data.startDate,
+          endDate: data.endDate || undefined,
         });
         toast.success('Marco atualizado com sucesso!');
       } else {
@@ -118,7 +123,8 @@ export const MilestoneFormModal = ({
           projectId,
           description: data.description,
           color: data.color,
-          date: data.date,
+          startDate: data.startDate,
+          endDate: data.endDate || undefined,
         });
         toast.success('Marco criado com sucesso!');
       }
@@ -154,45 +160,87 @@ export const MilestoneFormModal = ({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), 'PPP', { locale: ptBR })
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                          <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data de Início</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), 'dd/MM/yyyy', { locale: ptBR })
+                            ) : (
+                              <span>Início</span>
+                            )}
+                            <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data de Término</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), 'dd/MM/yyyy', { locale: ptBR })
+                            ) : (
+                              <span>Término (opcional)</span>
+                            )}
+                            <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
