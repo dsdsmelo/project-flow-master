@@ -1,19 +1,15 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { AvatarCircle } from '@/components/ui/avatar-circle';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Milestone } from '@/lib/types';
-import { Flag, Diamond, Pencil, Trash2, CheckCircle2, GripHorizontal, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { Flag, Pencil, Trash2, CheckCircle2, ChevronDown, ChevronRight, Plus, GripHorizontal } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  TooltipProvider,
-} from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ProjectGanttChartProps {
   tasks: Task[];
@@ -124,7 +120,7 @@ export const ProjectGanttChart = ({
     
     return {
       left: `${(startOffset / totalDays) * 100}%`,
-      width: `${Math.max((duration / totalDays) * 100, 2)}%`,
+      width: `${Math.max((duration / totalDays) * 100, 1)}%`,
     };
   };
 
@@ -139,7 +135,7 @@ export const ProjectGanttChart = ({
     
     return {
       left: `${(startOffset / totalDays) * 100}%`,
-      width: `${Math.max((duration / totalDays) * 100, 1)}%`,
+      width: `${Math.max((duration / totalDays) * 100, 0.8)}%`,
     };
   };
 
@@ -214,45 +210,70 @@ export const ProjectGanttChart = ({
     onUpdateMilestone?.(milestoneId, { completed });
   };
 
+  const getStatusColor = (task: Task) => {
+    const overdue = isTaskOverdue(task);
+    if (overdue) return 'bg-red-500';
+    if (task.status === 'completed') return 'bg-emerald-500';
+    if (task.status === 'in_progress') return 'bg-blue-500';
+    if (task.status === 'blocked') return 'bg-red-500';
+    return 'bg-amber-500';
+  };
+
+  const getStatusDot = (task: Task) => {
+    const overdue = isTaskOverdue(task);
+    if (overdue) return 'bg-red-500';
+    if (task.status === 'completed') return 'bg-emerald-500';
+    if (task.status === 'in_progress') return 'bg-blue-500';
+    if (task.status === 'blocked') return 'bg-red-500';
+    return 'bg-amber-500';
+  };
+
   if (tasks.length === 0 && projectMilestones.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <p>Nenhuma tarefa ou marco com datas definidas neste projeto</p>
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-4">
+        <p className="text-sm">Nenhuma tarefa ou marco com datas definidas</p>
+        {onAddMilestone && (
+          <Button variant="outline" size="sm" onClick={onAddMilestone}>
+            <Flag className="w-4 h-4 mr-2" />
+            Criar primeiro marco
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
-    <TooltipProvider>
-    <div className="space-y-4">
-      {/* Simple Toolbar - Only Add Milestone */}
-      <div className="flex gap-3 items-center">
-        {onAddMilestone && (
+    <div className="space-y-3">
+      {/* Toolbar */}
+      {onAddMilestone && (
+        <div className="flex gap-2">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={onAddMilestone}
+            className="h-8 text-xs"
           >
-            <Flag className="w-4 h-4 mr-2" />
+            <Flag className="w-3.5 h-3.5 mr-1.5" />
             Novo Marco
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Gantt Chart */}
-      <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Header */}
-            <div className="flex border-b border-border">
-              <div className="w-56 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
-                Responsável
+          <div className="min-w-[900px]">
+            
+            {/* Timeline Header */}
+            <div className="flex bg-muted/30 border-b border-border">
+              <div className="w-48 flex-shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Cronograma
               </div>
-              <div className="flex-1 flex relative">
+              <div className="flex-1 flex">
                 {columns.map((col, i) => (
                   <div 
                     key={i} 
-                    className="flex-1 p-2 text-center text-xs text-muted-foreground border-l border-border"
+                    className="flex-1 px-1 py-2 text-center text-[10px] font-medium text-muted-foreground border-l border-border/50"
                   >
                     {col.label}
                   </div>
@@ -260,128 +281,148 @@ export const ProjectGanttChart = ({
               </div>
             </div>
 
-            {/* Milestone Rows */}
-            {projectMilestones.map((milestone, index) => {
-              const position = getMilestonePosition(milestone);
-              const isCompleted = milestone.completed;
-              
-              return (
-                <div key={milestone.id} className="flex border-b border-border bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20">
-                  <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2 bg-amber-100/50 dark:bg-amber-900/30">
+            {/* Milestones Section */}
+            {projectMilestones.length > 0 && (
+              <div className="border-b border-border">
+                {projectMilestones.map((milestone, index) => {
+                  const position = getMilestonePosition(milestone);
+                  const isCompleted = milestone.completed;
+                  
+                  return (
                     <div 
-                      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: milestone.color || '#EAB308' }}
+                      key={milestone.id} 
+                      className="flex group/milestone hover:bg-muted/20 transition-colors"
                     >
-                      <Diamond className="w-2 h-2 text-white" />
-                    </div>
-                    <span className="text-amber-800 dark:text-amber-300 truncate">{milestone.name}</span>
-                  </div>
-                  <div 
-                    ref={index === 0 ? chartRef : undefined}
-                    className="flex-1 relative h-12"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleDrop}
-                  >
-                    {position && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <div
-                            draggable
-                            onDragStart={() => handleDragStart(milestone.id)}
-                            onDragEnd={(e) => handleDragEnd(e, milestone.id)}
-                            className={cn(
-                              "absolute top-2 h-8 rounded-md cursor-grab transition-all hover:shadow-lg",
-                              draggingMilestone === milestone.id && "opacity-50 cursor-grabbing",
-                              isCompleted ? "opacity-80" : ""
-                            )}
-                            style={{
-                              left: position.left,
-                              width: position.width,
-                              minWidth: '80px',
-                              backgroundColor: milestone.color || '#EAB308',
-                            }}
-                          >
-                            <div className="h-full flex items-center justify-center px-2 text-xs text-white font-medium gap-1">
-                              {isCompleted && <CheckCircle2 className="w-3.5 h-3.5" />}
-                              <span className="truncate">
-                                {milestone.startDate && new Date(milestone.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                {milestone.endDate && ` - ${new Date(milestone.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
-                              </span>
-                            </div>
-                          </div>
-                        </PopoverTrigger>
-                        <PopoverContent side="top" className="w-64 p-3">
-                          <div className="space-y-3">
-                            <div>
-                              <p className="font-semibold">{milestone.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {milestone.startDate && new Date(milestone.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                {milestone.endDate && ` até ${new Date(milestone.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`}
-                              </p>
-                              {milestone.description && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {milestone.description}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 py-2 border-t">
-                              <Checkbox
-                                id={`complete-${milestone.id}`}
-                                checked={milestone.completed}
-                                onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
-                              />
-                              <label 
-                                htmlFor={`complete-${milestone.id}`}
-                                className="text-sm cursor-pointer"
-                              >
-                                Marcar como concluído
-                              </label>
-                            </div>
-                            <div className="flex gap-2 pt-2 border-t">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => onEditMilestone?.(milestone)}
-                              >
-                                <Pencil className="w-3.5 h-3.5 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => {
-                                  if (confirm('Tem certeza que deseja excluir este marco?')) {
-                                    onDeleteMilestone?.(milestone.id);
-                                  }
+                      {/* Milestone Name */}
+                      <div className="w-48 flex-shrink-0 px-3 py-1.5 flex items-center gap-2 border-r border-border/30">
+                        <div 
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: milestone.color || '#f59e0b' }}
+                        />
+                        <span className={cn(
+                          "text-xs font-medium truncate",
+                          isCompleted && "line-through text-muted-foreground"
+                        )}>
+                          {milestone.name}
+                        </span>
+                      </div>
+                      
+                      {/* Milestone Bar */}
+                      <div 
+                        ref={index === 0 ? chartRef : undefined}
+                        className="flex-1 relative h-7"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={handleDrop}
+                      >
+                        {/* Grid lines */}
+                        <div className="absolute inset-0 flex">
+                          {columns.map((_, i) => (
+                            <div key={i} className="flex-1 border-l border-border/20" />
+                          ))}
+                        </div>
+                        
+                        {position && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div
+                                draggable
+                                onDragStart={() => handleDragStart(milestone.id)}
+                                onDragEnd={(e) => handleDragEnd(e, milestone.id)}
+                                className={cn(
+                                  "absolute top-1.5 h-4 rounded-full cursor-grab transition-all hover:h-5 hover:top-1",
+                                  "flex items-center justify-center",
+                                  draggingMilestone === milestone.id && "opacity-50 cursor-grabbing",
+                                  isCompleted && "opacity-60"
+                                )}
+                                style={{
+                                  left: position.left,
+                                  width: position.width,
+                                  minWidth: '60px',
+                                  backgroundColor: milestone.color || '#f59e0b',
                                 }}
                               >
-                                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                Excluir
-                              </Button>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground text-center pt-2">
-                              <GripHorizontal className="w-3 h-3 inline mr-1" />
-                              Arraste para reposicionar
-                            </p>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                                <span className="text-[9px] text-white font-medium px-2 truncate">
+                                  {milestone.startDate && new Date(milestone.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                  {milestone.endDate && ` - ${new Date(milestone.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
+                                </span>
+                                {isCompleted && <CheckCircle2 className="w-3 h-3 text-white ml-1 flex-shrink-0" />}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" className="w-56 p-2.5">
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="font-medium text-sm">{milestone.name}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {milestone.startDate && new Date(milestone.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                                    {milestone.endDate && ` → ${new Date(milestone.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}`}
+                                  </p>
+                                  {milestone.description && (
+                                    <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
+                                      {milestone.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 py-1.5 border-t">
+                                  <Checkbox
+                                    id={`complete-${milestone.id}`}
+                                    checked={milestone.completed}
+                                    onCheckedChange={(checked) => handleToggleComplete(milestone.id, !!checked)}
+                                    className="h-3.5 w-3.5"
+                                  />
+                                  <label 
+                                    htmlFor={`complete-${milestone.id}`}
+                                    className="text-[10px] cursor-pointer"
+                                  >
+                                    Concluído
+                                  </label>
+                                </div>
+                                <div className="flex gap-1.5 pt-1.5 border-t">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 h-7 text-[10px]"
+                                    onClick={() => onEditMilestone?.(milestone)}
+                                  >
+                                    <Pencil className="w-3 h-3 mr-1" />
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 h-7 text-[10px] text-destructive hover:text-destructive"
+                                    onClick={() => {
+                                      if (confirm('Excluir marco?')) {
+                                        onDeleteMilestone?.(milestone.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-1" />
+                                    Excluir
+                                  </Button>
+                                </div>
+                                <p className="text-[9px] text-muted-foreground text-center flex items-center justify-center gap-1">
+                                  <GripHorizontal className="w-2.5 h-2.5" />
+                                  Arraste para mover
+                                </p>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-            {/* Body - Tasks grouped by responsible */}
+            {/* Tasks Section */}
             <div className="relative">
-              {/* Today line */}
+              {/* Today indicator */}
               <div 
-                className="absolute top-0 bottom-0 w-0.5 bg-primary z-10"
-                style={{ left: getTodayPosition() }}
+                className="absolute top-0 bottom-0 w-px bg-primary/80 z-20 pointer-events-none"
+                style={{ left: `calc(192px + ${getTodayPosition()})` }}
               >
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary" />
+                <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary" />
               </div>
 
               {groupedTasks.map((group) => {
@@ -394,33 +435,35 @@ export const ProjectGanttChart = ({
                   .toUpperCase();
                 
                 return (
-                  <div key={group.id}>
-                    {/* Group Header - Collapsible with larger name and initials */}
+                  <div key={group.id} className="border-b border-border/50 last:border-b-0">
+                    {/* Group Header */}
                     <div 
-                      className="flex border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                      className="flex items-center cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => toggleGroup(group.id)}
                     >
-                      <div className="w-56 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2">
-                        {isCollapsed ? (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        )}
+                      <div className="w-48 flex-shrink-0 px-2 py-1.5 flex items-center gap-1.5">
+                        <button className="p-0.5 rounded hover:bg-muted">
+                          {isCollapsed ? (
+                            <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </button>
                         <div 
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0"
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-semibold flex-shrink-0"
                           style={{ backgroundColor: group.color || 'hsl(var(--muted-foreground))' }}
                         >
                           {initials}
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">{group.name}</span>
-                          <span className="text-[11px] text-muted-foreground font-normal">{group.tasks.length} tarefa{group.tasks.length !== 1 ? 's' : ''}</span>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs font-medium truncate block">{group.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{group.tasks.length} tarefa{group.tasks.length !== 1 ? 's' : ''}</span>
                         </div>
                       </div>
-                      <div className="flex-1" />
+                      <div className="flex-1 h-8" />
                     </div>
 
-                    {/* Tasks - Collapsible with smaller bullet style */}
+                    {/* Tasks */}
                     {!isCollapsed && (
                       <>
                         {group.tasks.map((task) => {
@@ -430,24 +473,21 @@ export const ProjectGanttChart = ({
                           return (
                             <div 
                               key={task.id} 
-                              className="flex border-b border-border/50 hover:bg-muted/20 group/task cursor-pointer"
+                              className="flex items-center hover:bg-muted/20 group/task cursor-pointer transition-colors"
                               onClick={() => onEditTask?.(task)}
                             >
-                              <div className="w-56 flex-shrink-0 py-2 px-3 text-xs flex items-center gap-2 pl-14">
-                                <div 
-                                  className={cn(
-                                    "w-2 h-2 rounded-full flex-shrink-0",
-                                    overdue ? "bg-status-blocked" : 
-                                    task.status === 'completed' ? "bg-status-completed" :
-                                    task.status === 'in_progress' ? "bg-status-progress" :
-                                    task.status === 'blocked' ? "bg-status-blocked" :
-                                    "bg-status-pending"
-                                  )}
-                                />
-                                <span className={cn("truncate flex-1 text-muted-foreground", overdue && "text-status-blocked")}>
+                              {/* Task Name */}
+                              <div className="w-48 flex-shrink-0 py-1 px-2 pl-9 flex items-center gap-1.5">
+                                <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", getStatusDot(task))} />
+                                <span className={cn(
+                                  "text-[11px] truncate flex-1",
+                                  overdue ? "text-red-500" : "text-muted-foreground",
+                                  task.status === 'completed' && "line-through"
+                                )}>
                                   {task.name}
                                 </span>
-                                <div className="flex gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                {/* Actions */}
+                                <div className="flex gap-0.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
                                   {onEditTask && (
                                     <Button
                                       variant="ghost"
@@ -458,7 +498,7 @@ export const ProjectGanttChart = ({
                                         onEditTask(task);
                                       }}
                                     >
-                                      <Pencil className="w-3 h-3" />
+                                      <Pencil className="w-2.5 h-2.5" />
                                     </Button>
                                   )}
                                   {onDeleteTask && (
@@ -468,31 +508,36 @@ export const ProjectGanttChart = ({
                                       className="h-5 w-5 text-destructive hover:text-destructive"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm('Excluir tarefa?')) {
+                                        if (confirm('Excluir?')) {
                                           onDeleteTask(task.id);
                                         }
                                       }}
                                     >
-                                      <Trash2 className="w-3 h-3" />
+                                      <Trash2 className="w-2.5 h-2.5" />
                                     </Button>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex-1 relative h-8">
+                              
+                              {/* Task Bar */}
+                              <div className="flex-1 relative h-6">
+                                {/* Grid */}
+                                <div className="absolute inset-0 flex">
+                                  {columns.map((_, i) => (
+                                    <div key={i} className="flex-1 border-l border-border/10" />
+                                  ))}
+                                </div>
+                                
                                 {position && (
                                   <div
                                     className={cn(
-                                      "absolute top-1.5 h-5 rounded cursor-pointer transition-all hover:shadow-md",
-                                      overdue ? "bg-status-blocked" : 
-                                      task.status === 'completed' ? "bg-status-completed" :
-                                      task.status === 'in_progress' ? "bg-status-progress" :
-                                      task.status === 'blocked' ? "bg-status-blocked" :
-                                      "bg-status-pending"
+                                      "absolute top-2 h-2 rounded-sm transition-all hover:h-3 hover:top-1.5",
+                                      getStatusColor(task)
                                     )}
                                     style={{
                                       left: position.left,
                                       width: position.width,
-                                      minWidth: '16px',
+                                      minWidth: '8px',
                                     }}
                                   />
                                 )}
@@ -501,20 +546,20 @@ export const ProjectGanttChart = ({
                           );
                         })}
                         
-                        {/* Add Task Button inside group */}
+                        {/* Add Task */}
                         {onAddTask && group.id !== 'unassigned' && (
-                          <div className="flex border-b border-border/50">
-                            <div className="w-56 flex-shrink-0 py-1 pl-12">
+                          <div className="flex items-center">
+                            <div className="w-48 flex-shrink-0 py-0.5 pl-9">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                                className="h-5 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onAddTask(group.id);
                                 }}
                               >
-                                <Plus className="w-3 h-3 mr-1" />
+                                <Plus className="w-2.5 h-2.5 mr-0.5" />
                                 Nova tarefa
                               </Button>
                             </div>
@@ -531,36 +576,29 @@ export const ProjectGanttChart = ({
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-status-pending" />
+      {/* Compact Legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-amber-500" />
           <span>Pendente</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-status-progress" />
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
           <span>Em Progresso</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-status-blocked" />
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-red-500" />
           <span>Bloqueado/Atrasado</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-status-completed" />
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
           <span>Concluído</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
-            <Diamond className="w-3 h-3 text-white" />
-          </div>
-          <span>Marco</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-1 h-4 bg-primary rounded" />
+        <div className="flex items-center gap-1">
+          <div className="w-0.5 h-3 bg-primary rounded" />
           <span>Hoje</span>
         </div>
       </div>
     </div>
-    </TooltipProvider>
   );
 };
