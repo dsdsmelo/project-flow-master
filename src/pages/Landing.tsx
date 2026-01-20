@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { 
   FolderKanban, 
   CheckCircle2, 
@@ -12,8 +13,6 @@ import {
   Layers,
   Target,
   Mail,
-  Phone,
-  MapPin,
   CreditCard,
   Lock,
   Sparkles,
@@ -24,10 +23,36 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
-// Import mockup images
+// Import images
 import mockupDashboard from '@/assets/mockup-dashboard.png';
 import mockupGantt from '@/assets/mockup-gantt.png';
 import mockupTasks from '@/assets/mockup-tasks.png';
+import logoTarefaa from '@/assets/logo-tarefaa.png';
+import logoIcon from '@/assets/logo-icon.png';
+
+// Animation variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0 }
+};
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+  }
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1 }
+};
 
 const Landing = () => {
   const { isAuthenticated, hasActiveSubscription } = useAuth();
@@ -115,22 +140,24 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
+      <motion.header 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                <FolderKanban className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-foreground">TaskFlow</span>
+              <img src={logoTarefaa} alt="Tarefaa" className="h-10 w-auto" />
             </div>
             
             <div className="flex items-center gap-3">
               {isAuthenticated && hasActiveSubscription ? (
                 <Link to="/dashboard">
-                  <Button className="gradient-primary text-white">
+                  <Button className="bg-[hsl(207,90%,45%)] hover:bg-[hsl(207,90%,40%)] text-white">
                     Acessar Dashboard
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
@@ -139,7 +166,7 @@ const Landing = () => {
                 <Button 
                   onClick={handleSubscribe} 
                   disabled={isLoading}
-                  className="gradient-primary text-white"
+                  className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white"
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Assinar Agora
@@ -149,7 +176,10 @@ const Landing = () => {
                   <Link to="/auth">
                     <Button variant="ghost">Entrar</Button>
                   </Link>
-                  <Button onClick={handleSubscribe} className="gradient-primary text-white">
+                  <Button 
+                    onClick={handleSubscribe} 
+                    className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white"
+                  >
                     Começar Agora
                   </Button>
                 </>
@@ -157,106 +187,166 @@ const Landing = () => {
             </div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Subscription Required Alert */}
       {subscriptionRequired && (
-        <div className="bg-primary/10 border-b border-primary/20 py-3">
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[hsl(35,95%,55%)]/10 border-b border-[hsl(35,95%,55%)]/20 py-3"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-sm text-primary font-medium">
-              🔒 Assine o TaskFlow para acessar o sistema completo
+            <p className="text-sm text-[hsl(35,95%,55%)] font-medium">
+              🔒 Assine o Tarefaa para acessar o sistema completo
             </p>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Hero Section */}
       <section className="relative overflow-hidden py-16 lg:py-24">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
-        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl opacity-50" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-primary/5 rounded-full blur-3xl opacity-50" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(207,90%,45%)]/5 via-transparent to-[hsl(130,70%,40%)]/5" />
+        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl opacity-50" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[hsl(130,70%,40%)]/10 rounded-full blur-3xl opacity-50" />
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-6">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-12"
+          >
+            <motion.div 
+              variants={fadeInUp}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(35,95%,55%)]/10 rounded-full text-[hsl(35,95%,55%)] text-sm font-medium mb-6"
+            >
               <Target className="w-4 h-4" />
               Substitua planilhas complexas
-            </div>
+            </motion.div>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
+            <motion.h1 
+              variants={fadeInUp}
+              transition={{ duration: 0.6 }}
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight"
+            >
               Gerencie projetos<br />
               <span className="text-gradient">como um profissional</span>
-            </h1>
+            </motion.h1>
             
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
+            <motion.p 
+              variants={fadeInUp}
+              transition={{ duration: 0.6 }}
+              className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed"
+            >
               Sistema completo para gerenciamento de projetos de TI e infraestrutura. 
               Dashboards, cronogramas Gantt, colunas personalizáveis e controle total.
-            </p>
+            </motion.p>
             
-            <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
+            <motion.div 
+              variants={fadeInUp}
+              transition={{ duration: 0.6 }}
+              className="flex flex-col sm:flex-row justify-center gap-4 mb-8"
+            >
               <Button 
                 size="lg" 
                 onClick={handleSubscribe}
                 disabled={isLoading}
-                className="gradient-primary text-white h-14 px-8 text-lg shadow-lg hover:shadow-xl transition-shadow"
+                className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white h-14 px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
               >
                 {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                 Assinar por R$ 99/mês
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
-            </div>
+            </motion.div>
 
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+            <motion.div 
+              variants={fadeIn}
+              transition={{ duration: 0.6 }}
+              className="flex items-center justify-center gap-6 text-sm text-muted-foreground flex-wrap"
+            >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-[hsl(130,70%,40%)]" />
                 Acesso imediato
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-[hsl(130,70%,40%)]" />
                 Cancele quando quiser
               </div>
               <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-green-500" />
+                <Lock className="w-4 h-4 text-[hsl(130,70%,40%)]" />
                 Pagamento seguro
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Hero Image */}
-          <div className="relative mt-12">
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="relative mt-12"
+          >
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
             <div className="rounded-2xl overflow-hidden shadow-2xl border border-border/50">
               <img 
                 src={mockupDashboard} 
-                alt="TaskFlow Dashboard" 
+                alt="Tarefaa Dashboard" 
                 className="w-full h-auto"
               />
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Screenshots Gallery */}
       <section className="py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary text-sm font-medium mb-4">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.div 
+              variants={fadeInUp}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(207,90%,45%)]/10 rounded-full text-[hsl(207,90%,45%)] text-sm font-medium mb-4"
+            >
               <Sparkles className="w-4 h-4" />
               Veja na prática
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
+            </motion.div>
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl font-bold text-foreground mb-4"
+            >
               Conheça a plataforma por dentro
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-muted-foreground max-w-2xl mx-auto"
+            >
               Interface moderna e intuitiva projetada para máxima produtividade
-            </p>
-          </div>
+            </motion.p>
+          </motion.div>
           
-          <div className="grid lg:grid-cols-3 gap-8">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid lg:grid-cols-3 gap-8"
+          >
             {screenshots.map((item, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="group bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300"
+                variants={scaleIn}
+                transition={{ duration: 0.5 }}
+                whileHover={{ y: -8, transition: { duration: 0.2 } }}
+                className="group bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-shadow duration-300"
               >
                 <div className="aspect-video overflow-hidden">
                   <img 
@@ -273,31 +363,52 @@ const Landing = () => {
                     {item.description}
                   </p>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features Section */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl font-bold text-foreground mb-4"
+            >
               Tudo que você precisa para gerenciar projetos
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-muted-foreground max-w-2xl mx-auto"
+            >
               Ferramentas poderosas projetadas para equipes que precisam de resultados
-            </p>
-          </div>
+            </motion.p>
+          </motion.div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
             {features.map((feature, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/20 transition-all duration-300"
+                variants={fadeInUp}
+                transition={{ duration: 0.5 }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-[hsl(207,90%,45%)]/20 transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] flex items-center justify-center mb-4">
                   <feature.icon className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -306,23 +417,30 @@ const Landing = () => {
                 <p className="text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Pricing Section */}
       <section className="py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-lg mx-auto">
-            <div className="bg-card rounded-3xl border-2 border-primary/20 shadow-2xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 rounded-full blur-xl" />
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={scaleIn}
+            transition={{ duration: 0.6 }}
+            className="max-w-lg mx-auto"
+          >
+            <div className="bg-card rounded-3xl border-2 border-[hsl(130,70%,40%)]/30 shadow-2xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[hsl(207,90%,45%)]/10 rounded-full blur-2xl" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[hsl(130,70%,40%)]/10 rounded-full blur-xl" />
               
               <div className="relative">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="px-3 py-1 bg-primary/10 rounded-full text-primary text-xs font-semibold uppercase tracking-wide">
+                  <div className="px-3 py-1 bg-[hsl(35,95%,55%)]/10 rounded-full text-[hsl(35,95%,55%)] text-xs font-semibold uppercase tracking-wide">
                     Plano Completo
                   </div>
                 </div>
@@ -339,12 +457,19 @@ const Landing = () => {
 
                 <div className="space-y-3 mb-8">
                   {benefits.map((benefit, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                    <motion.div 
+                      key={index} 
+                      initial={{ opacity: 0, x: -10 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-[hsl(130,70%,40%)]/10 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[hsl(130,70%,40%)]" />
                       </div>
                       <span className="text-foreground">{benefit}</span>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
 
@@ -352,7 +477,7 @@ const Landing = () => {
                   size="lg" 
                   onClick={handleSubscribe}
                   disabled={isLoading}
-                  className="w-full gradient-primary text-white h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-shadow"
+                  className="w-full bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
                 >
                   {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                   Começar Agora
@@ -364,33 +489,43 @@ const Landing = () => {
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Social Proof */}
-      <section className="py-16 border-y border-border">
+      <motion.section 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        variants={staggerContainer}
+        className="py-16 border-y border-border"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold text-foreground mb-2">100%</div>
-              <p className="text-muted-foreground">Personalizável</p>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-foreground mb-2">∞</div>
-              <p className="text-muted-foreground">Projetos ilimitados</p>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-foreground mb-2">24/7</div>
-              <p className="text-muted-foreground">Acesso disponível</p>
-            </div>
+            {[
+              { value: '100%', label: 'Personalizável' },
+              { value: '∞', label: 'Projetos ilimitados' },
+              { value: '24/7', label: 'Acesso disponível' }
+            ].map((stat, index) => (
+              <motion.div key={index} variants={fadeInUp}>
+                <div className="text-4xl font-bold text-foreground mb-2">{stat.value}</div>
+                <p className="text-muted-foreground">{stat.label}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* CTA Section */}
       <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center"
+        >
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             Pare de perder tempo com planilhas
           </h2>
@@ -401,13 +536,13 @@ const Landing = () => {
             size="lg" 
             onClick={handleSubscribe}
             disabled={isLoading}
-            className="gradient-primary text-white h-14 px-10 text-lg shadow-lg hover:shadow-xl transition-shadow"
+            className="bg-[hsl(130,70%,40%)] hover:bg-[hsl(130,70%,35%)] text-white h-14 px-10 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
           >
             {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
             Assinar por R$ 99/mês
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
-        </div>
+        </motion.div>
       </section>
 
       {/* Footer */}
@@ -418,19 +553,17 @@ const Landing = () => {
             {/* Brand Column */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
-                  <FolderKanban className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-2xl font-bold">TaskFlow</span>
+                <img src={logoIcon} alt="Tarefaa" className="w-12 h-12" />
+                <span className="text-2xl font-bold">Tarefaa</span>
               </div>
               <p className="text-sidebar-foreground/70 mb-6 max-w-sm leading-relaxed">
                 Sistema completo de gerenciamento de projetos para equipes que buscam 
                 produtividade e resultados. Substitua suas planilhas por uma solução profissional.
               </p>
               <div className="flex items-center gap-4">
-                <a href="mailto:contato@taskflow.com.br" className="flex items-center gap-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
+                <a href="mailto:contato@tarefaa.com.br" className="flex items-center gap-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
                   <Mail className="w-4 h-4" />
-                  contato@taskflow.com.br
+                  contato@tarefaa.com.br
                 </a>
               </div>
             </div>
@@ -499,7 +632,7 @@ const Landing = () => {
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               {/* Copyright */}
               <div className="flex items-center gap-2 text-sm text-sidebar-foreground/60">
-                <span>© {new Date().getFullYear()} TaskFlow. Todos os direitos reservados.</span>
+                <span>© {new Date().getFullYear()} Tarefaa. Todos os direitos reservados.</span>
               </div>
 
               {/* Payment Methods */}
