@@ -9,6 +9,12 @@ const corsHeaders = {
 
 const PRICE_ID = "price_1SrSEWB9FTsCRyJTfi5z28B3";
 
+// Helper logging function for debugging
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -16,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Creating checkout session...");
+    logStep("Function started");
 
     // Create Supabase client
     const supabaseClient = createClient(
@@ -29,19 +35,26 @@ serve(async (req) => {
     if (!authHeader) {
       throw new Error("No authorization header");
     }
+    logStep("Auth header found");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
 
     if (userError || !user?.email) {
-      console.error("Auth error:", userError);
+      logStep("Auth error", { error: userError?.message });
       throw new Error("User not authenticated or email not available");
     }
 
-    console.log("User authenticated:", user.email);
+    logStep("User authenticated", { email: user.email, userId: user.id });
 
     // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      throw new Error("STRIPE_SECRET_KEY is not set");
+    }
+    logStep("Stripe key verified");
+    
+    const stripe = new Stripe(stripeKey, {
       apiVersion: "2025-08-27.basil",
     });
 
@@ -51,7 +64,7 @@ serve(async (req) => {
 
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
-      console.log("Found existing customer:", customerId);
+      logStep("Found existing customer", { customerId });
     } else {
       // Create new customer
       const newCustomer = await stripe.customers.create({
@@ -61,22 +74,12 @@ serve(async (req) => {
         },
       });
       customerId = newCustomer.id;
-      console.log("Created new customer:", customerId);
-
-      // Update subscription record with stripe_customer_id
-      const supabaseAdmin = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-      );
-
-      await supabaseAdmin
-        .from("subscriptions")
-        .update({ stripe_customer_id: customerId })
-        .eq("user_id", user.id);
+      logStep("Created new customer", { customerId });
     }
 
     // Get origin from request
     const origin = req.headers.get("origin") || "https://lovable.dev";
+    logStep("Origin", { origin });
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
@@ -95,15 +98,15 @@ serve(async (req) => {
       },
     });
 
-    console.log("Checkout session created:", session.id);
+    logStep("Checkout session created", { sessionId: session.id, url: session.url });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error: unknown) {
-    console.error("Error creating checkout:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
+    logStep("ERROR in create-checkout", { message });
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
