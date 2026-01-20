@@ -3,13 +3,19 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { isTaskOverdue } from '@/lib/mockData';
 import { Task, Person, Milestone } from '@/lib/types';
-import { Flag, Pencil, Trash2, CheckCircle2, ChevronDown, ChevronRight, Plus, GripHorizontal } from 'lucide-react';
+import { Flag, Pencil, Trash2, CheckCircle2, ChevronDown, ChevronRight, Plus, GripHorizontal, ZoomIn, ZoomOut, Calendar } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group';
+
+type ZoomLevel = 'day' | 'week' | 'month';
 
 interface ProjectGanttChartProps {
   tasks: Task[];
@@ -40,6 +46,7 @@ export const ProjectGanttChart = ({
 }: ProjectGanttChartProps) => {
   const [draggingMilestone, setDraggingMilestone] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [zoom, setZoom] = useState<ZoomLevel>('week');
   const chartRef = useRef<HTMLDivElement>(null);
 
   // Get milestones for this project
@@ -71,20 +78,41 @@ export const ProjectGanttChart = ({
     return { start: startDate, end: endDate };
   }, [tasks, projectMilestones]);
 
-  // Generate columns (weeks view fixed)
+  // Generate columns based on zoom level
   const columns = useMemo(() => {
-    const cols: { date: Date; label: string }[] = [];
+    const cols: { date: Date; label: string; isMonthStart?: boolean }[] = [];
     const current = new Date(dateRange.start);
     
     while (current <= dateRange.end) {
-      cols.push({
-        date: new Date(current),
-        label: current.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      });
-      current.setDate(current.getDate() + 7);
+      let label = '';
+      let isMonthStart = false;
+      
+      if (zoom === 'day') {
+        label = current.toLocaleDateString('pt-BR', { day: '2-digit' });
+        isMonthStart = current.getDate() === 1;
+        cols.push({ date: new Date(current), label, isMonthStart });
+        current.setDate(current.getDate() + 1);
+      } else if (zoom === 'week') {
+        label = current.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        cols.push({ date: new Date(current), label });
+        current.setDate(current.getDate() + 7);
+      } else {
+        // month
+        label = current.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        cols.push({ date: new Date(current), label });
+        current.setMonth(current.getMonth() + 1);
+        current.setDate(1);
+      }
     }
     return cols;
-  }, [dateRange]);
+  }, [dateRange, zoom]);
+
+  // Get min width based on zoom
+  const getMinWidth = () => {
+    if (zoom === 'day') return `${Math.max(900, columns.length * 28)}px`;
+    if (zoom === 'week') return '900px';
+    return '700px';
+  };
 
   // Group tasks by responsible (fixed)
   const groupedTasks = useMemo(() => {
@@ -245,24 +273,50 @@ export const ProjectGanttChart = ({
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      {onAddMilestone && (
+      <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onAddMilestone}
-            className="h-8 text-xs"
-          >
-            <Flag className="w-3.5 h-3.5 mr-1.5" />
-            Novo Marco
-          </Button>
+          {onAddMilestone && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onAddMilestone}
+              className="h-8 text-xs"
+            >
+              <Flag className="w-3.5 h-3.5 mr-1.5" />
+              Novo Marco
+            </Button>
+          )}
         </div>
-      )}
+        
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Zoom:</span>
+          <ToggleGroup 
+            type="single" 
+            value={zoom} 
+            onValueChange={(value) => value && setZoom(value as ZoomLevel)}
+            className="h-7"
+          >
+            <ToggleGroupItem value="day" className="h-7 px-2 text-[10px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              <ZoomIn className="w-3 h-3 mr-1" />
+              Dia
+            </ToggleGroupItem>
+            <ToggleGroupItem value="week" className="h-7 px-2 text-[10px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              <Calendar className="w-3 h-3 mr-1" />
+              Semana
+            </ToggleGroupItem>
+            <ToggleGroupItem value="month" className="h-7 px-2 text-[10px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+              <ZoomOut className="w-3 h-3 mr-1" />
+              Mês
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </div>
 
       {/* Gantt Chart */}
       <div className="bg-card rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
-          <div className="min-w-[900px]">
+          <div style={{ minWidth: getMinWidth() }}>
             
             {/* Timeline Header */}
             <div className="flex bg-muted/30 border-b border-border">
@@ -273,7 +327,11 @@ export const ProjectGanttChart = ({
                 {columns.map((col, i) => (
                   <div 
                     key={i} 
-                    className="flex-1 px-1 py-2 text-center text-[10px] font-medium text-muted-foreground border-l border-border/50"
+                    className={cn(
+                      "flex-1 py-2 text-center font-medium text-muted-foreground border-l border-border/50",
+                      zoom === 'day' ? "text-[8px] px-0.5 min-w-[28px]" : "text-[10px] px-1",
+                      col.isMonthStart && "border-l-2 border-l-primary/50"
+                    )}
                   >
                     {col.label}
                   </div>
