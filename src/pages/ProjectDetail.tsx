@@ -30,9 +30,11 @@ import { cn } from '@/lib/utils';
 import { ProjectGanttChart } from '@/components/gantt/ProjectGanttChart';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { MilestoneFormModal } from '@/components/modals/MilestoneFormModal';
+import { PhaseFormModal } from '@/components/modals/PhaseFormModal';
 import { ProjectTasksTable } from '@/components/tasks/ProjectTasksTable';
 import { PhaseManagerSheet } from '@/components/phases/PhaseManagerSheet';
 import { MeetingNotesTab } from '@/components/meetings/MeetingNotesTab';
+import { Phase } from '@/lib/types';
 import { 
   BarChart, 
   Bar, 
@@ -64,12 +66,14 @@ const statusColors = {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, updateMilestone, loading, error } = useData();
+  const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, updateMilestone, deletePhase, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [taskDefaultResponsible, setTaskDefaultResponsible] = useState<string | undefined>(undefined);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<typeof milestones[0] | undefined>(undefined);
+  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
+  const [editingPhase, setEditingPhase] = useState<Phase | undefined>(undefined);
   const [phaseManagerOpen, setPhaseManagerOpen] = useState(false);
 
   const project = useMemo(() => {
@@ -484,8 +488,27 @@ const ProjectDetail = () => {
               tasks={projectTasks} 
               people={people} 
               projectId={projectId || ''} 
+              phases={phases}
               milestones={milestones}
-              onAddMilestone={() => setMilestoneModalOpen(true)}
+              onAddPhase={() => {
+                setEditingPhase(undefined);
+                setPhaseModalOpen(true);
+              }}
+              onEditPhase={(phase) => {
+                setEditingPhase(phase);
+                setPhaseModalOpen(true);
+              }}
+              onDeletePhase={async (phaseId) => {
+                try {
+                  await deletePhase(phaseId);
+                } catch (err) {
+                  console.error('Error deleting phase:', err);
+                }
+              }}
+              onAddMilestone={() => {
+                setEditingMilestone(undefined);
+                setMilestoneModalOpen(true);
+              }}
               onEditMilestone={(milestone) => {
                 setEditingMilestone(milestone);
                 setMilestoneModalOpen(true);
@@ -538,6 +561,18 @@ const ProjectDetail = () => {
         }}
         projectId={projectId || ''}
         milestone={editingMilestone}
+      />
+
+      {/* Phase Modal */}
+      <PhaseFormModal
+        open={phaseModalOpen}
+        onOpenChange={(open) => {
+          setPhaseModalOpen(open);
+          if (!open) setEditingPhase(undefined);
+        }}
+        projectId={projectId || ''}
+        phase={editingPhase}
+        nextOrder={projectPhases.length}
       />
 
       {/* Phase Manager */}
