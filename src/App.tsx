@@ -45,7 +45,9 @@ const ProtectedRoute = ({ children, requireSubscription = true }: { children: Re
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading, isAdmin } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin, hasActiveSubscription } = useAuth();
+  
+  console.log('AdminRoute check:', { isAuthenticated, isLoading, isAdmin, hasActiveSubscription });
   
   if (isLoading) {
     return (
@@ -59,6 +61,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
   
+  // Admins bypass subscription requirement
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
