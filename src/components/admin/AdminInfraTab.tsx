@@ -121,8 +121,8 @@ export const AdminInfraTab = () => {
       // Check storage health (simple check)
       const storageHealth: HealthStatus = { status: 'healthy', latency: 0 };
 
-      // Check edge functions
-      const functionNames = ['get-subscription', 'get-stripe-price', 'create-checkout', 'create-portal-session'];
+      // Check edge functions (avoid billing portal function which requires an active subscription)
+      const functionNames = ['get-subscription', 'get-stripe-price', 'create-checkout'];
       const functionHealthChecks = await Promise.all(
         functionNames.map(async (name) => ({
           name,
