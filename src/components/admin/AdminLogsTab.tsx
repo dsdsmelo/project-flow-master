@@ -49,6 +49,11 @@ interface ActivityLog {
 
 const actionIcons: Record<string, React.ReactNode> = {
   login: <LogIn className="w-4 h-4" />,
+  login_failed: <AlertTriangle className="w-4 h-4" />,
+  login_blocked: <AlertTriangle className="w-4 h-4" />,
+  '2fa_failed': <AlertTriangle className="w-4 h-4" />,
+  '2fa_blocked': <AlertTriangle className="w-4 h-4" />,
+  '2fa_success': <CheckCircle className="w-4 h-4" />,
   logout: <LogOut className="w-4 h-4" />,
   signup: <UserPlus className="w-4 h-4" />,
   subscription_created: <CreditCard className="w-4 h-4" />,
@@ -66,15 +71,22 @@ const levelConfig: Record<string, { icon: React.ReactNode; variant: 'default' | 
 
 const actionLabels: Record<string, string> = {
   login: 'Login',
+  login_failed: 'Login falhou',
+  login_blocked: 'Login bloqueado',
+  '2fa_failed': '2FA falhou',
+  '2fa_blocked': '2FA bloqueado',
+  '2fa_success': '2FA verificado',
   logout: 'Logout',
   signup: 'Cadastro',
   subscription_created: 'Assinatura criada',
   subscription_canceled: 'Assinatura cancelada',
   subscription_updated: 'Assinatura atualizada',
   password_reset: 'Reset de senha',
+  password_reset_request: 'Solicitação de reset',
   profile_updated: 'Perfil atualizado',
   project_created: 'Projeto criado',
   task_created: 'Tarefa criada',
+  admin_action: 'Ação administrativa',
 };
 
 export const AdminLogsTab = () => {
