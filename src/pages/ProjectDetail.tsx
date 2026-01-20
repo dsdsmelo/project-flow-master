@@ -487,6 +487,17 @@ const ProjectDetail = () => {
               projectId={projectId || ''} 
               milestones={milestones}
               onAddMilestone={() => setMilestoneModalOpen(true)}
+              onEditMilestone={(milestone) => {
+                setEditingMilestone(milestone);
+                setMilestoneModalOpen(true);
+              }}
+              onDeleteMilestone={async (milestoneId) => {
+                try {
+                  await deleteMilestone(milestoneId);
+                } catch (err) {
+                  console.error('Error deleting milestone:', err);
+                }
+              }}
             />
           </TabsContent>
 
