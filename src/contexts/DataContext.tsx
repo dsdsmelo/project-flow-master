@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { Person, Project, Phase, Cell, Task, CustomColumn } from '@/lib/types';
+import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone } from '@/lib/types';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 interface DataContextType {
@@ -15,6 +15,8 @@ interface DataContextType {
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   customColumns: CustomColumn[];
   setCustomColumns: React.Dispatch<React.SetStateAction<CustomColumn[]>>;
+  milestones: Milestone[];
+  setMilestones: React.Dispatch<React.SetStateAction<Milestone[]>>;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -37,6 +39,9 @@ interface DataContextType {
   addCustomColumn: (column: Omit<CustomColumn, 'id'>) => Promise<CustomColumn>;
   updateCustomColumn: (id: string, updates: Partial<CustomColumn>) => Promise<void>;
   deleteCustomColumn: (id: string) => Promise<void>;
+  addMilestone: (milestone: Omit<Milestone, 'id'>) => Promise<Milestone>;
+  updateMilestone: (id: string, updates: Partial<Milestone>) => Promise<void>;
+  deleteMilestone: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);

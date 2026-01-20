@@ -13,7 +13,8 @@ import {
   GanttChart,
   LayoutDashboard,
   Plus,
-  ClipboardList
+  ClipboardList,
+  Flag
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -29,6 +30,7 @@ import { projectStatusLabels } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ProjectGanttChart } from '@/components/gantt/ProjectGanttChart';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
+import { MilestoneFormModal } from '@/components/modals/MilestoneFormModal';
 import { ProjectTasksTable } from '@/components/tasks/ProjectTasksTable';
 import { 
   BarChart, 
@@ -55,9 +57,10 @@ const statusColors = {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, tasks, people, phases, cells, customColumns, loading, error } = useData();
+  const { projects, tasks, people, phases, cells, customColumns, milestones, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
 
   const project = useMemo(() => {
     return projects.find(p => p.id === projectId);
@@ -93,43 +96,10 @@ const ProjectDetail = () => {
     ];
   }, [stats]);
 
-  // Get milestone columns for this project
-  const milestoneColumns = useMemo(() => {
-    return customColumns.filter(col => col.projectId === projectId && col.isMilestone && col.active);
-  }, [customColumns, projectId]);
-
-  // Get milestone data from tasks
-  const milestonesData = useMemo(() => {
-    const data: Array<{
-      columnName: string;
-      columnType: string;
-      tasks: Array<{
-        taskName: string;
-        value: string | number | undefined;
-        status: string;
-      }>;
-    }> = [];
-
-    milestoneColumns.forEach(col => {
-      const tasksWithMilestone = projectTasks
-        .filter(task => task.customValues && task.customValues[col.id] !== undefined && task.customValues[col.id] !== '')
-        .map(task => ({
-          taskName: task.name,
-          value: task.customValues?.[col.id],
-          status: task.status,
-        }));
-
-      if (tasksWithMilestone.length > 0 || true) {
-        data.push({
-          columnName: col.name,
-          columnType: col.type,
-          tasks: tasksWithMilestone,
-        });
-      }
-    });
-
-    return data;
-  }, [milestoneColumns, projectTasks]);
+  // Project milestones
+  const projectMilestones = useMemo(() => {
+    return milestones.filter(m => m.projectId === projectId);
+  }, [milestones, projectId]);
 
   const tasksByPerson = useMemo(() => {
     const personMap = new Map<string, { name: string; color: string; tasks: number }>();
@@ -325,65 +295,69 @@ const ProjectDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Milestones */}
           <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-soft">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold">Marcos do Projeto</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Flag className="w-5 h-5 text-amber-500" />
+                <h3 className="text-lg font-semibold">Marcos do Projeto</h3>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMilestoneModalOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Novo Marco
+              </Button>
             </div>
-            {milestonesData.length > 0 ? (
-              <div className="space-y-4 max-h-64 overflow-y-auto">
-                {milestonesData.map((milestone, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-primary">{milestone.columnName}</span>
-                      <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
-                        {milestone.tasks.length} {milestone.tasks.length === 1 ? 'tarefa' : 'tarefas'}
-                      </span>
-                    </div>
-                    {milestone.tasks.length > 0 ? (
-                      <div className="grid gap-2">
-                        {milestone.tasks.slice(0, 5).map((task, taskIdx) => (
-                          <div 
-                            key={taskIdx} 
-                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                'w-2 h-2 rounded-full',
-                                task.status === 'completed' ? 'bg-status-completed' :
-                                task.status === 'in_progress' ? 'bg-status-progress' :
-                                task.status === 'blocked' ? 'bg-status-blocked' : 'bg-status-pending'
-                              )} />
-                              <span className="text-sm font-medium">{task.taskName}</span>
-                            </div>
-                            <span className="text-sm text-muted-foreground font-mono">
-                              {milestone.columnType === 'date' && task.value
-                                ? new Date(task.value as string).toLocaleDateString('pt-BR')
-                                : milestone.columnType === 'percentage'
-                                ? `${task.value}%`
-                                : task.value}
-                            </span>
+            {milestones.filter(m => m.projectId === projectId).length > 0 ? (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {milestones
+                  .filter(m => m.projectId === projectId)
+                  .map((milestone) => {
+                    const phase = phases.find(p => p.id === milestone.phaseId);
+                    return (
+                      <div 
+                        key={milestone.id} 
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Flag 
+                            className="w-5 h-5" 
+                            style={{ 
+                              color: milestone.color || '#EAB308',
+                              fill: milestone.color || '#EAB308',
+                            }} 
+                          />
+                          <div>
+                            <span className="font-medium">{milestone.name}</span>
+                            {milestone.description && (
+                              <p className="text-xs text-muted-foreground">{milestone.description}</p>
+                            )}
                           </div>
-                        ))}
-                        {milestone.tasks.length > 5 && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            +{milestone.tasks.length - 5} outras tarefas
-                          </p>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {phase && (
+                            <span className="text-xs px-2 py-1 bg-muted rounded-full flex items-center gap-1">
+                              {phase.color && (
+                                <div 
+                                  className="w-2 h-2 rounded-full" 
+                                  style={{ backgroundColor: phase.color }} 
+                                />
+                              )}
+                              {phase.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">
-                        Nenhuma tarefa com este marco definido
-                      </p>
-                    )}
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-                <Calendar className="w-12 h-12 mb-3 opacity-50" />
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                <Flag className="w-12 h-12 mb-3 opacity-50" />
                 <p className="text-center">Nenhum marco configurado</p>
                 <p className="text-xs text-center mt-1">
-                  Marque colunas como "Marco" nas configurações do projeto
+                  Adicione marcos para acompanhar entregas importantes
                 </p>
               </div>
             )}
@@ -560,7 +534,8 @@ const ProjectDetail = () => {
               phases={projectPhases} 
               people={people} 
               projectId={projectId || ''} 
-              customColumns={customColumns}
+              milestones={milestones}
+              onAddMilestone={() => setMilestoneModalOpen(true)}
             />
           </TabsContent>
         </Tabs>
@@ -571,6 +546,13 @@ const ProjectDetail = () => {
         open={taskModalOpen}
         onOpenChange={setTaskModalOpen}
         defaultProjectId={projectId}
+      />
+
+      {/* Milestone Modal */}
+      <MilestoneFormModal
+        open={milestoneModalOpen}
+        onOpenChange={setMilestoneModalOpen}
+        projectId={projectId || ''}
       />
     </MainLayout>
   );

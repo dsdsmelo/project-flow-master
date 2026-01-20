@@ -73,6 +73,15 @@ export interface CustomColumn {
   standardField?: 'name' | 'description' | 'responsible' | 'status' | 'priority' | 'startDate' | 'endDate' | 'progress';
 }
 
+export interface Milestone {
+  id: string;
+  name: string;
+  projectId: string;
+  phaseId: string;
+  description?: string;
+  color?: string;
+}
+
 // Helper types
 export type TaskStatus = Task['status'];
 export type TaskPriority = Task['priority'];
