@@ -234,7 +234,7 @@ const ProjectDetail = () => {
               </div>
             )}
 {/* Botão Fases removido conforme solicitado */}
-            {activeTab !== 'gantt' && (
+            {activeTab !== 'gantt' && activeTab !== 'meetings' && (
               <Button className="gradient-primary text-white" onClick={() => setTaskModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova Tarefa
