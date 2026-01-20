@@ -105,7 +105,7 @@ const Landing = () => {
 
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
-      window.location.href = '/auth';
+      window.location.href = '/login';
       return;
     }
 
@@ -242,7 +242,7 @@ const Landing = () => {
                 </Button>
               ) : (
                 <>
-                  <Link to="/auth">
+                  <Link to="/login">
                     <Button variant="ghost" size="sm">Entrar</Button>
                   </Link>
                   <Button 
@@ -320,9 +320,9 @@ const Landing = () => {
                   {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                <Link to="/auth">
+                <Link to="/login">
                   <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    Conhecer mais
+                    Já tenho conta
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </Link>
@@ -846,7 +846,7 @@ const Landing = () => {
                   </a>
                 </li>
                 <li>
-                  <Link to="/auth" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
+                  <Link to="/login" className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors flex items-center gap-1">
                     <ChevronRight className="w-3 h-3" />
                     Entrar
                   </Link>
