@@ -236,163 +236,112 @@ const Landing = () => {
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[hsl(130,70%,40%)]/10 rounded-full blur-3xl opacity-50" />
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="text-center mb-8"
-          >
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left column - Text content */}
             <motion.div 
-              variants={fadeInUp}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(35,95%,55%)]/10 rounded-full text-[hsl(35,95%,55%)] text-sm font-medium mb-6"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={staggerContainer}
+              className="text-center lg:text-left"
             >
-              <Target className="w-4 h-4" />
-              Substitua planilhas complexas
-            </motion.div>
-            
-            <motion.h1 
-              variants={fadeInUp}
-              transition={{ duration: 0.6 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight"
-            >
-              Gerencie projetos<br />
-              <span className="text-gradient">como um profissional</span>
-            </motion.h1>
-            
-            <motion.p 
-              variants={fadeInUp}
-              transition={{ duration: 0.6 }}
-              className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed"
-            >
-              Sistema completo para gerenciamento de projetos de TI e infraestrutura. 
-              Dashboards, cronogramas Gantt, colunas personalizáveis e controle total.
-            </motion.p>
-            
-            <motion.div 
-              variants={fadeInUp}
-              transition={{ duration: 0.6 }}
-              className="flex flex-col sm:flex-row justify-center gap-4 mb-8"
-            >
-              <Button 
-                size="xl" 
-                onClick={handleSubscribe}
-                disabled={isLoading}
-                variant="success"
-                className="group"
+              <motion.div 
+                variants={fadeInUp}
+                transition={{ duration: 0.5 }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(35,95%,55%)]/10 rounded-full text-[hsl(35,95%,55%)] text-sm font-medium mb-6"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-                Assinar por R$ 99/mês
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Link to="/auth">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                  Conhecer mais
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                <Target className="w-4 h-4" />
+                Substitua planilhas complexas
+              </motion.div>
+              
+              <motion.h1 
+                variants={fadeInUp}
+                transition={{ duration: 0.6 }}
+                className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight"
+              >
+                Gerencie projetos<br />
+                <span className="text-gradient">como um profissional</span>
+              </motion.h1>
+              
+              <motion.p 
+                variants={fadeInUp}
+                transition={{ duration: 0.6 }}
+                className="text-lg text-muted-foreground mb-8 max-w-xl leading-relaxed"
+              >
+                Sistema completo para gerenciamento de projetos de TI e infraestrutura. 
+                Dashboards, cronogramas Gantt, colunas personalizáveis e controle total.
+              </motion.p>
+              
+              <motion.div 
+                variants={fadeInUp}
+                transition={{ duration: 0.6 }}
+                className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4 mb-6"
+              >
+                <Button 
+                  size="xl" 
+                  onClick={handleSubscribe}
+                  disabled={isLoading}
+                  variant="success"
+                  className="group"
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
+                  Assinar por R$ 99/mês
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
-              </Link>
+                <Link to="/auth">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    Conhecer mais
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </motion.div>
+
+              <motion.div 
+                variants={fadeIn}
+                transition={{ duration: 0.6 }}
+                className="flex items-center justify-center lg:justify-start gap-6 text-sm text-muted-foreground flex-wrap"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[hsl(130,70%,40%)]" />
+                  Acesso imediato
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[hsl(130,70%,40%)]" />
+                  Cancele quando quiser
+                </div>
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-[hsl(130,70%,40%)]" />
+                  Pagamento seguro
+                </div>
+              </motion.div>
             </motion.div>
 
+            {/* Right column - Video Demo */}
             <motion.div 
-              variants={fadeIn}
-              transition={{ duration: 0.6 }}
-              className="flex items-center justify-center gap-6 text-sm text-muted-foreground flex-wrap"
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="relative"
             >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[hsl(130,70%,40%)]" />
-                Acesso imediato
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[hsl(130,70%,40%)]" />
-                Cancele quando quiser
-              </div>
-              <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-[hsl(130,70%,40%)]" />
-                Pagamento seguro
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-border/50">
+                <video 
+                  autoPlay 
+                  loop 
+                  muted 
+                  playsInline
+                  className="w-full h-auto"
+                >
+                  <source src={demoVideo} type="video/mp4" />
+                  Seu navegador não suporta vídeos.
+                </video>
+                <div className="absolute inset-0 bg-gradient-to-t from-background/30 via-transparent to-transparent pointer-events-none" />
               </div>
             </motion.div>
-          </motion.div>
-
-          {/* Hero Image */}
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="relative mt-8"
-          >
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="rounded-2xl overflow-hidden shadow-2xl border border-border/50">
-              <img 
-                src={mockupDashboard} 
-                alt="Tarefaa Dashboard" 
-                className="w-full h-auto"
-              />
-            </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Video Demo Section */}
-      <section className="py-12 bg-sidebar relative overflow-hidden">
-        <div className="absolute inset-0" style={{ 
-          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(207 90% 45% / 0.15) 1px, transparent 0)`,
-          backgroundSize: '40px 40px'
-        }} />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[hsl(207,90%,45%)]/20 rounded-full blur-3xl opacity-30" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[hsl(130,70%,40%)]/20 rounded-full blur-3xl opacity-30" />
-        
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="text-center mb-8"
-          >
-            <motion.div 
-              variants={fadeInUp}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(207,90%,45%)]/20 rounded-full text-[hsl(207,90%,45%)] text-sm font-medium mb-4"
-            >
-              <Sparkles className="w-4 h-4" />
-              Veja em ação
-            </motion.div>
-            <motion.h2 
-              variants={fadeInUp}
-              className="text-3xl sm:text-4xl font-bold text-white mb-4"
-            >
-              Demonstração da plataforma
-            </motion.h2>
-            <motion.p 
-              variants={fadeInUp}
-              className="text-lg text-white/70 max-w-2xl mx-auto"
-            >
-              Veja como o Tarefaa pode transformar a gestão dos seus projetos
-            </motion.p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/10"
-          >
-            <video 
-              autoPlay 
-              loop 
-              muted 
-              playsInline
-              className="w-full h-auto"
-            >
-              <source src={demoVideo} type="video/mp4" />
-              Seu navegador não suporta vídeos.
-            </video>
-            <div className="absolute inset-0 bg-gradient-to-t from-sidebar/50 via-transparent to-transparent pointer-events-none" />
-          </motion.div>
-        </div>
-      </section>
 
       {/* Screenshots Gallery */}
       <section className="py-12 relative overflow-hidden">
@@ -613,43 +562,27 @@ const Landing = () => {
             {/* Right column - Price card */}
             <motion.div 
               variants={scaleIn}
-              className="relative"
+              className="relative flex items-center justify-center"
             >
-              <div className="bg-white dark:bg-card rounded-3xl p-8 lg:p-10 shadow-2xl relative overflow-hidden">
+              <div className="bg-white dark:bg-card rounded-2xl p-6 shadow-2xl relative overflow-hidden max-w-xs w-full">
                 {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-40 h-40 bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-[hsl(130,70%,40%)]/10 rounded-full blur-2xl" />
+                <div className="absolute top-0 right-0 w-24 h-24 bg-[hsl(207,90%,45%)]/10 rounded-full blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-20 h-20 bg-[hsl(130,70%,40%)]/10 rounded-full blur-xl" />
                 
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-6">
-                    <div className="px-4 py-1.5 bg-gradient-to-r from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] rounded-full text-white text-xs font-semibold uppercase tracking-wide">
-                      Plano Profissional
-                    </div>
+                <div className="relative text-center">
+                  <div className="inline-flex px-3 py-1 bg-gradient-to-r from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] rounded-full text-white text-xs font-semibold uppercase tracking-wide mb-4">
+                    Plano Profissional
                   </div>
 
-                  <div className="mb-8">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-6xl font-bold text-foreground">R$ 99</span>
-                      <span className="text-xl text-muted-foreground">/mês</span>
+                  <div className="mb-6">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-5xl font-bold text-foreground">R$ 99</span>
+                      <span className="text-lg text-muted-foreground">/mês</span>
                     </div>
-                    <p className="text-muted-foreground mt-3">
-                      Tudo que você precisa para gerenciar projetos de forma profissional
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 mb-8">
-                    {benefits.map((benefit, index) => (
-                      <div key={index} className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full bg-[hsl(130,70%,40%)]/10 flex items-center justify-center flex-shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[hsl(130,70%,40%)]" />
-                        </div>
-                        <span className="text-foreground">{benefit}</span>
-                      </div>
-                    ))}
                   </div>
 
                   <Button 
-                    size="xl" 
+                    size="lg" 
                     onClick={handleSubscribe}
                     disabled={isLoading}
                     variant="success"
@@ -660,10 +593,10 @@ const Landing = () => {
                     <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Button>
 
-                  <div className="flex items-center justify-center gap-4 mt-6 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-3 mt-4 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <Lock className="w-4 h-4" />
-                      <span>Pagamento seguro</span>
+                      <Lock className="w-3 h-3" />
+                      <span>Seguro</span>
                     </div>
                     <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
                     <span>Cancele quando quiser</span>
