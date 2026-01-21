@@ -14,9 +14,16 @@ interface Subscription {
   cancel_at_period_end: boolean;
 }
 
+interface Profile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: Profile | null;
   subscription: Subscription | null;
   isAdmin: boolean;
   isLoading: boolean;
@@ -26,6 +33,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  updateProfile: (data: { full_name?: string; avatar_url?: string }) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,9 +42,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
+      } else {
+        // Create profile if it doesn't exist
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: userId, full_name: null, avatar_url: null })
+          .select()
+          .single();
+        
+        if (!insertError && newProfile) {
+          setProfile(newProfile);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
 
   const fetchSubscription = async (userId: string) => {
     try {
@@ -61,6 +103,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
+  const updateProfile = async (data: { full_name?: string; avatar_url?: string }) => {
+    if (!user) return { error: new Error('Usuário não autenticado') };
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) {
+        return { error: new Error(error.message) };
+      }
+
+      // Refresh profile after update
+      await fetchProfile(user.id);
+      return { error: null };
+    } catch (error: any) {
+      return { error: new Error(error.message) };
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
@@ -68,12 +137,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer subscription fetch with setTimeout to avoid deadlock
+        // Defer data fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
+            fetchProfile(session.user.id);
             fetchSubscription(session.user.id);
           }, 0);
         } else {
+          setProfile(null);
           setSubscription(null);
           setIsAdmin(false);
         }
@@ -88,6 +159,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        fetchProfile(session.user.id);
         fetchSubscription(session.user.id);
       }
       
@@ -127,6 +199,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    setProfile(null);
     setSubscription(null);
     setIsAdmin(false);
   };
@@ -137,6 +210,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider value={{
       user,
       session,
+      profile,
       subscription,
       isAdmin,
       isLoading,
@@ -146,6 +220,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       signUp,
       signOut,
       refreshSubscription,
+      refreshProfile,
+      updateProfile,
     }}>
       {children}
     </AuthContext.Provider>

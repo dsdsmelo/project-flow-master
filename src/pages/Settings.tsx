@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
   Sun, 
   Moon, 
@@ -11,7 +11,8 @@ import {
   Loader2,
   User,
   Mail,
-  Palette
+  Palette,
+  Camera
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -27,12 +28,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Settings = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile, updateProfile, refreshProfile } = useAuth();
   const { projects, tasks, people, cells, phases, customColumns } = useData();
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync fullName with profile when it changes
+  useState(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  });
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -41,6 +53,88 @@ const Settings = () => {
       title: 'Tema alterado',
       description: `Modo ${!isDarkMode ? 'escuro' : 'claro'} ativado.`,
     });
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      const { error } = await updateProfile({ full_name: fullName });
+      if (error) throw error;
+      
+      toast({
+        title: 'Perfil atualizado',
+        description: 'Suas informações foram salvas com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao salvar',
+        description: error.message || 'Não foi possível salvar o perfil.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione uma imagem válida.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'Erro',
+        description: 'A imagem deve ter no máximo 2MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile with avatar URL
+      const { error: profileError } = await updateProfile({ avatar_url: `${publicUrl}?t=${Date.now()}` });
+      if (profileError) throw profileError;
+
+      toast({
+        title: 'Foto atualizada',
+        description: 'Sua foto de perfil foi alterada com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar foto',
+        description: error.message || 'Não foi possível enviar a foto.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleExportExcel = () => {
@@ -198,6 +292,8 @@ const Settings = () => {
     }
   };
 
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
+
   return (
     <MainLayout>
       <Header title="Configurações" subtitle="Gerencie sua conta e preferências" />
@@ -226,32 +322,90 @@ const Settings = () => {
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Profile Info & Avatar */}
               <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <User className="w-5 h-5" />
-                  Informações da Conta
+                  Foto e Nome
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  {/* Avatar Upload */}
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-                      <User className="w-8 h-8 text-primary-foreground" />
+                    <div className="relative group">
+                      <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center overflow-hidden border-4 border-background shadow-lg">
+                        {profile?.avatar_url ? (
+                          <img 
+                            src={profile.avatar_url} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-10 h-10 text-primary-foreground" />
+                        )}
+                      </div>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingAvatar}
+                        className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      >
+                        {isUploadingAvatar ? (
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        ) : (
+                          <Camera className="w-6 h-6 text-white" />
+                        )}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
                     </div>
                     <div>
-                      <p className="font-semibold text-lg">{user?.email?.split('@')[0] || 'Usuário'}</p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {user?.email}
-                      </p>
+                      <p className="font-semibold text-lg">{displayName}</p>
+                      <p className="text-sm text-muted-foreground">Clique na foto para alterar</p>
                     </div>
                   </div>
-                  <div className="pt-4 border-t border-border">
-                    <p className="text-sm text-muted-foreground">
-                      Membro desde: {user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
-                    </p>
+
+                  {/* Name Edit */}
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Nome completo</Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Seu nome completo"
+                    />
                   </div>
+
+                  {/* Email (readonly) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{user?.email}</span>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full">
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Salvar Alterações
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
 
+              {/* Stats */}
               <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
                 <h3 className="text-lg font-semibold mb-4">Estatísticas</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -271,6 +425,11 @@ const Settings = () => {
                     <p className="text-2xl font-bold text-amber-500">{people.length}</p>
                     <p className="text-sm text-muted-foreground">Pessoas</p>
                   </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Membro desde: {user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+                  </p>
                 </div>
               </div>
             </div>
