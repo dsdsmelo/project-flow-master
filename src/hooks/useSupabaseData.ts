@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
-import { useAuth } from '@/contexts/AuthContext';
 
 export function useSupabaseData() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -15,12 +14,11 @@ export function useSupabaseData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { isAuthenticated, hasActiveSubscription, subscriptionChecked } = useAuth();
-
   // Fetch all data
   const fetchData = useCallback(async () => {
-    // Don't fetch if not authenticated or no subscription
-    if (!isAuthenticated || !hasActiveSubscription) {
+    // Check if user is authenticated before fetching
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       setLoading(false);
       return;
     }
@@ -73,17 +71,33 @@ export function useSupabaseData() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, hasActiveSubscription]);
+  }, []);
 
   useEffect(() => {
-    // Only fetch when subscription check is complete and user has access
-    if (subscriptionChecked && isAuthenticated && hasActiveSubscription) {
-      fetchData();
-    } else if (subscriptionChecked) {
-      // No access, just set loading to false
-      setLoading(false);
-    }
-  }, [subscriptionChecked, isAuthenticated, hasActiveSubscription, fetchData]);
+    fetchData();
+
+    // Listen for auth state changes to refetch data
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        fetchData();
+      } else if (event === 'SIGNED_OUT') {
+        // Clear all data on sign out
+        setPeople([]);
+        setProjects([]);
+        setPhases([]);
+        setCells([]);
+        setTasks([]);
+        setCustomColumns([]);
+        setMilestones([]);
+        setMeetingNotes([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fetchData]);
 
   // CRUD operations for People
   const addPerson = async (person: Omit<Person, 'id'>) => {
