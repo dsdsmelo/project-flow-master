@@ -18,8 +18,10 @@ interface HeaderProps {
 }
 
 export const Header = ({ title, subtitle }: HeaderProps) => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
 
   return (
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
@@ -51,16 +53,24 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-foreground" />
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-primary-foreground" />
+                )}
               </div>
-              <span className="font-medium">{user?.email?.split('@')[0] || 'Usuário'}</span>
+              <span className="font-medium">{displayName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">Minha Conta</p>
+                <p className="text-sm font-medium">{displayName}</p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
