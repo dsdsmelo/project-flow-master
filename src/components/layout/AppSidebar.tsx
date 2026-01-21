@@ -1,17 +1,33 @@
-import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  GanttChart, 
-  Users, 
+import {
+  LayoutDashboard,
+  FolderKanban,
+  GanttChart,
+  Users,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  LogOut
+  LogOut,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  useSidebar,
+} from '@/components/ui/sidebar';
+
+// Logo imports
+import logoIcon from '@/assets/logo-tarefaa-icone.webp';
 
 const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -25,93 +41,191 @@ const settingsNavItems = [
 ];
 
 export const AppSidebar = () => {
-  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
+  const { state, toggleSidebar } = useSidebar();
+  const isCollapsed = state === 'collapsed';
 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <aside 
-      className={cn(
-        "fixed left-0 top-0 h-screen bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-300 z-50",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
-      {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <FolderKanban className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-semibold text-lg">TaskFlow</span>
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      {/* Header with Logo */}
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className={cn(
+          "flex items-center py-3 transition-all duration-200",
+          isCollapsed ? "justify-center px-1" : "justify-between px-3"
+        )}>
+          <div className="flex items-center gap-3">
+            {/* Logo */}
+            <img
+              src={logoIcon}
+              alt="Tarefaa"
+              className={cn(
+                "object-contain transition-all duration-300",
+                isCollapsed ? "w-8 h-8" : "w-10 h-10"
+              )}
+            />
+            {/* Brand Name - visible when expanded */}
+            {!isCollapsed && (
+              <span className="font-bold text-xl text-gradient animate-fade-in">
+                Tarefaa
+              </span>
+            )}
+          </div>
+          {/* Collapse Toggle Button - only when expanded */}
+          {!isCollapsed && (
+            <button
+              onClick={toggleSidebar}
+              className={cn(
+                "p-1.5 rounded-lg transition-all duration-200",
+                "hover:bg-sidebar-accent hover:scale-105",
+                "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              )}
+              title="Recolher sidebar (Cmd+B)"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {/* Expand button when collapsed - centered below logo */}
+        {isCollapsed && (
+          <div className="flex justify-center pb-2">
+            <button
+              onClick={toggleSidebar}
+              className={cn(
+                "p-1 rounded-lg transition-all duration-200",
+                "hover:bg-sidebar-accent hover:scale-105",
+                "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              )}
+              title="Expandir sidebar (Cmd+B)"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
           </div>
         )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
-      </div>
+      </SidebarHeader>
 
       {/* Main Navigation */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        <div className="space-y-1">
-          {mainNavItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                isActive(item.path)
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="font-medium">{item.label}</span>}
-            </NavLink>
-          ))}
-        </div>
-
-        {/* Divider */}
-        <div className="my-4 border-t border-sidebar-border" />
-
-        {/* Settings Navigation */}
-        <div className="space-y-1">
-          {settingsNavItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                isActive(item.path)
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="font-medium">{item.label}</span>}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-
-      {/* Logout */}
-      <div className="p-2 border-t border-sidebar-border">
-        <button
-          onClick={signOut}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-            "text-sidebar-foreground/70 hover:bg-destructive hover:text-white"
+      <SidebarContent className="py-2">
+        <SidebarGroup>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider px-3 mb-1">
+              Menu
+            </SidebarGroupLabel>
           )}
-        >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="font-medium">Sair</span>}
-        </button>
-      </div>
-    </aside>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainNavItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.path)}
+                    tooltip={item.label}
+                    className={cn(
+                      "group relative transition-all duration-200",
+                      isActive(item.path) && [
+                        "bg-sidebar-primary/15",
+                        "text-sidebar-primary",
+                        "font-medium",
+                        "before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2",
+                        "before:w-1 before:h-6 before:rounded-r-full before:bg-sidebar-primary",
+                        "shadow-soft"
+                      ],
+                      !isActive(item.path) && [
+                        "text-sidebar-foreground/70",
+                        "hover:bg-sidebar-accent",
+                        "hover:text-sidebar-foreground",
+                        "hover:scale-[1.02]",
+                        "hover:shadow-soft"
+                      ]
+                    )}
+                  >
+                    <NavLink to={item.path}>
+                      <item.icon className={cn(
+                        "w-5 h-5 transition-all duration-200",
+                        isActive(item.path) && "text-sidebar-primary"
+                      )} />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator className="my-3" />
+
+        {/* Settings Group */}
+        <SidebarGroup>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider px-3 mb-1">
+              Sistema
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsNavItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.path)}
+                    tooltip={item.label}
+                    className={cn(
+                      "group relative transition-all duration-200",
+                      isActive(item.path) && [
+                        "bg-sidebar-primary/15",
+                        "text-sidebar-primary",
+                        "font-medium",
+                        "before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2",
+                        "before:w-1 before:h-6 before:rounded-r-full before:bg-sidebar-primary",
+                        "shadow-soft"
+                      ],
+                      !isActive(item.path) && [
+                        "text-sidebar-foreground/70",
+                        "hover:bg-sidebar-accent",
+                        "hover:text-sidebar-foreground",
+                        "hover:scale-[1.02]",
+                        "hover:shadow-soft"
+                      ]
+                    )}
+                  >
+                    <NavLink to={item.path}>
+                      <item.icon className={cn(
+                        "w-5 h-5 transition-all duration-200",
+                        isActive(item.path) && "text-sidebar-primary"
+                      )} />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* Footer with Logout only */}
+      <SidebarFooter className="border-t border-sidebar-border p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Sair"
+              onClick={signOut}
+              className={cn(
+                "w-full transition-all duration-200",
+                "text-sidebar-foreground/70",
+                "hover:bg-destructive/15 hover:text-destructive",
+                "hover:scale-[1.02]"
+              )}
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Sair</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   );
 };

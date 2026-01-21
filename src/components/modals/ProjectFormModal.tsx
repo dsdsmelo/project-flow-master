@@ -24,9 +24,10 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, FolderKanban, Pencil, ImagePlus, Palette, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 const projectSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -53,9 +54,26 @@ const typeLabels: Record<CustomColumn['type'], string> = {
   user: 'Usuário',
 };
 
+// Cover gradient options - exported for use in Projects page
+export const COVER_GRADIENTS = [
+  { id: 'blue', name: 'Azul', class: 'from-blue-500 to-cyan-400' },
+  { id: 'purple', name: 'Roxo', class: 'from-purple-500 to-pink-500' },
+  { id: 'green', name: 'Verde', class: 'from-green-500 to-emerald-400' },
+  { id: 'orange', name: 'Laranja', class: 'from-orange-500 to-amber-400' },
+  { id: 'red', name: 'Vermelho', class: 'from-red-500 to-rose-400' },
+  { id: 'indigo', name: 'Indigo', class: 'from-indigo-500 to-violet-500' },
+  { id: 'teal', name: 'Teal', class: 'from-teal-500 to-cyan-500' },
+  { id: 'pink', name: 'Rosa', class: 'from-pink-500 to-fuchsia-500' },
+];
+
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
   const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cover states
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverColor, setCoverColor] = useState<string | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   
   // Custom columns state
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
@@ -104,6 +122,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: project.endDate || '',
         status: project.status,
       });
+      setCoverUrl(project.coverUrl || null);
+      setCoverColor(project.coverColor || null);
       setPendingColumns([]);
     } else {
       form.reset({
@@ -113,6 +133,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: '',
         status: 'planning',
       });
+      setCoverUrl(null);
+      setCoverColor(null);
       setPendingColumns([]);
     }
   }, [project, form, open]);
@@ -341,6 +363,60 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     setDragOverId(null);
   }, []);
 
+  // Cover image upload handler
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo 5MB');
+      return;
+    }
+
+    setIsUploadingCover(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `project-cover-${Date.now()}.${fileExt}`;
+      const filePath = `project-covers/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      setCoverUrl(publicUrl);
+      setCoverColor(null); // Clear color when image is uploaded
+      toast.success('Imagem enviada com sucesso!');
+    } catch (error) {
+      console.error('Error uploading cover:', error);
+      toast.error('Erro ao enviar imagem');
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
+
+  const handleSelectGradient = (gradientId: string) => {
+    setCoverColor(gradientId);
+    setCoverUrl(null); // Clear image when gradient is selected
+  };
+
+  const handleClearCover = () => {
+    setCoverUrl(null);
+    setCoverColor(null);
+  };
+
   // Default columns that are created for every new project
   const DEFAULT_COLUMNS: Array<{
     name: string;
@@ -367,6 +443,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: data.status,
+        coverUrl: coverUrl || undefined,
+        coverColor: coverColor || undefined,
       };
 
       const newProject = await addProject(projectData);
@@ -415,7 +493,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
   const handleUpdateProject = async (data: ProjectFormData) => {
     if (!project) return;
-    
+
     setIsSubmitting(true);
     try {
       await updateProject(project.id, {
@@ -424,6 +502,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: data.status,
+        coverUrl: coverUrl || undefined,
+        coverColor: coverColor || undefined,
       });
       toast.success('Projeto atualizado com sucesso!');
       onOpenChange(false);
@@ -437,7 +517,102 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
   const handleClose = () => {
     setPendingColumns([]);
+    setCoverUrl(null);
+    setCoverColor(null);
     onOpenChange(false);
+  };
+
+  // Cover selection component
+  const CoverSection = () => {
+    const selectedGradient = COVER_GRADIENTS.find(g => g.id === coverColor);
+
+    return (
+      <div className="space-y-3">
+        <Label>Capa do Projeto</Label>
+
+        {/* Preview */}
+        <div className="relative h-32 rounded-xl overflow-hidden border border-border">
+          {coverUrl ? (
+            <img src={coverUrl} alt="Capa do projeto" className="w-full h-full object-cover" />
+          ) : coverColor && selectedGradient ? (
+            <div className={cn("w-full h-full bg-gradient-to-br", selectedGradient.class)} />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <span className="text-muted-foreground text-sm">Sem capa</span>
+            </div>
+          )}
+
+          {/* Clear button */}
+          {(coverUrl || coverColor) && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="absolute top-2 right-2 h-7 px-2"
+              onClick={handleClearCover}
+            >
+              <X className="w-3 h-3 mr-1" />
+              Remover
+            </Button>
+          )}
+        </div>
+
+        {/* Options */}
+        <div className="flex gap-2">
+          {/* Upload image button */}
+          <label className="flex-1">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleCoverUpload}
+              className="hidden"
+              disabled={isUploadingCover}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={isUploadingCover}
+              asChild
+            >
+              <span>
+                {isUploadingCover ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <ImagePlus className="w-4 h-4 mr-2" />
+                )}
+                {isUploadingCover ? 'Enviando...' : 'Enviar Imagem'}
+              </span>
+            </Button>
+          </label>
+        </div>
+
+        {/* Gradient options */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Palette className="w-4 h-4" />
+            <span>Ou escolha um gradiente:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {COVER_GRADIENTS.map((gradient) => (
+              <button
+                key={gradient.id}
+                type="button"
+                onClick={() => handleSelectGradient(gradient.id)}
+                className={cn(
+                  "w-10 h-10 rounded-lg bg-gradient-to-br transition-all",
+                  gradient.class,
+                  coverColor === gradient.id
+                    ? "ring-2 ring-primary ring-offset-2 scale-110"
+                    : "hover:scale-105 hover:ring-1 hover:ring-border"
+                )}
+                title={gradient.name}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderColumnList = (columns: typeof pendingColumns | CustomColumn[], isPending: boolean) => (
@@ -507,15 +682,22 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {project ? 'Editar Projeto' : 'Novo Projeto'}
-            </DialogTitle>
-            <DialogDescription>
-              {project 
-                ? 'Atualize as informações do projeto' 
-                : 'Preencha os dados do projeto'
-              }
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 text-violet-600 dark:text-violet-400">
+                {project ? <Pencil className="w-5 h-5" /> : <FolderKanban className="w-5 h-5" />}
+              </div>
+              <div>
+                <DialogTitle className="text-lg">
+                  {project ? 'Editar Projeto' : 'Novo Projeto'}
+                </DialogTitle>
+                <DialogDescription>
+                  {project
+                    ? 'Atualize as informações do projeto'
+                    : 'Preencha os dados do projeto'
+                  }
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           {/* EDIT MODE */}
@@ -559,6 +741,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                     <Input id="endDate" type="date" {...form.register('endDate')} />
                   </div>
                 </div>
+
+                <CoverSection />
               </div>
 
               <div className="space-y-4 pt-4 border-t">
@@ -582,7 +766,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                <Button type="submit" disabled={isSubmitting || isUploadingCover} className="gradient-primary text-white">
                   {isSubmitting ? 'Salvando...' : 'Atualizar'}
                 </Button>
               </div>
@@ -628,9 +812,11 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                 </div>
               </div>
 
+              <CoverSection />
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
+                <Button type="submit" disabled={isSubmitting || isUploadingCover} className="gradient-primary text-white">
                   {isSubmitting ? 'Criando...' : 'Criar Projeto'}
                 </Button>
               </div>
@@ -643,7 +829,12 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       <Dialog open={isColumnDialogOpen} onOpenChange={setIsColumnDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingColumn ? 'Editar Coluna' : 'Nova Coluna'}</DialogTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-slate-500/20 to-gray-500/20 text-slate-600 dark:text-slate-400">
+                {editingColumn ? <Edit className="w-5 h-5" /> : <Columns3 className="w-5 h-5" />}
+              </div>
+              <DialogTitle className="text-lg">{editingColumn ? 'Editar Coluna' : 'Nova Coluna'}</DialogTitle>
+            </div>
           </DialogHeader>
 
           <div className="space-y-4 py-4">

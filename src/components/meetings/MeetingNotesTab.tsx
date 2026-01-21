@@ -1,16 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { MeetingNote } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
-  Plus, 
-  Trash2, 
-  Pencil, 
+import {
+  Plus,
+  Trash2,
+  Pencil,
   Calendar,
   Users,
   FileText,
@@ -19,7 +20,10 @@ import {
   Save,
   Download,
   Mail,
-  Share2
+  Share2,
+  Search,
+  X,
+  NotebookPen
 } from 'lucide-react';
 import {
   Dialog,
@@ -58,24 +62,59 @@ interface MeetingNotesTabProps {
 
 export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
   const { meetingNotes, people, addMeetingNote, updateMeetingNote, deleteMeetingNote } = useData();
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<MeetingNote | null>(null);
   const [expandedNote, setExpandedNote] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<MeetingNote | null>(null);
-  
+
+  // Search and pagination state
+  const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [meetingDate, setMeetingDate] = useState<Date | undefined>(new Date());
   const [participants, setParticipants] = useState('');
-  
+
   const projectNotes = useMemo(() => {
     return meetingNotes
       .filter(n => n.projectId === projectId)
       .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime());
   }, [meetingNotes, projectId]);
+
+  // Filtered notes based on search
+  const filteredNotes = useMemo(() => {
+    if (!search.trim()) return projectNotes;
+    const searchLower = search.toLowerCase();
+    return projectNotes.filter(note =>
+      note.title.toLowerCase().includes(searchLower) ||
+      note.content.toLowerCase().includes(searchLower)
+    );
+  }, [projectNotes, search]);
+
+  // Paginated notes
+  const paginatedNotes = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredNotes.slice(start, end);
+  }, [filteredNotes, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredNotes.length / pageSize);
+
+  // Reset to page 1 when search changes
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  }, []);
 
   const activePeople = useMemo(() => {
     return people.filter(p => p.active);
@@ -316,16 +355,35 @@ ${note.content}
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Anotações de Reuniões</h3>
-          <span className="text-sm text-muted-foreground">({projectNotes.length})</span>
+          <span className="text-sm text-muted-foreground">({filteredNotes.length})</span>
         </div>
-        <Button onClick={() => handleOpenModal()}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Anotação
-        </Button>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar reuniões..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {search && (
+              <button
+                onClick={() => handleSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <Button onClick={() => handleOpenModal()}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Anotação
+          </Button>
+        </div>
       </div>
 
       {/* Notes List */}
@@ -341,9 +399,20 @@ ${note.content}
             Criar primeira anotação
           </Button>
         </div>
+      ) : filteredNotes.length === 0 ? (
+        <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
+          <Search className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+          <p className="text-muted-foreground">Nenhuma anotação encontrada</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tente ajustar os termos de busca
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => handleSearchChange('')}>
+            Limpar Busca
+          </Button>
+        </div>
       ) : (
         <div className="space-y-3">
-          {projectNotes.map((note) => {
+          {paginatedNotes.map((note) => {
             const isExpanded = expandedNote === note.id;
             const participantText = getParticipantDisplay(note.participants);
             
@@ -454,6 +523,20 @@ ${note.content}
               </div>
             );
           })}
+
+          {/* Pagination */}
+          {filteredNotes.length > 0 && (
+            <div className="bg-card rounded-xl border border-border shadow-soft">
+              <TablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filteredNotes.length}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -461,9 +544,14 @@ ${note.content}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingNote ? 'Editar Anotação' : 'Nova Anotação de Reunião'}
-            </DialogTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400">
+                {editingNote ? <Pencil className="w-5 h-5" /> : <NotebookPen className="w-5 h-5" />}
+              </div>
+              <DialogTitle className="text-lg">
+                {editingNote ? 'Editar Anotação' : 'Nova Anotação de Reunião'}
+              </DialogTitle>
+            </div>
           </DialogHeader>
 
           <div className="space-y-4 py-4">

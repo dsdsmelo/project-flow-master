@@ -15,7 +15,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { ProjectFormModal } from '@/components/modals/ProjectFormModal';
+import { ProjectFormModal, COVER_GRADIENTS } from '@/components/modals/ProjectFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage } from '@/lib/mockData';
 import { projectStatusLabels, Project } from '@/lib/types';
@@ -209,74 +209,134 @@ const Projects = () => {
               const progress = getProjectProgress(project.id);
               const taskCount = getProjectTaskCount(project.id);
               const phaseCount = getProjectPhaseCount(project.id);
+              const coverGradient = project.coverColor
+                ? COVER_GRADIENTS.find(g => g.id === project.coverColor)
+                : null;
+              const hasCover = project.coverUrl || coverGradient;
 
               return (
                 <Link
                   key={project.id}
                   to={`/projects/${project.id}`}
-                  className="bg-card rounded-xl border border-border p-6 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in block"
+                  className="bg-card rounded-xl border border-border shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in block overflow-hidden group"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn('w-3 h-3 rounded-full', statusColors[project.status])} />
-                      <span className="text-xs font-medium text-muted-foreground uppercase">
-                        {projectStatusLabels[project.status]}
-                      </span>
+                  {/* Cover Section */}
+                  {hasCover ? (
+                    <div className="relative h-32 overflow-hidden">
+                      {project.coverUrl ? (
+                        <img
+                          src={project.coverUrl}
+                          alt={project.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : coverGradient ? (
+                        <div className={cn("w-full h-full bg-gradient-to-br group-hover:scale-105 transition-transform duration-300", coverGradient.class)} />
+                      ) : null}
+                      {/* Status badge overlay */}
+                      <div className="absolute top-3 left-3">
+                        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-sm">
+                          <div className={cn('w-2 h-2 rounded-full', statusColors[project.status])} />
+                          <span className="text-xs font-medium text-white uppercase">
+                            {projectStatusLabels[project.status]}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Actions overlay */}
+                      <div className="absolute top-3 right-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="secondary" size="sm" className="h-8 w-8 p-0 bg-black/30 backdrop-blur-sm border-0 text-white hover:bg-black/50">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
+                            <DropdownMenuItem asChild>
+                              <Link to={`/projects/${project.id}`}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Ver Detalhes
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
-                        <DropdownMenuItem asChild>
-                          <Link to={`/projects/${project.id}`}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Ver Detalhes
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  ) : null}
 
-                  <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
-                  {project.description && (
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {project.description}
-                    </p>
-                  )}
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{phaseCount} fases</span>
-                      <span>•</span>
-                      <span>{taskCount} tarefas</span>
-                    </div>
-
-                    {project.startDate && project.endDate && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {new Date(project.startDate).toLocaleDateString('pt-BR')} - {new Date(project.endDate).toLocaleDateString('pt-BR')}
-                        </span>
+                  {/* Content Section */}
+                  <div className="p-6">
+                    {/* Status bar for cards without cover */}
+                    {!hasCover && (
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={cn('w-3 h-3 rounded-full', statusColors[project.status])} />
+                          <span className="text-xs font-medium text-muted-foreground uppercase">
+                            {projectStatusLabels[project.status]}
+                          </span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
+                            <DropdownMenuItem asChild>
+                              <Link to={`/projects/${project.id}`}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Ver Detalhes
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Progresso</span>
-                        <span className="font-medium">{progress}%</span>
+                    <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
+                    {project.description && (
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{phaseCount} fases</span>
+                        <span>•</span>
+                        <span>{taskCount} tarefas</span>
                       </div>
-                      <ProgressBar value={progress} size="md" />
+
+                      {project.startDate && project.endDate && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {new Date(project.startDate).toLocaleDateString('pt-BR')} - {new Date(project.endDate).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Progresso</span>
+                          <span className="font-medium">{progress}%</span>
+                        </div>
+                        <ProgressBar value={progress} size="md" />
+                      </div>
                     </div>
                   </div>
                 </Link>

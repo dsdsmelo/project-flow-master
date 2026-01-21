@@ -57,7 +57,7 @@ Fornecer uma plataforma intuitiva e eficiente para gestão de projetos, tarefas,
 - **Gráficos:** Recharts
 
 #### Backend
-- **Plataforma:** Supabase (Lovable Cloud ou Externo)
+- **Plataforma:** Supabase
 - **Banco de Dados:** PostgreSQL
 - **Autenticação:** Supabase Auth
 - **Storage:** Supabase Storage

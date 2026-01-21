@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { ClipboardList, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -121,10 +122,17 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{task ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
-          <DialogDescription>
-            {task ? 'Atualize as informações da tarefa' : 'Preencha os dados básicos para criar uma nova tarefa'}
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400">
+              {task ? <Pencil className="w-5 h-5" /> : <ClipboardList className="w-5 h-5" />}
+            </div>
+            <div>
+              <DialogTitle className="text-lg">{task ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
+              <DialogDescription>
+                {task ? 'Atualize as informações da tarefa' : 'Preencha os dados básicos para criar uma nova tarefa'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

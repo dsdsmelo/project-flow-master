@@ -201,8 +201,27 @@ export const mockTasks: Task[] = [
 
 // Helper function to calculate task percentage
 export const calculatePercentage = (task: Task): number => {
-  if (!task.quantity || task.quantity === 0) return 0;
-  return Math.round(((task.collected || 0) / task.quantity) * 100);
+  // Completed tasks are 100%
+  if (task.status === 'completed') return 100;
+
+  // Cancelled tasks are 0%
+  if (task.status === 'cancelled') return 0;
+
+  // If task has quantity tracking, use that
+  if (task.quantity && task.quantity > 0) {
+    return Math.round(((task.collected || 0) / task.quantity) * 100);
+  }
+
+  // Default percentages based on status
+  switch (task.status) {
+    case 'in_progress':
+      return 50;
+    case 'blocked':
+      return 25;
+    case 'pending':
+    default:
+      return 0;
+  }
 };
 
 // Helper function to check if task is overdue

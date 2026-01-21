@@ -95,7 +95,7 @@ serve(async (req) => {
     }
 
     // Get origin from request
-    const origin = req.headers.get("origin") || "https://lovable.dev";
+    const origin = req.headers.get("origin") || "https://tarefaa.com.br";
     logStep("Origin", { origin });
 
     // Create checkout session with phone collection

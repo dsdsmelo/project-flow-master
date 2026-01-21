@@ -25,6 +25,9 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isLoading) return; // Prevent double submission
+
     setIsLoading(true);
 
     try {
@@ -52,12 +55,16 @@ const Login = () => {
           description: message,
           variant: 'destructive',
         });
+        setIsLoading(false);
       } else {
         toast({
           title: 'Bem-vindo!',
           description: 'Login realizado com sucesso.',
         });
-        navigate('/dashboard');
+        // Small delay to ensure auth state is updated before navigation
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 100);
       }
     } catch (error) {
       toast({
@@ -65,7 +72,6 @@ const Login = () => {
         description: 'Ocorreu um erro inesperado.',
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -75,7 +81,7 @@ const Login = () => {
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-primary relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.05%22%3E%3Cpath%20d%3D%22M36%2034v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6%2034v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6%204V0H4v4H0v2h4v4h2V6h4V4H6z%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-30" />
-        
+
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20">
           <div className="mb-8">
             <img src={logoIcon} alt="Tarefaa" className="w-20 h-20 rounded-2xl shadow-lg" />
@@ -86,14 +92,20 @@ const Login = () => {
           <p className="text-white/80 text-lg xl:text-xl max-w-md">
             Acesse sua conta para continuar gerenciando suas tarefas, projetos e equipe em um só lugar.
           </p>
-          
+
           <div className="mt-12 flex items-center gap-4">
             <div className="flex -space-x-3">
-              {['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'].map((color, i) => (
-                <div 
+              {[
+                'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
+                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
+                'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
+                'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+              ].map((src, i) => (
+                <img
                   key={i}
-                  className="w-10 h-10 rounded-full border-2 border-white/30"
-                  style={{ backgroundColor: color }}
+                  src={src}
+                  alt={`Usuário ${i + 1}`}
+                  className="w-10 h-10 rounded-full border-2 border-white/30 object-cover"
                 />
               ))}
             </div>
@@ -137,6 +149,7 @@ const Login = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 h-12"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -146,8 +159,8 @@ const Login = () => {
                   <Label htmlFor="password" className="text-sm font-medium">
                     Senha
                   </Label>
-                  <Link 
-                    to="/forgot-password" 
+                  <Link
+                    to="/forgot-password"
                     className="text-xs text-primary hover:underline"
                   >
                     Esqueceu a senha?
@@ -163,11 +176,13 @@ const Login = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 pr-10 h-12"
                     required
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -202,8 +217,8 @@ const Login = () => {
           </p>
 
           <div className="text-center mt-8">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               ← Voltar para o site

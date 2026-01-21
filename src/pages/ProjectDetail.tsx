@@ -610,10 +610,11 @@ const ProjectDetail = () => {
 
           {/* Gantt Tab */}
           <TabsContent value="gantt" className="mt-6">
-            <ProjectGanttChart 
-              tasks={projectTasks} 
-              people={people} 
-              projectId={projectId || ''} 
+            <ProjectGanttChart
+              tasks={projectTasks}
+              people={people}
+              projectId={projectId || ''}
+              project={project}
               phases={phases}
               milestones={milestones}
               onAddPhase={() => {

@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -194,6 +194,83 @@
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes neonPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 5px hsl(130 70% 40%),
+      0 0 10px hsl(130 70% 40%),
+      0 0 20px hsl(130 70% 40%),
+      0 0 40px hsl(130 70% 40% / 0.5),
+      inset 0 0 10px hsl(130 70% 40% / 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 10px hsl(130 70% 50%),
+      0 0 20px hsl(130 70% 50%),
+      0 0 40px hsl(130 70% 50%),
+      0 0 60px hsl(130 70% 50% / 0.5),
+      inset 0 0 20px hsl(130 70% 50% / 0.15);
+  }
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    border-color: hsl(130 70% 45%);
+  }
+  50% {
+    border-color: hsl(130 70% 55%);
+  }
+}
+
+.neon-card {
+  animation: neonPulse 2s ease-in-out infinite, borderGlow 2s ease-in-out infinite;
+  border: 2px solid hsl(130 70% 45%);
+}
+
+/* Modern Subtle Button */
+.neon-glow-btn {
+  position: relative;
+  background: linear-gradient(135deg, hsl(130 70% 42%) 0%, hsl(130 70% 38%) 100%);
+  border: none;
+  overflow: visible;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px hsl(130 70% 40% / 0.2);
+}
+
+.neon-glow-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: hsl(130 70% 50%);
+  filter: blur(20px);
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.4s ease;
+}
+
+.neon-glow-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px hsl(130 70% 40% / 0.35);
+}
+
+.neon-glow-btn:hover::after {
+  opacity: 0.25;
+}
+
+/* Tech Card Animations */
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes scan {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
 }
 
 /* Custom scrollbar */

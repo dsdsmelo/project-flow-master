@@ -1,73 +1,68 @@
-# Welcome to your Lovable project
+# Tarefaa - Sistema de Gerenciamento de Projetos
 
-## Project info
+Sistema SaaS de gerenciamento de projetos desenvolvido para equipes de TI e infraestrutura.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tecnologias
 
-## How can I edit this code?
+- **Frontend:** React 18 + TypeScript + Vite
+- **Estilização:** Tailwind CSS + shadcn/ui
+- **Backend:** Supabase (PostgreSQL, Auth, Edge Functions)
+- **Pagamentos:** Stripe
 
-There are several ways of editing your application.
+## Desenvolvimento Local
 
-**Use Lovable**
+### Pré-requisitos
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Node.js 18+ ([instalar com nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- npm ou pnpm
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Instalação
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone o repositório
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Entre no diretório do projeto
+cd tarefaa
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Instale as dependências
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Inicie o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+O servidor estará disponível em `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Scripts Disponíveis
 
-**Use GitHub Codespaces**
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Inicia o servidor de desenvolvimento |
+| `npm run build` | Gera o build de produção |
+| `npm run preview` | Visualiza o build de produção |
+| `npm run lint` | Executa o linter |
+| `npm run test` | Executa os testes |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Estrutura do Projeto
 
-## What technologies are used for this project?
+```
+├── src/
+│   ├── components/     # Componentes React
+│   ├── contexts/       # Contextos (Auth, Data)
+│   ├── hooks/          # Custom hooks
+│   ├── lib/            # Utilitários e tipos
+│   ├── pages/          # Páginas da aplicação
+│   └── integrations/   # Integrações (Supabase)
+├── supabase/
+│   └── functions/      # Edge Functions
+└── docs/               # Documentação
+```
 
-This project is built with:
+## Deploy
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Consulte [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para instruções de deploy em VPS.
 
-## How can I deploy this project?
+## Licença
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Proprietário - Todos os direitos reservados.

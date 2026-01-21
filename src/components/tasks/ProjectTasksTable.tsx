@@ -1,27 +1,33 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { 
-  Search, 
+import {
+  Search,
   Filter,
   MoreVertical,
   Edit,
   Trash2,
   Columns3,
-  GripVertical
+  GripVertical,
+  X,
+  CheckCircle2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
 import { TaskProgressEditCell } from '@/components/custom-columns/TaskProgressEditCell';
-import { 
-  StatusEditCell, 
-  PriorityEditCell, 
-  ResponsibleEditCell, 
+import {
+  StatusEditCell,
+  PriorityEditCell,
+  ResponsibleEditCell,
   TextEditCell,
   DateEditCell
 } from '@/components/tasks/InlineTaskFieldEdit';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -66,7 +72,7 @@ interface ProjectTasksTableProps {
 
 export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   const { tasks, updateTask, deleteTask, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
-  
+
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -74,12 +80,19 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     priority: 'all',
     responsible: 'all',
   });
-  
+
+  // Toggle to show/hide completed tasks
+  const [showCompleted, setShowCompleted] = useState(true);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
-  
+
   // Column editing and drag state
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState('');
@@ -99,45 +112,78 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
       .sort((a, b) => a.order - b.order);
   }, [customColumns, projectId]);
 
+  // Count completed tasks for display
+  const completedTasksCount = useMemo(() => {
+    return projectTasks.filter(t => t.status === 'completed').length;
+  }, [projectTasks]);
+
   // Filtered tasks
   const filteredTasks = useMemo(() => {
     return projectTasks.filter(task => {
+      // Hide completed tasks if toggle is off
+      if (!showCompleted && task.status === 'completed') return false;
+
       const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = filters.status === 'all' || task.status === filters.status;
       const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
       const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
       return matchesSearch && matchesStatus && matchesPriority && matchesResponsible;
     });
-  }, [projectTasks, search, filters]);
+  }, [projectTasks, search, filters, showCompleted]);
 
-  const getPerson = (personId?: string) => {
-    if (!personId) return null;
-    return people.find(p => p.id === personId);
-  };
+  // Paginated tasks
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredTasks.slice(start, end);
+  }, [filteredTasks, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredTasks.length / pageSize);
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = useCallback((newFilters: typeof filters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  }, []);
+
+  const handleShowCompletedToggle = useCallback(() => {
+    setShowCompleted(prev => !prev);
+    setCurrentPage(1);
+  }, []);
 
   const toggleTaskSelection = (taskId: string) => {
-    setSelectedTasks(prev => 
-      prev.includes(taskId) 
+    setSelectedTasks(prev =>
+      prev.includes(taskId)
         ? prev.filter(id => id !== taskId)
         : [...prev, taskId]
     );
   };
 
   const toggleAllTasks = () => {
-    if (selectedTasks.length === filteredTasks.length) {
+    if (selectedTasks.length === paginatedTasks.length) {
       setSelectedTasks([]);
     } else {
-      setSelectedTasks(filteredTasks.map(t => t.id));
+      setSelectedTasks(paginatedTasks.map(t => t.id));
     }
   };
 
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length;
+  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length + (showCompleted ? 0 : 1);
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    
+
     try {
       await updateTask(taskId, {
         customValues: {
@@ -198,6 +244,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   const clearFilters = () => {
     setFilters({ status: 'all', priority: 'all', responsible: 'all' });
     setSearch('');
+    setShowCompleted(true);
+    setCurrentPage(1);
   };
 
   // Column inline editing handlers
@@ -251,7 +299,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
 
   const handleColumnDrop = useCallback(async (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
-    
+
     if (!draggedColumnId || draggedColumnId === targetId) {
       setDraggedColumnId(null);
       setDragOverColumnId(null);
@@ -384,7 +432,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex gap-3 flex-1 w-full lg:w-auto flex-wrap">
@@ -393,12 +441,23 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             <Input
               placeholder="Buscar tarefas..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-9 pr-9"
             />
+            {search && (
+              <button
+                onClick={() => handleSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          
-          <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
+
+          <Select
+            value={filters.status}
+            onValueChange={(v) => handleFilterChange({ ...filters, status: v })}
+          >
             <SelectTrigger className="w-36">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -412,6 +471,25 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             </SelectContent>
           </Select>
 
+          {/* Toggle Completed Tasks */}
+          <Button
+            variant={showCompleted ? "outline" : "secondary"}
+            onClick={handleShowCompletedToggle}
+            className="gap-2"
+            title={showCompleted ? "Ocultar tarefas concluídas" : "Mostrar tarefas concluídas"}
+          >
+            {showCompleted ? (
+              <Eye className="w-4 h-4" />
+            ) : (
+              <EyeOff className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline">Concluídas</span>
+            {completedTasksCount > 0 && (
+              <Badge variant={showCompleted ? "secondary" : "default"} className="ml-1 h-5 min-w-5 p-0 flex items-center justify-center text-xs">
+                {completedTasksCount}
+              </Badge>
+            )}
+          </Button>
 
           <Sheet>
             <SheetTrigger asChild>
@@ -419,9 +497,9 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                 <Filter className="w-4 h-4 mr-2" />
                 Filtros
                 {activeFiltersCount > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                  <Badge variant="default" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
                     {activeFiltersCount}
-                  </span>
+                  </Badge>
                 )}
               </Button>
             </SheetTrigger>
@@ -435,7 +513,10 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
               <div className="mt-6 space-y-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Prioridade</label>
-                  <Select value={filters.priority} onValueChange={(v) => setFilters(f => ({ ...f, priority: v }))}>
+                  <Select
+                    value={filters.priority}
+                    onValueChange={(v) => handleFilterChange({ ...filters, priority: v })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Prioridade" />
                     </SelectTrigger>
@@ -451,7 +532,10 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Responsável</label>
-                  <Select value={filters.responsible} onValueChange={(v) => setFilters(f => ({ ...f, responsible: v }))}>
+                  <Select
+                    value={filters.responsible}
+                    onValueChange={(v) => handleFilterChange({ ...filters, responsible: v })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Responsável" />
                     </SelectTrigger>
@@ -464,8 +548,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   </Select>
                 </div>
 
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={clearFilters}
                 >
@@ -474,10 +558,54 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
               </div>
             </SheetContent>
           </Sheet>
+
+          {/* Active filters badges */}
+          {activeFiltersCount > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {!showCompleted && (
+                <Badge variant="secondary" className="gap-1">
+                  <EyeOff className="w-3 h-3" />
+                  Concluídas ocultas
+                  <button onClick={() => setShowCompleted(true)}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.status !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Status: {filters.status === 'pending' ? 'Pendente' :
+                           filters.status === 'in_progress' ? 'Em Progresso' :
+                           filters.status === 'blocked' ? 'Bloqueado' :
+                           filters.status === 'completed' ? 'Concluído' : 'Cancelado'}
+                  <button onClick={() => handleFilterChange({ ...filters, status: 'all' })}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.priority !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Prioridade: {filters.priority === 'low' ? 'Baixa' :
+                               filters.priority === 'medium' ? 'Média' :
+                               filters.priority === 'high' ? 'Alta' : 'Urgente'}
+                  <button onClick={() => handleFilterChange({ ...filters, priority: 'all' })}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.responsible !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Responsável: {people.find(p => p.id === filters.responsible)?.name}
+                  <button onClick={() => handleFilterChange({ ...filters, responsible: 'all' })}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <ColumnManagerSheet 
+          <ColumnManagerSheet
             projectId={projectId}
             trigger={
               <Button variant="outline">
@@ -502,7 +630,6 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-
         </div>
       </div>
 
@@ -514,14 +641,14 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
               <tr>
                 <th className="text-left py-4 px-4 w-12">
                   <Checkbox
-                    checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
+                    checked={selectedTasks.length === paginatedTasks.length && paginatedTasks.length > 0}
                     onCheckedChange={toggleAllTasks}
                   />
                 </th>
                 {/* All columns - unified */}
                 {projectColumns.map(col => (
-                  <th 
-                    key={col.id} 
+                  <th
+                    key={col.id}
                     className={cn(
                       "text-left py-4 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap transition-all",
                       draggedColumnId === col.id && "opacity-50",
@@ -556,7 +683,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                           autoFocus
                         />
                       ) : (
-                        <span 
+                        <span
                           className="cursor-text hover:text-foreground transition-colors"
                           onClick={() => startEditingColumn(col.id, col.name)}
                           title="Clique para editar o nome da coluna"
@@ -571,12 +698,12 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.map(task => {
+              {paginatedTasks.map(task => {
                 const overdue = isTaskOverdue(task);
 
                 return (
-                  <tr 
-                    key={task.id} 
+                  <tr
+                    key={task.id}
                     className={cn(
                       "border-t border-border hover:bg-muted/30 transition-colors",
                       overdue && "bg-status-blocked/5",
@@ -591,8 +718,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     </td>
                     {/* All columns - unified */}
                     {projectColumns.map(col => (
-                      <td 
-                        key={col.id} 
+                      <td
+                        key={col.id}
                         className={cn(
                           "py-4 px-4",
                           col.standardField === 'description' && "max-w-[200px]"
@@ -634,15 +761,27 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             </div>
             <h3 className="text-lg font-semibold mb-2">Nenhuma tarefa encontrada</h3>
             <p className="text-muted-foreground mb-4">Tente ajustar os filtros ou criar uma nova tarefa.</p>
+            {activeFiltersCount > 0 && (
+              <Button variant="outline" onClick={clearFilters}>
+                Limpar Filtros
+              </Button>
+            )}
           </div>
         )}
-      </div>
 
-      {/* Footer with count */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Mostrando {filteredTasks.length} de {projectTasks.length} tarefas
-        </span>
+        {/* Pagination */}
+        {filteredTasks.length > 0 && (
+          <div className="border-t border-border">
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredTasks.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </div>
+        )}
       </div>
 
       {/* Task Form Modal for editing */}

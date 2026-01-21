@@ -34,8 +34,9 @@ const queryClient = new QueryClient({
 });
 
 const ProtectedRoute = ({ children, requireSubscription = true }: { children: React.ReactNode; requireSubscription?: boolean }) => {
-  const { isAuthenticated, isLoading, hasActiveSubscription } = useAuth();
-  
+  const { isAuthenticated, isLoading, hasActiveSubscription, subscriptionChecked } = useAuth();
+
+  // Wait for initial auth loading
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -43,15 +44,24 @@ const ProtectedRoute = ({ children, requireSubscription = true }: { children: Re
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
+  // Wait for subscription check before redirecting
+  if (requireSubscription && !subscriptionChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (requireSubscription && !hasActiveSubscription) {
     return <Navigate to="/login?subscription=required" replace />;
   }
-  
+
   return <>{children}</>;
 };
 

@@ -23,7 +23,7 @@ import { useData } from '@/contexts/DataContext';
 import { Person } from '@/lib/types';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { Camera, X, Loader2 } from 'lucide-react';
+import { Camera, X, Loader2, UserPlus, Pencil } from 'lucide-react';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 
 const personSchema = z.object({
@@ -185,10 +185,17 @@ export function PersonFormModal({ open, onOpenChange, person }: PersonFormModalP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{person ? 'Editar Pessoa' : 'Nova Pessoa'}</DialogTitle>
-          <DialogDescription>
-            {person ? 'Atualize as informações da pessoa' : 'Preencha os dados para adicionar uma nova pessoa'}
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 text-pink-600 dark:text-pink-400">
+              {person ? <Pencil className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+            </div>
+            <div>
+              <DialogTitle className="text-lg">{person ? 'Editar Pessoa' : 'Nova Pessoa'}</DialogTitle>
+              <DialogDescription>
+                {person ? 'Atualize as informações da pessoa' : 'Preencha os dados para adicionar uma nova pessoa'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

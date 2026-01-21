@@ -27,6 +27,7 @@ interface AuthContextType {
   subscription: Subscription | null;
   isAdmin: boolean;
   isLoading: boolean;
+  subscriptionChecked: boolean;
   isAuthenticated: boolean;
   hasActiveSubscription: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -46,6 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -69,7 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .insert({ id: userId, full_name: null, avatar_url: null })
           .select()
           .single();
-        
+
         if (!insertError && newProfile) {
           setProfile(newProfile);
         }
@@ -79,12 +81,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const fetchSubscription = async (userId: string) => {
+  const fetchSubscription = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('get-subscription');
-      
+
       if (error) {
         console.error('Error fetching subscription:', error);
+        // Even on error, mark as checked so we don't block the user forever
+        setSubscriptionChecked(true);
         return;
       }
 
@@ -94,12 +98,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Error fetching subscription:', error);
+    } finally {
+      setSubscriptionChecked(true);
     }
   };
 
   const refreshSubscription = async () => {
     if (user) {
-      await fetchSubscription(user.id);
+      setSubscriptionChecked(false);
+      await fetchSubscription();
     }
   };
 
@@ -131,42 +138,71 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    let isMounted = true;
+
+    // Get initial session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Defer data fetch with setTimeout to avoid deadlock
+
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-            fetchSubscription(session.user.id);
-          }, 0);
+          // Fetch profile in background
+          fetchProfile(session.user.id);
+          // Fetch subscription - this will set subscriptionChecked when done
+          fetchSubscription();
         } else {
+          // No user, mark subscription as checked
+          setSubscriptionChecked(true);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setSubscriptionChecked(true);
+      } finally {
+        // Always set loading to false after checking session
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes (SIGNED_IN, SIGNED_OUT, etc.)
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!isMounted) return;
+
+        // Skip INITIAL_SESSION as it's handled by getSession above
+        if (event === 'INITIAL_SESSION') return;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          // Reset subscription checked and fetch again
+          setSubscriptionChecked(false);
+          fetchProfile(session.user.id);
+          fetchSubscription();
+        } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setSubscription(null);
           setIsAdmin(false);
+          setSubscriptionChecked(true);
         }
-        
+
         setIsLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-        fetchSubscription(session.user.id);
-      }
-      
-      setIsLoading(false);
-    });
-
-    return () => authSubscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      authSubscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -174,13 +210,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       email,
       password,
     });
-    
+
     return { error: error ? new Error(error.message) : null };
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -191,7 +227,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         },
       },
     });
-    
+
     return { error: error ? new Error(error.message) : null };
   };
 
@@ -202,6 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProfile(null);
     setSubscription(null);
     setIsAdmin(false);
+    setSubscriptionChecked(true);
   };
 
   const hasActiveSubscription = subscription?.status === 'active' || subscription?.status === 'trialing' || isAdmin;
@@ -214,6 +251,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       subscription,
       isAdmin,
       isLoading,
+      subscriptionChecked,
       isAuthenticated: !!user,
       hasActiveSubscription,
       signIn,

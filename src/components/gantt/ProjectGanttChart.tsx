@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { isTaskOverdue } from '@/lib/mockData';
-import { Task, Person, Milestone, Phase } from '@/lib/types';
-import { Flag, Pencil, Trash2, CheckCircle2, ChevronDown, ChevronRight, Plus, GripHorizontal, Calendar, CalendarDays, CalendarRange, Diamond, Layers } from 'lucide-react';
+import { isTaskOverdue, calculatePercentage } from '@/lib/mockData';
+import { Task, Person, Milestone, Phase, Project } from '@/lib/types';
+import { Pencil, Trash2, CheckCircle2, ChevronDown, ChevronRight, Calendar, CalendarDays, CalendarRange, Diamond, Layers, Info, LocateFixed } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -16,6 +16,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 
 type ZoomLevel = 'day' | 'week' | 'month';
@@ -24,6 +29,7 @@ interface ProjectGanttChartProps {
   tasks: Task[];
   people: Person[];
   projectId: string;
+  project?: Project;
   phases?: Phase[];
   milestones?: Milestone[];
   onAddPhase?: () => void;
@@ -38,10 +44,11 @@ interface ProjectGanttChartProps {
   onDeleteTask?: (taskId: string) => void;
 }
 
-export const ProjectGanttChart = ({ 
-  tasks, 
-  people, 
-  projectId, 
+export const ProjectGanttChart = ({
+  tasks,
+  people,
+  projectId,
+  project,
   phases = [],
   milestones = [],
   onAddPhase,
@@ -57,33 +64,58 @@ export const ProjectGanttChart = ({
 }: ProjectGanttChartProps) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState<ZoomLevel>('week');
+  const [showPhasesSection, setShowPhasesSection] = useState(true);
+  const labelsRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
 
   const projectPhases = useMemo(() => phases.filter(p => p.projectId === projectId), [phases, projectId]);
   const projectMilestones = useMemo(() => milestones.filter(m => m.projectId === projectId), [milestones, projectId]);
 
+  // Helper para obter data atual em São Paulo
+  const getTodaySaoPaulo = () => {
+    const now = new Date();
+    const saoPauloTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    saoPauloTime.setHours(12, 0, 0, 0);
+    return saoPauloTime;
+  };
+
   const dateRange = useMemo(() => {
+    const today = getTodaySaoPaulo();
     const dates = tasks.flatMap(t => [t.startDate, t.endDate].filter(Boolean)) as string[];
     const phaseDates = projectPhases.flatMap(p => [p.startDate, p.endDate].filter(Boolean)) as string[];
     const milestoneDates = projectMilestones.map(m => m.date).filter(Boolean) as string[];
-    
-    const allDates = [...dates, ...phaseDates, ...milestoneDates];
-    
+
+    // Include project start and end dates
+    const projectDates = [project?.startDate, project?.endDate].filter(Boolean) as string[];
+
+    const allDates = [...dates, ...phaseDates, ...milestoneDates, ...projectDates];
+
     if (allDates.length === 0) {
-      const today = new Date();
-      return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth() + 3, 0) };
+      return {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: new Date(today.getFullYear(), today.getMonth() + 3, 0)
+      };
     }
-    const startDate = new Date(Math.min(...allDates.map(d => new Date(d).getTime())));
-    const endDate = new Date(Math.max(...allDates.map(d => new Date(d).getTime())));
-    startDate.setDate(startDate.getDate() - 14);
-    endDate.setDate(endDate.getDate() + 21);
+
+    const minDate = new Date(Math.min(...allDates.map(d => new Date(d).getTime())));
+    const maxDate = new Date(Math.max(...allDates.map(d => new Date(d).getTime())));
+
+    // Start from the earliest date (project start) with some padding
+    const startDate = new Date(minDate);
+    startDate.setDate(startDate.getDate() - 7); // 1 week before earliest date
+
+    // End after the latest date or today, whichever is later
+    const endDate = new Date(Math.max(maxDate.getTime(), today.getTime()));
+    endDate.setDate(endDate.getDate() + 14); // 2 weeks after latest date
+
     return { start: startDate, end: endDate };
-  }, [tasks, projectPhases, projectMilestones]);
+  }, [tasks, projectPhases, projectMilestones, project]);
 
   const columns = useMemo(() => {
     const cols: { date: Date; label: string; subLabel?: string }[] = [];
     const current = new Date(dateRange.start);
-    
+
     while (current <= dateRange.end) {
       if (zoom === 'day') {
         cols.push({ date: new Date(current), label: current.toLocaleDateString('pt-BR', { day: '2-digit' }), subLabel: current.getDate() === 1 ? current.toLocaleDateString('pt-BR', { month: 'short' }) : undefined });
@@ -130,10 +162,9 @@ export const ProjectGanttChart = ({
   };
 
   const getTodayPosition = () => {
-    const now = new Date();
-    now.setHours(12, 0, 0, 0);
+    const today = getTodaySaoPaulo();
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    const offset = (now.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+    const offset = (today.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
   };
 
@@ -155,9 +186,50 @@ export const ProjectGanttChart = ({
     return { bg: 'bg-amber-500', dot: 'bg-amber-500' };
   };
 
-  const columnWidth = zoom === 'day' ? 'min-w-[32px]' : zoom === 'week' ? 'min-w-[80px]' : 'min-w-[100px]';
-  const chartMinWidth = zoom === 'day' ? `${columns.length * 32 + 300}px` : zoom === 'week' ? '1100px' : '900px';
-  const labelColumnWidth = 'w-[300px]';
+  // Sync scroll between labels and chart
+  const handleChartScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (labelsRef.current) {
+      labelsRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  }, []);
+
+  const handleLabelsScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (chartRef.current) {
+      chartRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  }, []);
+
+  // Scroll to today position
+  const scrollToToday = useCallback(() => {
+    const today = getTodaySaoPaulo();
+    const columnWidthPx = zoom === 'day' ? 40 : zoom === 'week' ? 100 : 120;
+
+    // Find the column index for today
+    const todayIndex = columns.findIndex(col => {
+      if (zoom === 'day') {
+        return col.date.toDateString() === today.toDateString();
+      } else if (zoom === 'week') {
+        const weekEnd = new Date(col.date);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        return today >= col.date && today <= weekEnd;
+      } else {
+        return col.date.getMonth() === today.getMonth() && col.date.getFullYear() === today.getFullYear();
+      }
+    });
+
+    if (todayIndex !== -1 && chartRef.current && headerScrollRef.current) {
+      // Calculate scroll position to center today on screen
+      const chartWidth = chartRef.current.clientWidth;
+      const scrollPosition = Math.max(0, (todayIndex * columnWidthPx) - (chartWidth / 2) + (columnWidthPx / 2));
+
+      chartRef.current.scrollLeft = scrollPosition;
+      headerScrollRef.current.scrollLeft = scrollPosition;
+    }
+  }, [columns, zoom]);
+
+  const columnWidth = zoom === 'day' ? 'min-w-[40px]' : zoom === 'week' ? 'min-w-[100px]' : 'min-w-[120px]';
+  const chartMinWidth = zoom === 'day' ? `${columns.length * 40}px` : zoom === 'week' ? `${columns.length * 100}px` : `${columns.length * 120}px`;
+  const labelColumnWidthPx = 320;
 
   if (tasks.length === 0 && projectPhases.length === 0 && projectMilestones.length === 0) {
     return (
@@ -179,6 +251,13 @@ export const ProjectGanttChart = ({
     );
   }
 
+  // Row heights for consistency - compact vertical spacing
+  const headerHeight = 'h-[40px]';
+  const sectionHeaderHeight = 'h-[22px]';
+  const phaseRowHeight = 'h-[20px]';
+  const groupHeaderHeight = 'h-[36px]';
+  const taskRowHeight = 'h-[24px]';
+
   return (
     <TooltipProvider>
       <div className="space-y-4">
@@ -188,198 +267,404 @@ export const ProjectGanttChart = ({
             {onAddPhase && <Button variant="outline" onClick={onAddPhase} className="h-9"><Layers className="w-4 h-4 mr-2" />Nova Fase</Button>}
             {onAddMilestone && <Button variant="outline" onClick={onAddMilestone} className="h-9"><Diamond className="w-4 h-4 mr-2" />Novo Marco</Button>}
           </div>
-          
-          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-            <Button variant={zoom === 'day' ? 'default' : 'ghost'} size="sm" onClick={() => setZoom('day')} className="h-8 px-3 text-sm"><CalendarDays className="w-4 h-4 mr-1.5" />Dia</Button>
-            <Button variant={zoom === 'week' ? 'default' : 'ghost'} size="sm" onClick={() => setZoom('week')} className="h-8 px-3 text-sm"><Calendar className="w-4 h-4 mr-1.5" />Semana</Button>
-            <Button variant={zoom === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setZoom('month')} className="h-8 px-3 text-sm"><CalendarRange className="w-4 h-4 mr-1.5" />Mês</Button>
+
+          <div className="flex items-center gap-3">
+            {/* Go to Today Button */}
+            <Button variant="outline" size="sm" onClick={scrollToToday} className="h-8 px-3">
+              <LocateFixed className="w-4 h-4 mr-1.5" />
+              Hoje
+            </Button>
+
+            {/* Legend Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground">
+                  <Info className="w-4 h-4 mr-1.5" />
+                  Legenda
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-3">
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-amber-500" /><span className="text-muted-foreground">Fase</span></div>
+                  <div className="flex items-center gap-2"><Diamond className="w-4 h-4 text-blue-500" style={{ fill: '#3b82f6' }} /><span className="text-muted-foreground">Marco</span></div>
+                  <div className="border-t my-2" />
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" /><span className="text-muted-foreground">Pendente</span></div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /><span className="text-muted-foreground">Em Progresso</span></div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span className="text-muted-foreground">Bloqueado/Atrasado</span></div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span className="text-muted-foreground">Concluído</span></div>
+                  <div className="border-t my-2" />
+                  <div className="flex items-center gap-2"><div className="w-0.5 h-4 bg-primary rounded-full" /><span className="text-muted-foreground">Hoje</span></div>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              <Button variant={zoom === 'day' ? 'default' : 'ghost'} size="sm" onClick={() => setZoom('day')} className="h-8 px-3 text-sm"><CalendarDays className="w-4 h-4 mr-1.5" />Dia</Button>
+              <Button variant={zoom === 'week' ? 'default' : 'ghost'} size="sm" onClick={() => setZoom('week')} className="h-8 px-3 text-sm"><Calendar className="w-4 h-4 mr-1.5" />Semana</Button>
+              <Button variant={zoom === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setZoom('month')} className="h-8 px-3 text-sm"><CalendarRange className="w-4 h-4 mr-1.5" />Mês</Button>
+            </div>
           </div>
         </div>
 
-        {/* Gantt Chart */}
+        {/* Gantt Chart - Two Column Layout */}
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: chartMinWidth }}>
-              
-              {/* Header */}
-              <div className="flex bg-gradient-to-b from-muted/60 to-muted/30 border-b border-border sticky top-0 z-10">
-                <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-3 font-semibold text-sm border-r border-border/50")}>Cronograma</div>
-                <div className="flex-1 flex">
-                  {columns.map((col, i) => (
-                    <div key={i} className={cn("flex-1 py-2 text-center border-l border-border/30 flex flex-col justify-center", columnWidth)}>
-                      {col.subLabel && <span className="text-[10px] text-muted-foreground uppercase">{col.subLabel}</span>}
-                      <span className={cn("font-medium", zoom === 'day' ? "text-xs" : "text-sm")}>{col.label}</span>
-                    </div>
-                  ))}
-                </div>
+          {/* Fixed Header Row */}
+          <div className="flex w-full border-b border-border">
+            {/* Label Column Header */}
+            <div
+              className="flex-shrink-0 border-r border-border bg-muted/40"
+              style={{ width: labelColumnWidthPx }}
+            >
+              <div className={cn(headerHeight, "px-4 font-medium text-sm text-muted-foreground flex items-center gap-2")}>
+                <span>Tarefas</span>
               </div>
-
-              {/* Fases e Marcos - Unified Section */}
-              {(projectPhases.length > 0 || projectMilestones.length > 0) && (
-                <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 border-b border-amber-200/50">
-                  <div className="px-4 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider border-b border-amber-200/30">Fases e Marcos</div>
-                  
-                  {/* Phases as thin bars */}
-                  {projectPhases.map((phase) => {
-                    const position = getPosition(phase.startDate, phase.endDate);
-                    return (
-                      <div key={phase.id} className="flex group hover:bg-amber-100/30 dark:hover:bg-amber-900/20 transition-colors">
-                        <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-0.5 flex items-center gap-2 border-r border-amber-200/30")}>
-                          <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: phase.color || '#f59e0b' }} />
-                          <span className="text-xs font-medium truncate">{phase.name}</span>
-                          <div className="ml-auto flex gap-0.5 opacity-0 group-hover:opacity-100">
-                            {onEditPhase && <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => onEditPhase(phase)}><Pencil className="w-2.5 h-2.5" /></Button>}
-                            {onDeletePhase && <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => { if(confirm('Excluir fase?')) onDeletePhase(phase.id); }}><Trash2 className="w-2.5 h-2.5" /></Button>}
-                          </div>
-                        </div>
-                        <div ref={chartRef} className="flex-1 relative h-5">
-                          <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-amber-200/20", columnWidth)} />)}</div>
-                          {position && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="absolute top-1 h-3 rounded-sm shadow-sm cursor-pointer" style={{ left: position.left, width: position.width, minWidth: '20px', backgroundColor: phase.color || '#f59e0b' }} />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="font-medium">{phase.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {phase.startDate && new Date(phase.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                  {phase.endDate && ` → ${new Date(phase.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
-                                </p>
-                                {phase.description && <p className="text-xs text-muted-foreground">{phase.description}</p>}
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Milestones as diamonds with labels below */}
-                  {projectMilestones.length > 0 && (
-                    <div className="flex bg-blue-50/50 dark:bg-blue-950/20 border-t border-blue-200/30">
-                      <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1 flex items-center border-r border-amber-200/30")}>
-                        <span className="text-xs text-muted-foreground">Marcos do projeto</span>
-                      </div>
-                      <div className="flex-1 relative h-14">
-                        <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-amber-200/20", columnWidth)} />)}</div>
-                        {projectMilestones.map(m => (
-                          <Popover key={m.id}>
-                            <PopoverTrigger asChild>
-                              <div className="absolute top-1 -translate-x-1/2 cursor-pointer hover:scale-110 transition-transform z-10 flex flex-col items-center" style={{ left: getMilestonePosition(m.date) }}>
-                                <div className="relative">
-                                  <Diamond className="w-5 h-5 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
-                                  {m.completed && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-emerald-500" />}
-                                </div>
-                                <span className={cn("text-[9px] font-medium mt-0.5 whitespace-nowrap max-w-[60px] truncate text-center", m.completed && "line-through opacity-60")} style={{ color: m.color || '#3b82f6' }}>{m.name}</span>
-                                <span className="text-[8px] text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                              </div>
-                            </PopoverTrigger>
-                            <PopoverContent side="top" className="w-64 p-3">
-                              <div className="space-y-2">
-                                <p className="font-semibold">{m.name}</p>
-                                <p className="text-sm text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                                {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
-                                <div className="flex items-center gap-2 pt-2 border-t">
-                                  <Checkbox id={`m-${m.id}`} checked={m.completed} onCheckedChange={(c) => onUpdateMilestone?.(m.id, { completed: !!c })} />
-                                  <label htmlFor={`m-${m.id}`} className="text-sm cursor-pointer">Concluído</label>
-                                </div>
-                                <div className="flex gap-2 pt-2 border-t">
-                                  <Button variant="outline" size="sm" className="flex-1" onClick={() => onEditMilestone?.(m)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>
-                                  <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={() => { if(confirm('Excluir?')) onDeleteMilestone?.(m.id); }}><Trash2 className="w-3 h-3 mr-1" />Excluir</Button>
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            </div>
+            {/* Chart Header with Timeline - Scrollable horizontally */}
+            <div
+              ref={headerScrollRef}
+              className="flex-1 overflow-x-auto min-w-0"
+              style={{ scrollbarWidth: 'none' }}
+              onScroll={(e) => {
+                if (chartRef.current) {
+                  chartRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+            >
+              <div className={cn(headerHeight, "flex bg-muted/40 relative")} style={{ minWidth: chartMinWidth }}>
+                {/* Today Line in header */}
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                  style={{ left: getTodayPosition() }}
+                >
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-primary text-primary-foreground text-[10px] font-bold rounded-t shadow-md whitespace-nowrap">
+                    Hoje
+                  </div>
                 </div>
-              )}
-
-              {/* Tasks Section */}
-              <div className="relative">
-                <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none" style={{ left: `calc(300px + (100% - 300px) * ${parseFloat(getTodayPosition()) / 100})` }}>
-                  <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-semibold rounded-sm">Hoje</div>
-                </div>
-
-                {groupedTasks.map((group) => {
-                  const isCollapsed = collapsedGroups.has(group.id);
-                  const completedCount = group.tasks.filter(t => t.status === 'completed').length;
-                  const progress = Math.round((completedCount / group.tasks.length) * 100);
-                  const person = people.find(p => p.id === group.id);
-                  
+                {columns.map((col, i) => {
+                  const today = getTodaySaoPaulo();
+                  const isToday = zoom !== 'month' && col.date.toDateString() === today.toDateString();
                   return (
-                    <div key={group.id} className="border-b border-border/50 last:border-b-0">
-                      <div className="flex items-center cursor-pointer hover:bg-muted/50 transition-colors bg-muted/30 border-b border-border/30" onClick={() => toggleGroup(group.id)}>
-                        <div className={cn(labelColumnWidth, "flex-shrink-0 px-3 py-2.5 flex items-center gap-2.5 border-r border-border/50")}>
-                          <button className="p-1 rounded hover:bg-muted">{isCollapsed ? <ChevronRight className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}</button>
-                          {person ? (
-                            <AvatarCircle name={person.name} color={person.color} size="md" avatarUrl={person.avatarUrl} />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm bg-muted-foreground">{group.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold truncate">{group.name}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{group.tasks.length} tarefa{group.tasks.length !== 1 ? 's' : ''}</span>
-                              <div className="flex-1 h-1.5 bg-muted rounded-full max-w-[60px] overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress}%` }} /></div>
-                              <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex-1 h-[52px]" />
-                      </div>
-
-                      {!isCollapsed && (
-                        <>
-                          {group.tasks.map((task) => {
-                            const position = getPosition(task.startDate, task.endDate);
-                            const styles = getStatusStyles(task);
-                            return (
-                              <div key={task.id} className="flex items-center hover:bg-muted/30 group/task cursor-pointer transition-colors" onClick={() => onEditTask?.(task)}>
-                                <div className={cn(labelColumnWidth, "flex-shrink-0 py-2 px-3 pl-14 flex items-center gap-2 border-r border-border/30")}>
-                                  <div className={cn("w-2 h-2 rounded-full flex-shrink-0", styles.dot)} />
-                                  <span className={cn("text-sm truncate flex-1", task.status === 'completed' && "line-through text-muted-foreground")}>{task.name}</span>
-                                  <div className="flex gap-0.5 opacity-0 group-hover/task:opacity-100">
-                                    {onEditTask && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onEditTask(task); }}><Pencil className="w-3.5 h-3.5" /></Button>}
-                                    {onDeleteTask && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if(confirm('Excluir?')) onDeleteTask(task.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>}
-                                  </div>
-                                </div>
-                                <div className="flex-1 relative h-10">
-                                  <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}</div>
-                                  {position && <div className={cn("absolute top-2.5 h-5 rounded-md shadow-sm hover:shadow-md transition-all", styles.bg)} style={{ left: position.left, width: position.width, minWidth: '12px' }} />}
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {onAddTask && group.id !== 'unassigned' && (
-                            <div className="flex items-center border-t border-border/20">
-                              <div className={cn(labelColumnWidth, "flex-shrink-0 py-1.5 pl-14")}>
-                                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={(e) => { e.stopPropagation(); onAddTask(group.id); }}><Plus className="w-3.5 h-3.5 mr-1" />Nova tarefa</Button>
-                              </div>
-                              <div className="flex-1" />
-                            </div>
-                          )}
-                        </>
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex-1 py-2 text-center border-l border-border/30 flex flex-col justify-center",
+                        columnWidth,
+                        isToday && "bg-primary/10"
                       )}
+                    >
+                      {col.subLabel && <span className="text-[10px] text-muted-foreground uppercase">{col.subLabel}</span>}
+                      <span className={cn("font-medium", zoom === 'day' ? "text-xs" : "text-sm", isToday && "text-primary font-semibold")}>{col.label}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground px-1">
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-amber-500" /><span>Fase</span></div>
-          <div className="flex items-center gap-2"><Diamond className="w-4 h-4 text-blue-500" style={{ fill: '#3b82f6' }} /><span>Marco</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" /><span>Pendente</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /><span>Em Progresso</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span>Bloqueado</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span>Concluído</span></div>
-          <div className="flex items-center gap-2"><div className="w-0.5 h-4 bg-primary rounded-full" /><span>Hoje</span></div>
+          {/* Scrollable Body */}
+          <div className="flex w-full" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+            {/* Left Column - Labels */}
+            <div
+              ref={labelsRef}
+              className="flex-shrink-0 border-r border-border bg-card overflow-y-auto"
+              style={{ width: labelColumnWidthPx, scrollbarWidth: 'none' }}
+              onScroll={handleLabelsScroll}
+            >
+
+              {/* Fases e Marcos Section */}
+              {(projectPhases.length > 0 || projectMilestones.length > 0) && (
+                <div className="border-b border-border">
+                  {/* Section Header */}
+                  <div
+                    className={cn(sectionHeaderHeight, "flex items-center cursor-pointer hover:bg-muted/30 transition-colors bg-muted/20 px-3")}
+                    onClick={() => setShowPhasesSection(!showPhasesSection)}
+                  >
+                    <button className="p-0.5 rounded hover:bg-muted">
+                      {showPhasesSection ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                    </button>
+                    <Layers className="w-3.5 h-3.5 text-amber-600 ml-2" />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400 ml-2">Fases e Marcos</span>
+                    <span className="text-[10px] text-muted-foreground ml-1">({projectPhases.length + projectMilestones.length})</span>
+                  </div>
+
+                  {showPhasesSection && (
+                    <>
+                      {/* Phase Labels */}
+                      {projectPhases.map((phase) => {
+                        const phaseColor = phase.color || '#f59e0b';
+                        return (
+                          <div key={phase.id} className={cn(phaseRowHeight, "group flex items-center px-3 pl-10 hover:bg-muted/20 transition-colors")}>
+                            <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0 shadow-sm" style={{ backgroundColor: phaseColor }} />
+                            <span className="text-xs truncate flex-1 ml-2">{phase.name}</span>
+                            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {onEditPhase && <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onEditPhase(phase); }}><Pencil className="w-2.5 h-2.5" /></Button>}
+                              {onDeletePhase && <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); if(confirm('Excluir fase?')) onDeletePhase(phase.id); }}><Trash2 className="w-2.5 h-2.5" /></Button>}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Milestones Label */}
+                      {projectMilestones.length > 0 && (
+                        <div className={cn(phaseRowHeight, "flex items-center px-3 pl-10 hover:bg-muted/20 transition-colors")}>
+                          <Diamond className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" style={{ fill: '#3b82f6' }} />
+                          <span className="text-xs text-muted-foreground ml-2">Marcos</span>
+                          <span className="text-[10px] text-muted-foreground ml-1">({projectMilestones.length})</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Task Groups */}
+              {groupedTasks.length === 0 && (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                  <p className="text-sm">Nenhuma tarefa</p>
+                </div>
+              )}
+
+              {groupedTasks.map((group) => {
+                const isCollapsed = collapsedGroups.has(group.id);
+                const completedCount = group.tasks.filter(t => t.status === 'completed').length;
+                const progress = Math.round((completedCount / group.tasks.length) * 100);
+                const person = people.find(p => p.id === group.id);
+
+                return (
+                  <div key={group.id} className="border-b border-border/50 last:border-b-0">
+                    {/* Group Header */}
+                    <div
+                      className={cn(groupHeaderHeight, "flex items-center cursor-pointer hover:bg-muted/40 transition-colors bg-muted/20 px-2")}
+                      onClick={() => toggleGroup(group.id)}
+                    >
+                      <button className="p-0.5 rounded hover:bg-muted">
+                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                      </button>
+                      {person ? (
+                        <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm bg-muted-foreground ml-1">
+                          {group.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1 ml-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold truncate">{group.name}</p>
+                          <span className="text-[10px] text-muted-foreground">({group.tasks.length})</span>
+                          <div className="flex-1 h-1 bg-muted rounded-full max-w-[40px] overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                          </div>
+                          <span className="text-[10px] font-medium text-emerald-600">{progress}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Task Labels */}
+                    {!isCollapsed && group.tasks.map((task) => {
+                      const styles = getStatusStyles(task);
+                      return (
+                        <div
+                          key={task.id}
+                          className={cn(taskRowHeight, "flex items-center hover:bg-muted/30 transition-colors px-4 pl-8")}
+                        >
+                          <div className={cn("w-2 h-2 rounded-full flex-shrink-0", styles.dot)} />
+                          <span className={cn("text-sm truncate flex-1 ml-2", task.status === 'completed' && "line-through text-muted-foreground")}>
+                            {task.name}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right Column - Chart (Scrollable horizontally and vertically) */}
+            <div
+              ref={chartRef}
+              className="flex-1 overflow-auto min-w-0"
+              onScroll={(e) => {
+                handleChartScroll(e);
+                // Sync header horizontal scroll
+                if (headerScrollRef.current) {
+                  headerScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+            >
+              <div style={{ minWidth: chartMinWidth }}>
+                {/* Fases e Marcos Section */}
+                {(projectPhases.length > 0 || projectMilestones.length > 0) && (
+                  <div className="border-b border-border">
+                    {/* Section Header Row */}
+                    <div className={cn(sectionHeaderHeight, "relative bg-muted/20")}>
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-primary z-10 pointer-events-none"
+                        style={{ left: getTodayPosition() }}
+                      />
+                    </div>
+
+                    {showPhasesSection && (
+                      <>
+                        {/* Phase Bars */}
+                        {projectPhases.map((phase) => {
+                          const position = getPosition(phase.startDate, phase.endDate);
+                          const phaseColor = phase.color || '#f59e0b';
+                          return (
+                            <div key={phase.id} className={cn(phaseRowHeight, "relative")}>
+                              <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                                style={{ left: getTodayPosition() }}
+                              />
+                              <div className="absolute inset-0 flex pointer-events-none">
+                                {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}
+                              </div>
+                              {position && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      className="absolute top-1 h-4 rounded shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                                      style={{ left: position.left, width: position.width, minWidth: '24px', backgroundColor: phaseColor }}
+                                    >
+                                      <div className="h-full flex items-center px-1.5 text-[10px] text-white font-medium truncate">
+                                        {phase.name}
+                                      </div>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-medium">{phase.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {phase.startDate && new Date(phase.startDate).toLocaleDateString('pt-BR')}
+                                      {phase.endDate && ` → ${new Date(phase.endDate).toLocaleDateString('pt-BR')}`}
+                                    </p>
+                                    {phase.description && <p className="text-xs mt-1">{phase.description}</p>}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Milestones Row */}
+                        {projectMilestones.length > 0 && (
+                          <div className={cn(phaseRowHeight, "relative")}>
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                              style={{ left: getTodayPosition() }}
+                            />
+                            <div className="absolute inset-0 flex pointer-events-none">
+                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}
+                            </div>
+                            {projectMilestones.map(m => {
+                              const milestoneColor = m.color || '#3b82f6';
+                              const milestonePos = getMilestonePosition(m.date);
+                              return (
+                                <Popover key={m.id}>
+                                  <PopoverTrigger asChild>
+                                    <div
+                                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10"
+                                      style={{ left: milestonePos }}
+                                    >
+                                      <div className="relative">
+                                        <Diamond
+                                          className="w-4 h-4 drop-shadow-md"
+                                          style={{ fill: milestoneColor, color: milestoneColor }}
+                                        />
+                                        {m.completed && <CheckCircle2 className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5 text-emerald-500 bg-white rounded-full" />}
+                                      </div>
+                                    </div>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="top" className="w-64 p-3">
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <Diamond className="w-4 h-4" style={{ fill: milestoneColor, color: milestoneColor }} />
+                                        <p className="font-semibold">{m.name}</p>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                      {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
+                                      <div className="flex items-center gap-2 pt-2 border-t">
+                                        <Checkbox id={`m-${m.id}`} checked={m.completed} onCheckedChange={(c) => onUpdateMilestone?.(m.id, { completed: !!c })} />
+                                        <label htmlFor={`m-${m.id}`} className="text-sm cursor-pointer">Marcar como concluído</label>
+                                      </div>
+                                      <div className="flex gap-1 pt-2">
+                                        {onEditMilestone && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onEditMilestone(m)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>}
+                                        {onDeleteMilestone && <Button variant="outline" size="sm" className="h-7 text-xs text-destructive" onClick={() => { if(confirm('Excluir marco?')) onDeleteMilestone(m.id); }}><Trash2 className="w-3 h-3 mr-1" />Excluir</Button>}
+                                      </div>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Task Groups Chart */}
+                {groupedTasks.map((group) => {
+                  const isCollapsed = collapsedGroups.has(group.id);
+
+                  return (
+                    <div key={group.id} className="border-b border-border/50 last:border-b-0">
+                      {/* Group Header Row */}
+                      <div className={cn(groupHeaderHeight, "relative bg-muted/20")}>
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-primary z-10 pointer-events-none"
+                          style={{ left: getTodayPosition() }}
+                        />
+                      </div>
+
+                      {/* Task Bars */}
+                      {!isCollapsed && group.tasks.map((task) => {
+                        const position = getPosition(task.startDate, task.endDate);
+                        const styles = getStatusStyles(task);
+                        const taskProgress = calculatePercentage(task);
+
+                        return (
+                          <div key={task.id} className={cn(taskRowHeight, "relative")}>
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                              style={{ left: getTodayPosition() }}
+                            />
+                            <div className="absolute inset-0 flex pointer-events-none">
+                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}
+                            </div>
+                            {position && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className={cn("absolute top-[5px] h-[14px] rounded shadow-sm hover:shadow-md transition-all overflow-hidden", styles.bg)}
+                                    style={{ left: position.left, width: position.width, minWidth: '12px' }}
+                                  >
+                                    {taskProgress > 0 && taskProgress < 100 && (
+                                      <div
+                                        className="absolute inset-y-0 left-0 bg-white/20"
+                                        style={{ width: `${taskProgress}%` }}
+                                      />
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-medium">{task.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {task.startDate && new Date(task.startDate).toLocaleDateString('pt-BR')}
+                                    {task.endDate && ` → ${new Date(task.endDate).toLocaleDateString('pt-BR')}`}
+                                  </p>
+                                  {taskProgress > 0 && <p className="text-xs">Progresso: {taskProgress}%</p>}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </TooltipProvider>

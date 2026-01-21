@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Grid3X3, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -85,10 +86,17 @@ export function CellFormModal({ open, onOpenChange, cell }: CellFormModalProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{cell ? 'Editar Célula' : 'Nova Célula'}</DialogTitle>
-          <DialogDescription>
-            {cell ? 'Atualize as informações da célula' : 'Preencha os dados para criar uma nova célula'}
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-600 dark:text-emerald-400">
+              {cell ? <Pencil className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
+            </div>
+            <div>
+              <DialogTitle className="text-lg">{cell ? 'Editar Célula' : 'Nova Célula'}</DialogTitle>
+              <DialogDescription>
+                {cell ? 'Atualize as informações da célula' : 'Preencha os dados para criar uma nova célula'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

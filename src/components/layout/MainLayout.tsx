@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 
 interface MainLayoutProps {
@@ -7,11 +8,15 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   return (
-    <div className="min-h-screen bg-background flex">
-      <AppSidebar />
-      <main className="flex-1 ml-64 transition-all duration-300">
-        {children}
-      </main>
-    </div>
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen bg-background flex w-full">
+        <AppSidebar />
+        <SidebarInset className="flex-1 overflow-hidden">
+          <div className="h-full overflow-auto">
+            {children}
+          </div>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
   );
 };

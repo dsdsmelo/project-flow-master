@@ -89,7 +89,7 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil",
     });
 
-    const origin = req.headers.get("origin") || "https://lovable.dev";
+    const origin = req.headers.get("origin") || "https://tarefaa.com.br";
 
     // Create portal session
     const portalSession = await stripe.billingPortal.sessions.create({

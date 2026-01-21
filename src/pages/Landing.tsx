@@ -133,33 +133,33 @@ const Landing = () => {
   const features = [
     {
       icon: FolderKanban,
-      title: 'Gestão Completa de Projetos',
-      description: 'Organize projetos com visões em lista, Kanban e Gantt. Tudo em um só lugar.',
+      title: 'Projetos e Tarefas',
+      description: 'Organize projetos e tarefas com visões em lista, Kanban e Gantt.',
     },
     {
       icon: Layers,
-      title: 'Colunas 100% Personalizáveis',
-      description: 'Crie, renomeie, reordene e delete qualquer coluna. Adaptável ao seu fluxo.',
+      title: 'Fluxo Personalizável',
+      description: 'Crie, renomeie e organize colunas do seu jeito. Adapte ao seu fluxo de trabalho.',
     },
     {
       icon: BarChart3,
-      title: 'Dashboards em Tempo Real',
-      description: 'Métricas, gráficos e indicadores atualizados automaticamente.',
+      title: 'Dashboards Inteligentes',
+      description: 'Acompanhe o progresso de projetos e tarefas em tempo real.',
     },
     {
       icon: Users,
-      title: 'Gestão de Equipe',
-      description: 'Atribua responsáveis, acompanhe cargas de trabalho e prazos.',
+      title: 'Colaboração em Equipe',
+      description: 'Atribua tarefas, defina prazos e acompanhe o trabalho da equipe.',
     },
     {
       icon: GanttChart,
-      title: 'Visualização Gantt',
-      description: 'Cronogramas visuais para planejamento e acompanhamento de entregas.',
+      title: 'Cronograma Gantt',
+      description: 'Visualize prazos e dependências entre tarefas de forma clara.',
     },
     {
       icon: Shield,
-      title: 'Ambiente Isolado e Seguro',
-      description: 'Seus dados são exclusivos e protegidos com criptografia ponta a ponta.',
+      title: 'Seguro e Confiável',
+      description: 'Seus projetos e tarefas protegidos com criptografia ponta a ponta.',
     },
   ];
 
@@ -286,22 +286,22 @@ const Landing = () => {
                 Substitua planilhas complexas
               </motion.div>
               
-              <motion.h1 
+              <motion.h1
                 variants={fadeInUp}
                 transition={{ duration: 0.6 }}
                 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight"
               >
-                Gerencie projetos<br />
-                <span className="text-gradient">como um profissional</span>
+                Gestão de projetos<br />
+                <span className="text-gradient">e tarefas simplificada</span>
               </motion.h1>
-              
-              <motion.p 
+
+              <motion.p
                 variants={fadeInUp}
                 transition={{ duration: 0.6 }}
                 className="text-lg text-muted-foreground mb-8 max-w-xl leading-relaxed"
               >
-                Sistema completo para gerenciamento de projetos de TI e infraestrutura. 
-                Dashboards, cronogramas Gantt, colunas personalizáveis e controle total.
+                Organize seus projetos e tarefas em um só lugar.
+                Dashboards, cronogramas Gantt, Kanban e controle total da sua equipe.
               </motion.p>
               
               <motion.div 
@@ -320,12 +320,16 @@ const Landing = () => {
                   {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                <Link to="/login">
+                <a
+                  href="https://wa.me/5511994831461?text=Queria%20saber%20mais%20sobre%20o%20Tarefaa!"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    Já tenho conta
+                    Fale com A Gente!
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
-                </Link>
+                </a>
               </motion.div>
 
               <motion.div 
@@ -453,24 +457,24 @@ const Landing = () => {
         <div className="absolute top-0 left-0 w-96 h-96 bg-[hsl(207,90%,45%)]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-[hsl(130,70%,40%)]/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
             className="text-center mb-10"
           >
-            <motion.h2 
+            <motion.h2
               variants={fadeInUp}
               className="text-3xl sm:text-4xl font-bold text-foreground mb-4"
             >
-              Tudo que você precisa para gerenciar projetos
+              Tudo para gerenciar projetos e tarefas
             </motion.h2>
-            <motion.p 
+            <motion.p
               variants={fadeInUp}
               className="text-lg text-muted-foreground max-w-2xl mx-auto"
             >
-              Ferramentas poderosas projetadas para equipes que precisam de resultados
+              Ferramentas completas para organizar projetos, acompanhar tarefas e entregar resultados
             </motion.p>
           </motion.div>
           
@@ -544,22 +548,22 @@ const Landing = () => {
             </motion.p>
           </motion.div>
           
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid lg:grid-cols-2 gap-8 items-center"
+            className="grid lg:grid-cols-2 gap-8 items-stretch"
           >
             {/* Left column - Benefits */}
-            <motion.div 
+            <motion.div
               variants={fadeInUp}
               className="space-y-6"
             >
               <h3 className="text-2xl font-bold text-white mb-6">
-                Por que escolher o Tarefaa?
+                Gerencie projetos e tarefas com facilidade
               </h3>
-              
+
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
                   { icon: FolderKanban, title: 'Projetos ilimitados', desc: 'Crie quantos projetos precisar' },
@@ -571,7 +575,7 @@ const Landing = () => {
                   { icon: Shield, title: 'Dados seguros', desc: 'Criptografia ponta a ponta' },
                   { icon: Mail, title: 'Suporte prioritário', desc: 'Atendimento dedicado' },
                 ].map((item, index) => (
-                  <motion.div 
+                  <motion.div
                     key={index}
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
@@ -591,51 +595,77 @@ const Landing = () => {
               </div>
             </motion.div>
 
-            {/* Right column - Price card */}
-            <motion.div 
+            {/* Right column - Price card - Futuristic Design */}
+            <motion.div
               variants={scaleIn}
-              className="relative flex items-center justify-center"
+              className="relative flex items-stretch"
             >
-              <div className="bg-white dark:bg-card rounded-2xl p-6 shadow-2xl relative overflow-hidden max-w-xs w-full">
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-[hsl(207,90%,45%)]/10 rounded-full blur-2xl" />
-                <div className="absolute bottom-0 left-0 w-20 h-20 bg-[hsl(130,70%,40%)]/10 rounded-full blur-xl" />
-                
-                <div className="relative text-center">
-                  <div className="inline-flex px-3 py-1 bg-gradient-to-r from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)] rounded-full text-white text-xs font-semibold uppercase tracking-wide mb-4">
-                    Plano Profissional
+              <div className="tech-card relative w-full rounded-2xl overflow-hidden">
+                {/* Animated gradient border */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[hsl(207,90%,50%)] via-[hsl(130,70%,45%)] to-[hsl(207,90%,50%)] bg-[length:200%_100%] animate-[gradient-x_3s_ease-in-out_infinite] rounded-2xl" />
+
+                {/* Inner card */}
+                <div className="relative m-[1px] bg-[hsl(220,25%,10%)] rounded-[15px] p-8 flex flex-col justify-center">
+                  {/* Grid pattern overlay */}
+                  <div className="absolute inset-0 opacity-[0.03]" style={{
+                    backgroundImage: `linear-gradient(hsl(130,70%,50%) 1px, transparent 1px), linear-gradient(90deg, hsl(130,70%,50%) 1px, transparent 1px)`,
+                    backgroundSize: '20px 20px'
+                  }} />
+
+                  {/* Glow orbs */}
+                  <div className="absolute -top-20 -right-20 w-40 h-40 bg-[hsl(130,70%,50%)] rounded-full blur-[80px] opacity-20" />
+                  <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-[hsl(207,90%,50%)] rounded-full blur-[80px] opacity-15" />
+
+                  {/* Scan line effect */}
+                  <div className="absolute inset-0 overflow-hidden rounded-[14px] pointer-events-none">
+                    <div className="absolute inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[hsl(130,70%,50%)]/30 to-transparent animate-[scan_4s_ease-in-out_infinite]" />
                   </div>
 
-                  <div className="mb-6">
-                    <div className="flex items-baseline justify-center gap-1">
-                      {priceLoading ? (
-                        <span className="text-5xl font-bold text-foreground">...</span>
-                      ) : (
-                        <span className="text-5xl font-bold text-foreground">{formatPrice(priceAmount!)}</span>
-                      )}
-                      <span className="text-lg text-muted-foreground">/mês</span>
+                  <div className="relative text-center space-y-6 z-10">
+                    {/* Badge */}
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(130,70%,45%)]/10 border border-[hsl(130,70%,45%)]/30 rounded-full">
+                      <div className="w-2 h-2 rounded-full bg-[hsl(130,70%,50%)] animate-pulse" />
+                      <span className="text-[hsl(130,70%,50%)] text-sm font-semibold uppercase tracking-wider">Plano Pro</span>
                     </div>
-                  </div>
 
-                  <Button 
-                    size="lg" 
-                    onClick={handleSubscribe}
-                    disabled={isLoading}
-                    variant="success"
-                    className="w-full group"
-                  >
-                    {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-                    Começar Agora
-                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-
-                  <div className="flex items-center justify-center gap-3 mt-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Lock className="w-3 h-3" />
-                      <span>Seguro</span>
+                    {/* Price */}
+                    <div className="space-y-1">
+                      <div className="flex items-baseline justify-center gap-2">
+                        {priceLoading ? (
+                          <span className="text-6xl font-black text-white">...</span>
+                        ) : (
+                          <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">{formatPrice(priceAmount!)}</span>
+                        )}
+                        <span className="text-lg text-white/50 font-medium">/mês</span>
+                      </div>
+                      <p className="text-white/40 text-sm">Acesso completo a todas as funcionalidades</p>
                     </div>
-                    <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-                    <span>Cancele quando quiser</span>
+
+                    {/* CTA Button */}
+                    <button
+                      onClick={handleSubscribe}
+                      disabled={isLoading}
+                      className="group relative w-full py-4 px-8 rounded-xl font-bold text-lg flex items-center justify-center gap-3 disabled:opacity-50 overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+                      style={{
+                        background: 'linear-gradient(135deg, hsl(130,70%,42%) 0%, hsl(130,70%,35%) 100%)',
+                        boxShadow: '0 0 20px hsl(130,70%,45%,0.3), inset 0 1px 0 hsl(130,70%,60%,0.2)'
+                      }}
+                    >
+                      <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                      {isLoading ? <Loader2 className="w-5 h-5 animate-spin text-white" /> : null}
+                      <span className="text-white">Começar Agora</span>
+                      <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
+                    </button>
+
+                    {/* Trust badges */}
+                    <div className="flex items-center justify-center gap-6 text-sm">
+                      <div className="flex items-center gap-2 text-white/50">
+                        <Lock className="w-4 h-4 text-[hsl(130,70%,50%)]" />
+                        <span>Seguro</span>
+                      </div>
+                      <div className="w-px h-4 bg-white/20" />
+                      <span className="text-white/50">Cancele quando quiser</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -777,21 +807,21 @@ const Landing = () => {
             Comece agora mesmo
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Pare de perder tempo<br />
-            <span className="text-gradient">com planilhas</span>
+            Organize projetos e tarefas<br />
+            <span className="text-gradient">de forma simples</span>
           </h2>
           <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Junte-se a equipes que já transformaram sua gestão de projetos com o Tarefaa.
+            Comece agora e transforme a gestão de projetos e tarefas da sua equipe.
           </p>
-          <Button 
-            size="xl" 
+          <Button
+            size="xl"
             onClick={handleSubscribe}
             disabled={isLoading}
             variant="success"
             className="group"
           >
             {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-            Assinar por R$ 99/mês
+            {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
             <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
           <p className="text-sm text-muted-foreground mt-6">
@@ -812,8 +842,8 @@ const Landing = () => {
                 <span className="text-2xl font-bold">Tarefaa</span>
               </div>
               <p className="text-sidebar-foreground/70 mb-6 max-w-sm leading-relaxed">
-                Sistema completo de gerenciamento de projetos para equipes que buscam 
-                produtividade e resultados. Substitua suas planilhas por uma solução profissional.
+                Plataforma completa para gestão de projetos e tarefas.
+                Organize, acompanhe e entregue resultados com sua equipe.
               </p>
               <div className="flex items-center gap-4">
                 <a href="mailto:contato@tarefaa.com.br" className="flex items-center gap-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
