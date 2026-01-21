@@ -21,10 +21,10 @@ import {
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 
 type ZoomLevel = 'day' | 'week' | 'month';
-type GroupBy = 'project' | 'phase' | 'responsible' | 'cell';
+type GroupBy = 'project' | 'responsible';
 
 const Gantt = () => {
-  const { tasks, projects, phases, people, cells } = useData();
+  const { tasks, projects, people } = useData();
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('project');
 
@@ -85,17 +85,6 @@ const Gantt = () => {
           groups.push({ id: project.id, name: project.name, tasks: projectTasks });
         }
       });
-    } else if (groupBy === 'phase') {
-      phases.forEach(phase => {
-        const phaseTasks = tasks.filter(t => t.phaseId === phase.id);
-        if (phaseTasks.length > 0) {
-          groups.push({ id: phase.id, name: phase.name, color: phase.color, tasks: phaseTasks });
-        }
-      });
-      const noPhase = tasks.filter(t => !t.phaseId);
-      if (noPhase.length > 0) {
-        groups.push({ id: 'no-phase', name: 'Sem Fase', tasks: noPhase });
-      }
     } else if (groupBy === 'responsible') {
       people.forEach(person => {
         const personTasks = tasks.filter(t => t.responsibleId === person.id);
@@ -107,21 +96,10 @@ const Gantt = () => {
       if (unassigned.length > 0) {
         groups.push({ id: 'unassigned', name: 'Sem Responsável', tasks: unassigned });
       }
-    } else if (groupBy === 'cell') {
-      cells.forEach(cell => {
-        const cellTasks = tasks.filter(t => t.cellId === cell.id);
-        if (cellTasks.length > 0) {
-          groups.push({ id: cell.id, name: cell.name, tasks: cellTasks });
-        }
-      });
-      const noCell = tasks.filter(t => !t.cellId);
-      if (noCell.length > 0) {
-        groups.push({ id: 'no-cell', name: 'Sem Célula', tasks: noCell });
-      }
     }
     
     return groups;
-  }, [tasks, projects, phases, people, cells, groupBy]);
+  }, [tasks, projects, people, groupBy]);
 
   const getTaskPosition = (task: typeof tasks[0]) => {
     if (!task.startDate || !task.endDate) return null;
@@ -159,9 +137,7 @@ const Gantt = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="project">Projeto</SelectItem>
-                <SelectItem value="phase">Fase</SelectItem>
                 <SelectItem value="responsible">Responsável</SelectItem>
-                <SelectItem value="cell">Célula</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -204,9 +180,7 @@ const Gantt = () => {
               {/* Header */}
               <div className="flex border-b border-border">
                 <div className="w-64 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
-                  {groupBy === 'project' ? 'Projeto' : 
-                   groupBy === 'phase' ? 'Fase' :
-                   groupBy === 'responsible' ? 'Responsável' : 'Célula'}
+                  {groupBy === 'project' ? 'Projeto' : 'Responsável'}
                 </div>
                 <div className="flex-1 flex relative">
                   {columns.map((col, i) => (
