@@ -253,30 +253,24 @@ export const ProjectGanttChart = ({
                     );
                   })}
 
-                  {/* Milestones as diamonds - single row with all milestones */}
+                  {/* Milestones as diamonds with labels below */}
                   {projectMilestones.length > 0 && (
                     <div className="flex">
-                      <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1 flex items-center gap-1.5 border-r border-amber-200/30 flex-wrap")}>
-                        {projectMilestones.map(m => (
-                          <Tooltip key={m.id}>
-                            <TooltipTrigger asChild>
-                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] cursor-pointer hover:opacity-80", m.completed && "opacity-60")} style={{ backgroundColor: `${m.color || '#3b82f6'}15` }}>
-                                <Diamond className="w-2.5 h-2.5" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
-                                <span className={cn("font-medium truncate max-w-[80px]", m.completed && "line-through")} style={{ color: m.color || '#3b82f6' }}>{m.name}</span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{m.name}</p><p className="text-xs text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></TooltipContent>
-                          </Tooltip>
-                        ))}
+                      <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1 flex items-center border-r border-amber-200/30")}>
+                        <span className="text-xs text-muted-foreground">Marcos do projeto</span>
                       </div>
-                      <div className="flex-1 relative h-8">
+                      <div className="flex-1 relative h-14">
                         <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-amber-200/20", columnWidth)} />)}</div>
                         {projectMilestones.map(m => (
                           <Popover key={m.id}>
                             <PopoverTrigger asChild>
-                              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10" style={{ left: getMilestonePosition(m.date) }}>
-                                <Diamond className="w-5 h-5 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
-                                {m.completed && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-emerald-500" />}
+                              <div className="absolute top-1 -translate-x-1/2 cursor-pointer hover:scale-110 transition-transform z-10 flex flex-col items-center" style={{ left: getMilestonePosition(m.date) }}>
+                                <div className="relative">
+                                  <Diamond className="w-5 h-5 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
+                                  {m.completed && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-emerald-500" />}
+                                </div>
+                                <span className={cn("text-[9px] font-medium mt-0.5 whitespace-nowrap max-w-[60px] truncate text-center", m.completed && "line-through opacity-60")} style={{ color: m.color || '#3b82f6' }}>{m.name}</span>
+                                <span className="text-[8px] text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
                               </div>
                             </PopoverTrigger>
                             <PopoverContent side="top" className="w-64 p-3">
