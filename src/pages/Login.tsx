@@ -28,6 +28,9 @@ const Login = () => {
     if (isAuthenticated && subscriptionChecked) {
       if (hasActiveSubscription) {
         navigate('/dashboard', { replace: true });
+      } else {
+        // User is authenticated but has no subscription - redirect to landing with message
+        navigate('/?subscription=required', { replace: true });
       }
     }
   }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate]);
