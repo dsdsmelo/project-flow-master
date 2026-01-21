@@ -149,7 +149,7 @@ const People = () => {
                 )}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <AvatarCircle name={person.name} color={person.color} size="lg" />
+                  <AvatarCircle name={person.name} color={person.color} size="lg" avatarUrl={person.avatarUrl} />
                   <Badge variant={person.type === 'internal' ? 'default' : 'secondary'}>
                     {personTypeLabels[person.type]}
                   </Badge>

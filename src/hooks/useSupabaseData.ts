@@ -331,6 +331,7 @@ function mapPerson(data: any): Person {
     type: data.type,
     color: data.color,
     active: data.active,
+    avatarUrl: data.avatar_url,
   };
 }
 
@@ -412,6 +413,7 @@ function personToDb(person: Partial<Person>): any {
   if (person.type !== undefined) result.type = person.type;
   if (person.color !== undefined) result.color = person.color;
   if (person.active !== undefined) result.active = person.active;
+  if (person.avatarUrl !== undefined) result.avatar_url = person.avatarUrl;
   return result;
 }
 

@@ -7,6 +7,7 @@ export interface Person {
   type: 'internal' | 'partner';
   color: string;
   active: boolean;
+  avatarUrl?: string;
 }
 
 export interface Project {
