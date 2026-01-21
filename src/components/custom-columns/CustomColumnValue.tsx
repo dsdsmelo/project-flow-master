@@ -95,7 +95,7 @@ export const CustomColumnValue = ({ column, value, onChange, readOnly = false }:
             {activePeople.map(person => (
               <SelectItem key={person.id} value={person.id}>
                 <div className="flex items-center gap-2">
-                  <AvatarCircle name={person.name} color={person.color} size="xs" />
+                  <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
                   {person.name}
                 </div>
               </SelectItem>
@@ -146,7 +146,7 @@ export const CustomColumnDisplay = ({ column, value }: CustomColumnDisplayProps)
       if (!person) return <span className="text-muted-foreground">-</span>;
       return (
         <div className="flex items-center gap-2">
-          <AvatarCircle name={person.name} color={person.color} size="sm" />
+          <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
           <span className="text-sm">{person.name}</span>
         </div>
       );

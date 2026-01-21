@@ -129,7 +129,7 @@ export const ResponsibleEditCell = ({ responsibleId, people, onSave }: Responsib
         <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]">
           {person ? (
             <div className="flex items-center gap-2">
-              <AvatarCircle name={person.name} color={person.color} size="sm" />
+              <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
               <span className="text-sm">{person.name}</span>
             </div>
           ) : (
@@ -158,7 +158,7 @@ export const ResponsibleEditCell = ({ responsibleId, people, onSave }: Responsib
               )}
               onClick={() => handleSelect(p.id)}
             >
-              <AvatarCircle name={p.name} color={p.color} size="sm" />
+              <AvatarCircle name={p.name} color={p.color} size="sm" avatarUrl={p.avatarUrl} />
               <span className="truncate">{p.name}</span>
             </button>
           ))}
