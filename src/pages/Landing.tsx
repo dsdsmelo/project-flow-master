@@ -231,15 +231,20 @@ const Landing = () => {
                   </Button>
                 </Link>
               ) : isAuthenticated ? (
-                <Button 
-                  onClick={handleSubscribe} 
-                  disabled={isLoading}
-                  size="sm"
-                  variant="success"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Assinar Agora
-                </Button>
+                <>
+                  <Link to="/login">
+                    <Button variant="ghost" size="sm">Entrar</Button>
+                  </Link>
+                  <Button
+                    onClick={handleSubscribe}
+                    disabled={isLoading}
+                    size="sm"
+                    variant="success"
+                  >
+                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Assinar Agora
+                  </Button>
+                </>
               ) : (
                 <>
                   <Link to="/login">
