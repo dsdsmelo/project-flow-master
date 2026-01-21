@@ -2,98 +2,75 @@ import { useMemo } from 'react';
 import { 
   FolderKanban, 
   Clock, 
-  TrendingUp, 
-  CheckCircle2,
   AlertTriangle,
+  CheckCircle2,
   Calendar,
-  UserX
+  ArrowRight,
+  TrendingUp
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { StatCard } from '@/components/ui/stat-card';
 import { useData } from '@/contexts/DataContext';
-import { calculatePercentage, isTaskOverdue, isTaskDueSoon } from '@/lib/mockData';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend
-} from 'recharts';
+import { isTaskOverdue, isTaskDueSoon } from '@/lib/mockData';
 import { Link } from 'react-router-dom';
-
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 const Dashboard = () => {
-  const { projects, tasks, people, phases, loading, error } = useData();
+  const { projects, tasks, people, loading, error } = useData();
 
+  // KPIs simplificados
   const stats = useMemo(() => {
-    const activeProjects = projects.filter(p => p.status === 'active').length;
-    const pendingTasks = tasks.filter(t => t.status === 'pending').length;
+    const totalTasks = tasks.length;
+    const overdueTasks = tasks.filter(isTaskOverdue).length;
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-    const completedThisMonth = tasks.filter(t => {
-      if (t.status !== 'completed') return false;
-      const updated = new Date(t.updatedAt);
-      const now = new Date();
-      return updated.getMonth() === now.getMonth() && updated.getFullYear() === now.getFullYear();
-    }).length;
+    const completedTasks = tasks.filter(t => t.status === 'completed').length;
+    const activeProjects = projects.filter(p => p.status === 'active').length;
 
-    return { activeProjects, pendingTasks, inProgressTasks, completedThisMonth };
+    return { totalTasks, overdueTasks, inProgressTasks, completedTasks, activeProjects };
   }, [projects, tasks]);
 
-  // Recent activity / recent tasks
-  const recentTasks = useMemo(() => {
-    return tasks
-      .filter(t => t.status !== 'completed' && t.status !== 'cancelled')
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 5);
-  }, [tasks]);
+  // Projetos ativos com progresso
+  const activeProjectsList = useMemo(() => {
+    return projects
+      .filter(p => p.status === 'active')
+      .map(project => {
+        const projectTasks = tasks.filter(t => t.projectId === project.id);
+        const completed = projectTasks.filter(t => t.status === 'completed').length;
+        const total = projectTasks.length;
+        const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+        return { ...project, progress, taskCount: total, completedCount: completed };
+      })
+      .slice(0, 4);
+  }, [projects, tasks]);
 
-  const statusDistribution = useMemo(() => {
-    const distribution = {
-      pending: tasks.filter(t => t.status === 'pending').length,
-      in_progress: tasks.filter(t => t.status === 'in_progress').length,
-      blocked: tasks.filter(t => t.status === 'blocked').length,
-      completed: tasks.filter(t => t.status === 'completed').length,
-    };
-    return [
-      { name: 'Pendente', value: distribution.pending, color: '#EAB308' },
-      { name: 'Em Progresso', value: distribution.in_progress, color: '#3B82F6' },
-      { name: 'Bloqueado', value: distribution.blocked, color: '#EF4444' },
-      { name: 'Concluído', value: distribution.completed, color: '#22C55E' },
-    ];
-  }, [tasks]);
-
-  const tasksByPerson = useMemo(() => {
-    return people.map(person => ({
-      name: person.name.split(' ')[0],
-      tasks: tasks.filter(t => t.responsibleId === person.id).length,
-      color: person.color,
-    })).filter(p => p.tasks > 0).sort((a, b) => b.tasks - a.tasks);
-  }, [people, tasks]);
-
-
+  // Alertas (atrasadas e próximas do prazo)
   const alerts = useMemo(() => {
-    const overdue = tasks.filter(isTaskOverdue);
-    const dueSoon = tasks.filter(isTaskDueSoon);
-    const unassigned = tasks.filter(t => !t.responsibleId && t.status !== 'completed' && t.status !== 'cancelled');
-    return { overdue, dueSoon, unassigned };
+    const overdue = tasks.filter(isTaskOverdue).slice(0, 4);
+    const dueSoon = tasks.filter(isTaskDueSoon).slice(0, 4);
+    return { overdue, dueSoon };
   }, [tasks]);
+
+  // Atividades recentes (últimas tarefas atualizadas)
+  const recentActivity = useMemo(() => {
+    return tasks
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 6)
+      .map(task => {
+        const project = projects.find(p => p.id === task.projectId);
+        const person = people.find(p => p.id === task.responsibleId);
+        return { ...task, projectName: project?.name || '-', person };
+      });
+  }, [tasks, projects, people]);
 
   const getProjectName = (projectId: string) => {
     return projects.find(p => p.id === projectId)?.name || '-';
   };
 
-
   if (loading) {
     return (
       <MainLayout>
-        <Header title="Dashboard" subtitle="Visão geral do seu workspace" />
+        <Header title="Dashboard" subtitle="Visão geral do workspace" />
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -107,7 +84,7 @@ const Dashboard = () => {
   if (error) {
     return (
       <MainLayout>
-        <Header title="Dashboard" subtitle="Visão geral do seu workspace" />
+        <Header title="Dashboard" subtitle="Visão geral do workspace" />
         <div className="flex items-center justify-center h-96">
           <div className="text-center text-destructive">
             <p className="font-medium mb-2">Erro ao carregar dados</p>
@@ -120,105 +97,122 @@ const Dashboard = () => {
 
   return (
     <MainLayout>
-      <Header title="Dashboard" subtitle="Visão geral do seu workspace" />
+      <Header title="Dashboard" subtitle="Visão geral do workspace" />
       
       <div className="p-6 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Projetos Ativos"
-            value={stats.activeProjects}
-            icon={FolderKanban}
-            variant="primary"
-          />
-          <StatCard
-            title="Tarefas Pendentes"
-            value={stats.pendingTasks}
-            icon={Clock}
-            variant="warning"
-          />
-          <StatCard
-            title="Em Progresso"
-            value={stats.inProgressTasks}
-            icon={TrendingUp}
-            variant="primary"
-          />
-          <StatCard
-            title="Concluídas (mês)"
-            value={stats.completedThisMonth}
-            icon={CheckCircle2}
-            variant="success"
-          />
+        {/* KPIs - 5 cards iguais */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Tarefas</span>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FolderKanban className="w-4 h-4 text-primary" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">{stats.totalTasks}</p>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Em Progresso</span>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-blue-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-blue-600">{stats.inProgressTasks}</p>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Concluídas</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">{stats.completedTasks}</p>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Atrasadas</span>
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-red-600">{stats.overdueTasks}</p>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Projetos Ativos</span>
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <FolderKanban className="w-4 h-4 text-amber-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-amber-600">{stats.activeProjects}</p>
+          </div>
         </div>
 
-        {/* Charts Row - Equal columns */}
+        {/* Projetos Ativos + Alertas - 2 colunas iguais */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Status Distribution */}
+          {/* Projetos Ativos */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Distribuição por Status</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Projetos Ativos</h3>
+              <Link to="/projects">
+                <Button variant="ghost" size="sm" className="text-xs">
+                  Ver todos <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {activeProjectsList.length > 0 ? (
+                activeProjectsList.map(project => (
+                  <Link 
+                    key={project.id} 
+                    to={`/projects/${project.id}`}
+                    className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{project.name}</p>
+                      <p className="text-xs text-muted-foreground">{project.completedCount}/{project.taskCount} tarefas</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{ width: `${project.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium w-8 text-right">{project.progress}%</span>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <p className="text-sm">Nenhum projeto ativo</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Tasks by Person */}
-          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Tarefas por Responsável</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={tasksByPerson}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
-                    {tasksByPerson.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Alerts & Recent Tasks Row - Equal columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Alerts */}
+          {/* Alertas */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Alertas</h3>
-            <div className="space-y-4 max-h-72 overflow-y-auto">
+            <div className="space-y-4 max-h-[280px] overflow-y-auto">
               {alerts.overdue.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-status-blocked">
+                  <div className="flex items-center gap-2 text-red-500">
                     <AlertTriangle className="w-4 h-4" />
-                    <span className="font-medium text-sm">Tarefas Atrasadas ({alerts.overdue.length})</span>
+                    <span className="font-medium text-sm">Atrasadas ({alerts.overdue.length})</span>
                   </div>
-                  {alerts.overdue.slice(0, 3).map(task => (
+                  {alerts.overdue.map(task => (
                     <Link 
                       key={task.id} 
                       to={`/projects/${task.projectId}`}
-                      className="block p-3 bg-status-blocked/5 border border-status-blocked/20 rounded-lg hover:bg-status-blocked/10 transition-colors"
+                      className="block p-3 bg-red-500/5 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition-colors"
                     >
-                      <p className="font-medium text-sm">{task.name}</p>
+                      <p className="font-medium text-sm truncate">{task.name}</p>
                       <p className="text-xs text-muted-foreground">{getProjectName(task.projectId)}</p>
                     </Link>
                   ))}
@@ -227,95 +221,78 @@ const Dashboard = () => {
 
               {alerts.dueSoon.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-status-pending">
+                  <div className="flex items-center gap-2 text-amber-500">
                     <Calendar className="w-4 h-4" />
-                    <span className="font-medium text-sm">Próximos do Prazo ({alerts.dueSoon.length})</span>
+                    <span className="font-medium text-sm">Próximas do prazo ({alerts.dueSoon.length})</span>
                   </div>
-                  {alerts.dueSoon.slice(0, 3).map(task => (
+                  {alerts.dueSoon.map(task => (
                     <Link 
                       key={task.id} 
                       to={`/projects/${task.projectId}`}
-                      className="block p-3 bg-status-pending/5 border border-status-pending/20 rounded-lg hover:bg-status-pending/10 transition-colors"
+                      className="block p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg hover:bg-amber-500/10 transition-colors"
                     >
-                      <p className="font-medium text-sm">{task.name}</p>
+                      <p className="font-medium text-sm truncate">{task.name}</p>
                       <p className="text-xs text-muted-foreground">{getProjectName(task.projectId)}</p>
                     </Link>
                   ))}
                 </div>
               )}
 
-              {alerts.unassigned.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <UserX className="w-4 h-4" />
-                    <span className="font-medium text-sm">Sem Responsável ({alerts.unassigned.length})</span>
+              {alerts.overdue.length === 0 && alerts.dueSoon.length === 0 && (
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <div className="text-center">
+                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+                    <p className="text-sm">Tudo em dia! 🎉</p>
                   </div>
-                  {alerts.unassigned.slice(0, 3).map(task => (
-                    <Link 
-                      key={task.id} 
-                      to={`/projects/${task.projectId}`}
-                      className="block p-3 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <p className="font-medium text-sm">{task.name}</p>
-                      <p className="text-xs text-muted-foreground">{getProjectName(task.projectId)}</p>
-                    </Link>
-                  ))}
-                </div>
-              )}
-
-              {alerts.overdue.length === 0 && alerts.dueSoon.length === 0 && alerts.unassigned.length === 0 && (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <p>Nenhum alerta no momento 🎉</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Tasks */}
-          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Tarefas Recentes</h3>
-            <div className="space-y-3 max-h-72 overflow-y-auto">
-              {recentTasks.length > 0 ? (
-                recentTasks.map(task => {
-                  const person = people.find(p => p.id === task.responsibleId);
-                  return (
-                    <Link 
-                      key={task.id} 
-                      to={`/projects/${task.projectId}`}
-                      className="flex items-center gap-3 p-3 bg-muted/30 border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div 
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ 
-                          backgroundColor: task.status === 'pending' ? '#EAB308' : 
-                                          task.status === 'in_progress' ? '#3B82F6' : 
-                                          task.status === 'blocked' ? '#EF4444' : '#22C55E' 
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{task.name}</p>
-                        <p className="text-xs text-muted-foreground">{getProjectName(task.projectId)}</p>
-                      </div>
-                      {person && (
-                        <div 
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
-                          style={{ backgroundColor: person.color || '#6b7280' }}
-                        >
-                          {person.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })
-              ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <p>Nenhuma tarefa recente</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
+        {/* Atividades Recentes - Full width */}
+        <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+          <h3 className="text-lg font-semibold mb-4">Atividades Recentes</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recentActivity.length > 0 ? (
+              recentActivity.map(task => (
+                <Link 
+                  key={task.id} 
+                  to={`/projects/${task.projectId}`}
+                  className="flex items-center gap-3 p-3 bg-muted/20 border border-border/50 rounded-lg hover:bg-muted/40 transition-colors"
+                >
+                  <div 
+                    className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      task.status === 'completed' ? "bg-emerald-500" :
+                      task.status === 'in_progress' ? "bg-blue-500" :
+                      task.status === 'blocked' ? "bg-red-500" : "bg-amber-500"
+                    )}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{task.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{task.projectName}</p>
+                  </div>
+                  {task.person && (
+                    <div 
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0"
+                      style={{ backgroundColor: task.person.color || '#6b7280' }}
+                    >
+                      {task.person.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                    </div>
+                  )}
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                    {new Date(task.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                  </span>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-full flex items-center justify-center h-24 text-muted-foreground">
+                <p className="text-sm">Nenhuma atividade recente</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </MainLayout>
   );
