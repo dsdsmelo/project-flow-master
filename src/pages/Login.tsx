@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight, LogOut, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,21 +19,28 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, isAuthenticated, hasActiveSubscription, subscriptionChecked } = useAuth();
+  const { signIn, signOut, isAuthenticated, hasActiveSubscription, subscriptionChecked, user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redirect when authenticated
+  // Only redirect when authenticated WITH subscription
   useEffect(() => {
-    if (isAuthenticated && subscriptionChecked) {
-      if (hasActiveSubscription) {
-        navigate('/dashboard', { replace: true });
-      } else {
-        // User is authenticated but has no subscription - redirect to landing with message
-        navigate('/?subscription=required', { replace: true });
-      }
+    if (isAuthenticated && subscriptionChecked && hasActiveSubscription) {
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate]);
+
+  const handleLogout = async () => {
+    await signOut();
+    toast({
+      title: 'Logout realizado',
+      description: 'Você foi desconectado.',
+    });
+  };
+
+  const handleSubscribe = () => {
+    window.open('https://buy.stripe.com/4gwbLp8Aqgcl1eU8ww', '_blank');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,95 +142,138 @@ const Login = () => {
             </Link>
           </div>
 
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-foreground">Bem-vindo de volta</h2>
-            <p className="text-muted-foreground mt-2">
-              Entre com suas credenciais para continuar
-            </p>
-          </div>
-
-          <div className="bg-card rounded-2xl shadow-strong border border-border p-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
+          {/* Show different content based on auth state */}
+          {isAuthenticated && subscriptionChecked && !hasActiveSubscription ? (
+            <>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-foreground">Assinatura necessária</h2>
+                <p className="text-muted-foreground mt-2">
+                  Você está logado como <span className="font-medium text-foreground">{profile?.email || user?.email}</span>, mas não possui uma assinatura ativa.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-sm font-medium">
-                    Senha
-                  </Label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Esqueceu a senha?
-                  </Link>
-                </div>
+              <div className="bg-card rounded-2xl shadow-strong border border-border p-8 space-y-4">
+                <Button
+                  onClick={handleSubscribe}
+                  className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-md hover:shadow-lg transition-all group"
+                >
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Assinar por R$ 69/mês
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 h-12"
-                    required
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    disabled={isLoading}
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">ou</span>
+                  </div>
                 </div>
+
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  className="w-full h-12"
+                >
+                  <LogOut className="w-5 h-5 mr-2" />
+                  Sair e entrar com outra conta
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-foreground">Bem-vindo de volta</h2>
+                <p className="text-muted-foreground mt-2">
+                  Entre com suas credenciais para continuar
+                </p>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full h-12 gradient-primary text-white font-semibold shadow-md hover:shadow-lg transition-all group"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  <>
-                    Entrar
-                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </Button>
-            </form>
-          </div>
+              <div className="bg-card rounded-2xl shadow-strong border border-border p-8">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium">
+                      Email
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10 h-12"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Ainda não tem conta?{' '}
-            <Link to="/" className="text-primary hover:underline font-medium">
-              Conheça o Tarefaa
-            </Link>
-          </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password" className="text-sm font-medium">
+                        Senha
+                      </Label>
+                      <Link
+                        to="/forgot-password"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Esqueceu a senha?
+                      </Link>
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10 pr-10 h-12"
+                        required
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        disabled={isLoading}
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 gradient-primary text-white font-semibold shadow-md hover:shadow-lg transition-all group"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Entrando...
+                      </>
+                    ) : (
+                      <>
+                        Entrar
+                        <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </div>
+
+              <p className="text-center text-sm text-muted-foreground mt-6">
+                Ainda não tem conta?{' '}
+                <Link to="/" className="text-primary hover:underline font-medium">
+                  Conheça o Tarefaa
+                </Link>
+              </p>
+            </>
+          )}
 
           <div className="text-center mt-8">
             <Link
