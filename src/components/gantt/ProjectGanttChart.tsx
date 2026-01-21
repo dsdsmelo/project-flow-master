@@ -213,52 +213,12 @@ export const ProjectGanttChart = ({
                 </div>
               </div>
 
-              {/* Milestones Section - Now on top with legend */}
-              {projectMilestones.length > 0 && (
-                <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-blue-950/20 dark:to-indigo-950/10 border-b border-blue-200/50">
-                  <div className="px-4 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider border-b border-blue-200/30">Marcos</div>
-                  {projectMilestones.map(m => (
-                    <div key={m.id} className="flex group hover:bg-blue-100/30 dark:hover:bg-blue-900/20 transition-colors">
-                      <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1.5 flex items-center gap-2 border-r border-blue-200/30")}>
-                        <Diamond className="w-3.5 h-3.5 flex-shrink-0" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
-                        <span className={cn("text-sm truncate", m.completed && "opacity-60 line-through")}>{m.name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                      </div>
-                      <div className="flex-1 relative h-7">
-                        <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-blue-200/20", columnWidth)} />)}</div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10" style={{ left: getMilestonePosition(m.date) }}>
-                              <Diamond className="w-5 h-5 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
-                              {m.completed && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-emerald-500" />}
-                            </div>
-                          </PopoverTrigger>
-                          <PopoverContent side="top" className="w-64 p-3">
-                            <div className="space-y-2">
-                              <p className="font-semibold">{m.name}</p>
-                              <p className="text-sm text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                              {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
-                              <div className="flex items-center gap-2 pt-2 border-t">
-                                <Checkbox id={`m-${m.id}`} checked={m.completed} onCheckedChange={(c) => onUpdateMilestone?.(m.id, { completed: !!c })} />
-                                <label htmlFor={`m-${m.id}`} className="text-sm cursor-pointer">Concluído</label>
-                              </div>
-                              <div className="flex gap-2 pt-2 border-t">
-                                <Button variant="outline" size="sm" className="flex-1" onClick={() => onEditMilestone?.(m)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>
-                                <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={() => { if(confirm('Excluir?')) onDeleteMilestone?.(m.id); }}><Trash2 className="w-3 h-3 mr-1" />Excluir</Button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Phases Section - Compact thin bars */}
-              {projectPhases.length > 0 && (
+              {/* Fases e Marcos - Unified Section */}
+              {(projectPhases.length > 0 || projectMilestones.length > 0) && (
                 <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 border-b border-amber-200/50">
-                  <div className="px-4 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider border-b border-amber-200/30">Fases do Projeto</div>
+                  <div className="px-4 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider border-b border-amber-200/30">Fases e Marcos</div>
+                  
+                  {/* Phases as thin bars */}
                   {projectPhases.map((phase) => {
                     const position = getPosition(phase.startDate, phase.endDate);
                     return (
@@ -276,7 +236,7 @@ export const ProjectGanttChart = ({
                           {position && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="absolute top-1 h-3 rounded-sm shadow-sm" style={{ left: position.left, width: position.width, minWidth: '20px', backgroundColor: phase.color || '#f59e0b' }} />
+                                <div className="absolute top-1 h-3 rounded-sm shadow-sm cursor-pointer" style={{ left: position.left, width: position.width, minWidth: '20px', backgroundColor: phase.color || '#f59e0b' }} />
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p className="font-medium">{phase.name}</p>
@@ -292,6 +252,53 @@ export const ProjectGanttChart = ({
                       </div>
                     );
                   })}
+
+                  {/* Milestones as diamonds - single row with all milestones */}
+                  {projectMilestones.length > 0 && (
+                    <div className="flex">
+                      <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1 flex items-center gap-1.5 border-r border-amber-200/30 flex-wrap")}>
+                        {projectMilestones.map(m => (
+                          <Tooltip key={m.id}>
+                            <TooltipTrigger asChild>
+                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] cursor-pointer hover:opacity-80", m.completed && "opacity-60")} style={{ backgroundColor: `${m.color || '#3b82f6'}15` }}>
+                                <Diamond className="w-2.5 h-2.5" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
+                                <span className={cn("font-medium truncate max-w-[80px]", m.completed && "line-through")} style={{ color: m.color || '#3b82f6' }}>{m.name}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{m.name}</p><p className="text-xs text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                      <div className="flex-1 relative h-8">
+                        <div className="absolute inset-0 flex pointer-events-none">{columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-amber-200/20", columnWidth)} />)}</div>
+                        {projectMilestones.map(m => (
+                          <Popover key={m.id}>
+                            <PopoverTrigger asChild>
+                              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10" style={{ left: getMilestonePosition(m.date) }}>
+                                <Diamond className="w-5 h-5 drop-shadow-md" style={{ fill: m.color || '#3b82f6', color: m.color || '#3b82f6' }} />
+                                {m.completed && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-emerald-500" />}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" className="w-64 p-3">
+                              <div className="space-y-2">
+                                <p className="font-semibold">{m.name}</p>
+                                <p className="text-sm text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
+                                <div className="flex items-center gap-2 pt-2 border-t">
+                                  <Checkbox id={`m-${m.id}`} checked={m.completed} onCheckedChange={(c) => onUpdateMilestone?.(m.id, { completed: !!c })} />
+                                  <label htmlFor={`m-${m.id}`} className="text-sm cursor-pointer">Concluído</label>
+                                </div>
+                                <div className="flex gap-2 pt-2 border-t">
+                                  <Button variant="outline" size="sm" className="flex-1" onClick={() => onEditMilestone?.(m)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>
+                                  <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={() => { if(confirm('Excluir?')) onDeleteMilestone?.(m.id); }}><Trash2 className="w-3 h-3 mr-1" />Excluir</Button>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
