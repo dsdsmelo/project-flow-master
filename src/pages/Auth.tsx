@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { auditLog } from '@/lib/auditLog';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -52,17 +53,27 @@ const Auth = () => {
         const { error } = await signIn(email, password);
         if (error) {
           let message = 'Email ou senha incorretos.';
+          let reason = error.message;
           if (error.message.includes('Invalid login credentials')) {
             message = 'Email ou senha incorretos.';
+            reason = 'Credenciais inválidas';
           } else if (error.message.includes('Email not confirmed')) {
             message = 'Por favor, confirme seu email antes de fazer login.';
+            reason = 'Email não confirmado';
           }
+
+          // Log failed login attempt
+          await auditLog.loginFailed(email, reason);
+
           toast({
             title: 'Erro no login',
             description: message,
             variant: 'destructive',
           });
         } else {
+          // Log successful login
+          await auditLog.login(email);
+
           toast({
             title: 'Bem-vindo!',
             description: 'Login realizado com sucesso.',
@@ -84,15 +95,24 @@ const Auth = () => {
         const { error } = await signUp(email, password, fullName);
         if (error) {
           let message = 'Erro ao criar conta.';
+          let reason = error.message;
           if (error.message.includes('already registered')) {
             message = 'Este email já está cadastrado.';
+            reason = 'Email já registrado';
           }
+
+          // Log failed signup attempt
+          await auditLog.signupFailed(email, reason);
+
           toast({
             title: 'Erro no cadastro',
             description: message,
             variant: 'destructive',
           });
         } else {
+          // Log successful signup
+          await auditLog.signup(email);
+
           toast({
             title: 'Conta criada!',
             description: 'Verifique seu email para confirmar o cadastro.',

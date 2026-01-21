@@ -282,3 +282,50 @@ USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1
 CREATE POLICY "Users can delete their own avatar"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ============================================
+-- ACTIVITY LOGS TABLE (Audit Trail)
+-- ============================================
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_email TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT, -- 'project', 'task', 'person', 'phase', etc.
+  entity_id UUID,
+  entity_name TEXT,
+  details TEXT,
+  metadata JSONB DEFAULT '{}',
+  level TEXT NOT NULL DEFAULT 'info' CHECK (level IN ('info', 'warning', 'error', 'success')),
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for activity_logs
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_entity_type ON activity_logs(entity_type);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_level ON activity_logs(level);
+
+-- Enable RLS on activity_logs
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- Admin can see all logs
+CREATE POLICY "Admins can view all activity logs" ON activity_logs
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_roles
+      WHERE user_roles.user_id = auth.uid()
+      AND user_roles.role = 'admin'
+    )
+  );
+
+-- Users can insert their own logs
+CREATE POLICY "Users can insert activity logs" ON activity_logs
+  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+-- Service role can do anything (for server-side logging)
+CREATE POLICY "Service role full access to activity logs" ON activity_logs
+  FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');

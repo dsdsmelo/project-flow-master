@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
+import { auditLog } from '@/lib/auditLog';
 
 // Helper to get current user ID
 async function getCurrentUserId(): Promise<string | null> {
@@ -118,22 +119,38 @@ export function useSupabaseData() {
     if (error) throw error;
     const newPerson = mapPerson(data);
     setPeople(prev => [...prev, newPerson]);
+
+    // Log the action
+    auditLog.personCreated(newPerson.id, newPerson.name);
+
     return newPerson;
   };
 
   const updatePerson = async (id: string, updates: Partial<Person>) => {
+    const existingPerson = people.find(p => p.id === id);
     const { error } = await supabase
       .from('people')
       .update(personToDb(updates))
       .eq('id', id);
     if (error) throw error;
     setPeople(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+
+    // Log the action
+    if (existingPerson) {
+      auditLog.personUpdated(id, existingPerson.name, updates);
+    }
   };
 
   const deletePerson = async (id: string) => {
+    const existingPerson = people.find(p => p.id === id);
     const { error } = await supabase.from('people').delete().eq('id', id);
     if (error) throw error;
     setPeople(prev => prev.filter(p => p.id !== id));
+
+    // Log the action
+    if (existingPerson) {
+      auditLog.personDeleted(id, existingPerson.name);
+    }
   };
 
   // CRUD operations for Projects
@@ -149,22 +166,38 @@ export function useSupabaseData() {
     if (error) throw error;
     const newProject = mapProject(data);
     setProjects(prev => [...prev, newProject]);
+
+    // Log the action
+    auditLog.projectCreated(newProject.id, newProject.name);
+
     return newProject;
   };
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
+    const existingProject = projects.find(p => p.id === id);
     const { error } = await supabase
       .from('projects')
       .update(projectToDb(updates))
       .eq('id', id);
     if (error) throw error;
     setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+
+    // Log the action
+    if (existingProject) {
+      auditLog.projectUpdated(id, existingProject.name, updates);
+    }
   };
 
   const deleteProject = async (id: string) => {
+    const existingProject = projects.find(p => p.id === id);
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
     setProjects(prev => prev.filter(p => p.id !== id));
+
+    // Log the action
+    if (existingProject) {
+      auditLog.projectDeleted(id, existingProject.name);
+    }
   };
 
   // CRUD operations for Phases
@@ -180,6 +213,11 @@ export function useSupabaseData() {
     if (error) throw error;
     const newPhase = mapPhase(data);
     setPhases(prev => [...prev, newPhase]);
+
+    // Log the action
+    const project = projects.find(p => p.id === phase.projectId);
+    auditLog.phaseCreated(newPhase.id, newPhase.name, project?.name);
+
     return newPhase;
   };
 
@@ -193,9 +231,15 @@ export function useSupabaseData() {
   };
 
   const deletePhase = async (id: string) => {
+    const existingPhase = phases.find(p => p.id === id);
     const { error } = await supabase.from('phases').delete().eq('id', id);
     if (error) throw error;
     setPhases(prev => prev.filter(p => p.id !== id));
+
+    // Log the action
+    if (existingPhase) {
+      auditLog.phaseDeleted(id, existingPhase.name);
+    }
   };
 
   // CRUD operations for Cells
@@ -242,10 +286,16 @@ export function useSupabaseData() {
     if (error) throw error;
     const newTask = mapTask(data);
     setTasks(prev => [newTask, ...prev]);
+
+    // Log the action
+    const project = projects.find(p => p.id === task.projectId);
+    auditLog.taskCreated(newTask.id, newTask.name, project?.name);
+
     return newTask;
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
+    const existingTask = tasks.find(t => t.id === id);
     const dbUpdates = taskToDb({ ...updates, updatedAt: new Date().toISOString() });
     const { error } = await supabase
       .from('tasks')
@@ -253,12 +303,31 @@ export function useSupabaseData() {
       .eq('id', id);
     if (error) throw error;
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t));
+
+    // Log the action - check for status changes
+    if (existingTask) {
+      if (updates.status && updates.status !== existingTask.status) {
+        if (updates.status === 'completed') {
+          auditLog.taskCompleted(id, existingTask.name);
+        } else {
+          auditLog.taskStatusChanged(id, existingTask.name, existingTask.status, updates.status);
+        }
+      } else {
+        auditLog.taskUpdated(id, existingTask.name, updates);
+      }
+    }
   };
 
   const deleteTask = async (id: string) => {
+    const existingTask = tasks.find(t => t.id === id);
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
     setTasks(prev => prev.filter(t => t.id !== id));
+
+    // Log the action
+    if (existingTask) {
+      auditLog.taskDeleted(id, existingTask.name);
+    }
   };
 
   // CRUD operations for Custom Columns
@@ -305,16 +374,26 @@ export function useSupabaseData() {
     if (error) throw error;
     const newMilestone = mapMilestone(data);
     setMilestones(prev => [...prev, newMilestone]);
+
+    // Log the action
+    auditLog.milestoneCreated(newMilestone.id, newMilestone.name);
+
     return newMilestone;
   };
 
   const updateMilestone = async (id: string, updates: Partial<Milestone>) => {
+    const existingMilestone = milestones.find(m => m.id === id);
     const { error } = await supabase
       .from('milestones')
       .update(milestoneToDb(updates))
       .eq('id', id);
     if (error) throw error;
     setMilestones(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+
+    // Log the action - check for completion
+    if (existingMilestone && updates.completed && !existingMilestone.completed) {
+      auditLog.milestoneCompleted(id, existingMilestone.name);
+    }
   };
 
   const deleteMilestone = async (id: string) => {
