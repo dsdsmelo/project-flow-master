@@ -255,7 +255,7 @@ export const ProjectGanttChart = ({
 
                   {/* Milestones as diamonds with labels below */}
                   {projectMilestones.length > 0 && (
-                    <div className="flex">
+                    <div className="flex bg-blue-50/50 dark:bg-blue-950/20 border-t border-blue-200/30">
                       <div className={cn(labelColumnWidth, "flex-shrink-0 px-4 py-1 flex items-center border-r border-amber-200/30")}>
                         <span className="text-xs text-muted-foreground">Marcos do projeto</span>
                       </div>
@@ -310,7 +310,7 @@ export const ProjectGanttChart = ({
                   
                   return (
                     <div key={group.id} className="border-b border-border/50 last:border-b-0">
-                      <div className="flex items-center cursor-pointer hover:bg-muted/40 transition-colors bg-muted/20" onClick={() => toggleGroup(group.id)}>
+                      <div className="flex items-center cursor-pointer hover:bg-muted/50 transition-colors bg-muted/30 border-b border-border/30" onClick={() => toggleGroup(group.id)}>
                         <div className={cn(labelColumnWidth, "flex-shrink-0 px-3 py-2.5 flex items-center gap-2.5 border-r border-border/50")}>
                           <button className="p-1 rounded hover:bg-muted">{isCollapsed ? <ChevronRight className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}</button>
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ backgroundColor: group.color || 'hsl(var(--muted-foreground))' }}>{initials}</div>
