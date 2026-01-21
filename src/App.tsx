@@ -49,7 +49,7 @@ const ProtectedRoute = ({ children, requireSubscription = true }: { children: Re
   }
   
   if (requireSubscription && !hasActiveSubscription) {
-    return <Navigate to="/?subscription=required" replace />;
+    return <Navigate to="/login?subscription=required" replace />;
   }
   
   return <>{children}</>;
