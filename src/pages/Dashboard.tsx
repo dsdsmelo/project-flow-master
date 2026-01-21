@@ -46,20 +46,13 @@ const Dashboard = () => {
     return { activeProjects, pendingTasks, inProgressTasks, completedThisMonth };
   }, [projects, tasks]);
 
-  const projectProgress = useMemo(() => {
-    return projects
-      .filter(p => p.status === 'active')
-      .map(project => {
-        const projectTasks = tasks.filter(t => t.projectId === project.id);
-        const avgProgress = projectTasks.length > 0
-          ? projectTasks.reduce((acc, t) => acc + calculatePercentage(t), 0) / projectTasks.length
-          : 0;
-        return {
-          name: project.name.length > 25 ? project.name.slice(0, 25) + '...' : project.name,
-          progress: Math.round(avgProgress),
-        };
-      });
-  }, [projects, tasks]);
+  // Recent activity / recent tasks
+  const recentTasks = useMemo(() => {
+    return tasks
+      .filter(t => t.status !== 'completed' && t.status !== 'cancelled')
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 5);
+  }, [tasks]);
 
   const statusDistribution = useMemo(() => {
     const distribution = {
@@ -158,24 +151,8 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Project Progress */}
-          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Progresso dos Projetos</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={projectProgress} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                  <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value) => [`${value}%`, 'Progresso']} />
-                  <Bar dataKey="progress" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+        {/* Charts Row - Equal columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Status Distribution */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Distribuição por Status</h3>
@@ -201,10 +178,7 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
           </div>
-        </div>
 
-        {/* Tasks by Person & Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Tasks by Person */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Tarefas por Responsável</h3>
@@ -213,7 +187,7 @@ const Dashboard = () => {
                 <BarChart data={tasksByPerson}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
                     {tasksByPerson.map((entry, index) => (
@@ -224,11 +198,14 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
 
+        {/* Alerts & Recent Tasks Row - Equal columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Alerts */}
-          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-soft">
+          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
             <h3 className="text-lg font-semibold mb-4">Alertas</h3>
-            <div className="space-y-4 max-h-64 overflow-y-auto">
+            <div className="space-y-4 max-h-72 overflow-y-auto">
               {alerts.overdue.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-status-blocked">
@@ -238,7 +215,7 @@ const Dashboard = () => {
                   {alerts.overdue.slice(0, 3).map(task => (
                     <Link 
                       key={task.id} 
-                      to={`/tasks?highlight=${task.id}`}
+                      to={`/projects/${task.projectId}`}
                       className="block p-3 bg-status-blocked/5 border border-status-blocked/20 rounded-lg hover:bg-status-blocked/10 transition-colors"
                     >
                       <p className="font-medium text-sm">{task.name}</p>
@@ -257,7 +234,7 @@ const Dashboard = () => {
                   {alerts.dueSoon.slice(0, 3).map(task => (
                     <Link 
                       key={task.id} 
-                      to={`/tasks?highlight=${task.id}`}
+                      to={`/projects/${task.projectId}`}
                       className="block p-3 bg-status-pending/5 border border-status-pending/20 rounded-lg hover:bg-status-pending/10 transition-colors"
                     >
                       <p className="font-medium text-sm">{task.name}</p>
@@ -276,7 +253,7 @@ const Dashboard = () => {
                   {alerts.unassigned.slice(0, 3).map(task => (
                     <Link 
                       key={task.id} 
-                      to={`/tasks?highlight=${task.id}`}
+                      to={`/projects/${task.projectId}`}
                       className="block p-3 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors"
                     >
                       <p className="font-medium text-sm">{task.name}</p>
@@ -289,6 +266,50 @@ const Dashboard = () => {
               {alerts.overdue.length === 0 && alerts.dueSoon.length === 0 && alerts.unassigned.length === 0 && (
                 <div className="flex items-center justify-center h-32 text-muted-foreground">
                   <p>Nenhum alerta no momento 🎉</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Tasks */}
+          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+            <h3 className="text-lg font-semibold mb-4">Tarefas Recentes</h3>
+            <div className="space-y-3 max-h-72 overflow-y-auto">
+              {recentTasks.length > 0 ? (
+                recentTasks.map(task => {
+                  const person = people.find(p => p.id === task.responsibleId);
+                  return (
+                    <Link 
+                      key={task.id} 
+                      to={`/projects/${task.projectId}`}
+                      className="flex items-center gap-3 p-3 bg-muted/30 border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ 
+                          backgroundColor: task.status === 'pending' ? '#EAB308' : 
+                                          task.status === 'in_progress' ? '#3B82F6' : 
+                                          task.status === 'blocked' ? '#EF4444' : '#22C55E' 
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{task.name}</p>
+                        <p className="text-xs text-muted-foreground">{getProjectName(task.projectId)}</p>
+                      </div>
+                      {person && (
+                        <div 
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
+                          style={{ backgroundColor: person.color || '#6b7280' }}
+                        >
+                          {person.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <p>Nenhuma tarefa recente</p>
                 </div>
               )}
             </div>
