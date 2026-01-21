@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,9 +19,18 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, isAuthenticated, hasActiveSubscription, subscriptionChecked } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect when authenticated
+  useEffect(() => {
+    if (isAuthenticated && subscriptionChecked) {
+      if (hasActiveSubscription) {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,10 +70,7 @@ const Login = () => {
           title: 'Bem-vindo!',
           description: 'Login realizado com sucesso.',
         });
-        // Small delay to ensure auth state is updated before navigation
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 100);
+        // Navigation handled by useEffect when auth state updates
       }
     } catch (error) {
       toast({
