@@ -103,31 +103,9 @@ const Landing = () => {
     fetchPrice();
   }, []);
 
-  const handleSubscribe = async () => {
-    if (!isAuthenticated) {
-      window.location.href = '/login';
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout');
-      
-      if (error) throw error;
-      
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-      toast({
-        title: 'Erro',
-        description: 'Erro ao iniciar checkout. Tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSubscribe = () => {
+    // Abrir Stripe diretamente - o Stripe cuida da autenticação
+    window.open('https://buy.stripe.com/4gwbLp8Aqgcl1eU8ww', '_blank');
   };
 
   const features = [
