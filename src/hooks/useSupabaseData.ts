@@ -56,15 +56,15 @@ export function useSupabaseData() {
       if (milestonesError) throw milestonesError;
       if (meetingNotesError) throw meetingNotesError;
 
-      // Map snake_case to camelCase
-      setPeople((peopleData || []).map(mapPerson));
-      setProjects((projectsData || []).map(mapProject));
-      setPhases((phasesData || []).map(mapPhase));
-      setCells((cellsData || []).map(mapCell));
-      setTasks((tasksData || []).map(mapTask));
-      setCustomColumns((columnsData || []).map(mapCustomColumn));
-      setMilestones((milestonesData || []).map(mapMilestone));
-      setMeetingNotes((meetingNotesData || []).map(mapMeetingNote));
+      // Map snake_case to camelCase - ensure arrays are never undefined
+      setPeople(Array.isArray(peopleData) ? peopleData.map(mapPerson) : []);
+      setProjects(Array.isArray(projectsData) ? projectsData.map(mapProject) : []);
+      setPhases(Array.isArray(phasesData) ? phasesData.map(mapPhase) : []);
+      setCells(Array.isArray(cellsData) ? cellsData.map(mapCell) : []);
+      setTasks(Array.isArray(tasksData) ? tasksData.map(mapTask) : []);
+      setCustomColumns(Array.isArray(columnsData) ? columnsData.map(mapCustomColumn) : []);
+      setMilestones(Array.isArray(milestonesData) ? milestonesData.map(mapMilestone) : []);
+      setMeetingNotes(Array.isArray(meetingNotesData) ? meetingNotesData.map(mapMeetingNote) : []);
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setError(err.message);

@@ -20,21 +20,26 @@ import { Button } from '@/components/ui/button';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 const Dashboard = () => {
-  const { projects, tasks, people, loading, error } = useData();
+  const { projects = [], tasks = [], people = [], loading, error } = useData();
+
+  // Ensure arrays are always defined
+  const safeProjects = projects || [];
+  const safeTasks = tasks || [];
+  const safePeople = people || [];
 
   // KPIs
   const stats = useMemo(() => {
-    const totalTasks = tasks.length;
-    const overdueTasks = tasks.filter(isTaskOverdue).length;
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const pendingTasks = tasks.filter(t => t.status === 'pending').length;
-    const blockedTasks = tasks.filter(t => t.status === 'blocked').length;
-    const activeProjects = projects.filter(p => p.status === 'active').length;
-    const totalPeople = people.length;
+    const totalTasks = safeTasks.length;
+    const overdueTasks = safeTasks.filter(isTaskOverdue).length;
+    const inProgressTasks = safeTasks.filter(t => t.status === 'in_progress').length;
+    const completedTasks = safeTasks.filter(t => t.status === 'completed').length;
+    const pendingTasks = safeTasks.filter(t => t.status === 'pending').length;
+    const blockedTasks = safeTasks.filter(t => t.status === 'blocked').length;
+    const activeProjects = safeProjects.filter(p => p.status === 'active').length;
+    const totalPeople = safePeople.length;
 
     return { totalTasks, overdueTasks, inProgressTasks, completedTasks, pendingTasks, blockedTasks, activeProjects, totalPeople };
-  }, [projects, tasks, people]);
+  }, [safeProjects, safeTasks, safePeople]);
 
   // Dados para gráfico de pizza - Distribuição de status
   const taskStatusData = useMemo(() => {
@@ -48,10 +53,10 @@ const Dashboard = () => {
 
   // Dados para gráfico de barras - Tarefas por projeto
   const projectTasksData = useMemo(() => {
-    return projects
+    return safeProjects
       .slice(0, 5)
       .map(project => {
-        const projectTasks = tasks.filter(t => t.projectId === project.id);
+        const projectTasks = safeTasks.filter(t => t.projectId === project.id);
         const completed = projectTasks.filter(t => t.status === 'completed').length;
         const inProgress = projectTasks.filter(t => t.status === 'in_progress').length;
         const pending = projectTasks.filter(t => t.status === 'pending' || t.status === 'blocked').length;
@@ -62,43 +67,43 @@ const Dashboard = () => {
           pendentes: pending,
         };
       });
-  }, [projects, tasks]);
+  }, [safeProjects, safeTasks]);
 
   // Projetos ativos com progresso
   const activeProjectsList = useMemo(() => {
-    return projects
+    return safeProjects
       .filter(p => p.status === 'active')
       .map(project => {
-        const projectTasks = tasks.filter(t => t.projectId === project.id);
+        const projectTasks = safeTasks.filter(t => t.projectId === project.id);
         const completed = projectTasks.filter(t => t.status === 'completed').length;
         const total = projectTasks.length;
         const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
         return { ...project, progress, taskCount: total, completedCount: completed };
       })
       .slice(0, 5);
-  }, [projects, tasks]);
+  }, [safeProjects, safeTasks]);
 
   // Alertas (atrasadas e próximas do prazo)
   const alerts = useMemo(() => {
-    const overdue = tasks.filter(isTaskOverdue).slice(0, 3);
-    const dueSoon = tasks.filter(isTaskDueSoon).slice(0, 3);
+    const overdue = safeTasks.filter(isTaskOverdue).slice(0, 3);
+    const dueSoon = safeTasks.filter(isTaskDueSoon).slice(0, 3);
     return { overdue, dueSoon };
-  }, [tasks]);
+  }, [safeTasks]);
 
   // Atividades recentes
   const recentActivity = useMemo(() => {
-    return tasks
+    return [...safeTasks]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 5)
       .map(task => {
-        const project = projects.find(p => p.id === task.projectId);
-        const person = people.find(p => p.id === task.responsibleId);
+        const project = safeProjects.find(p => p.id === task.projectId);
+        const person = safePeople.find(p => p.id === task.responsibleId);
         return { ...task, projectName: project?.name || '-', person };
       });
-  }, [tasks, projects, people]);
+  }, [safeTasks, safeProjects, safePeople]);
 
   const getProjectName = (projectId: string) => {
-    return projects.find(p => p.id === projectId)?.name || '-';
+    return safeProjects.find(p => p.id === projectId)?.name || '-';
   };
 
   if (loading) {
