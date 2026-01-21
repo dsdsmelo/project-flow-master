@@ -63,7 +63,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Tasks = () => {
-  const { tasks, updateTask, deleteTask, projects, phases, people, customColumns, loading, error } = useData();
+  const { tasks = [], updateTask, deleteTask, projects = [], phases = [], people = [], customColumns = [], loading, error } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -72,14 +72,21 @@ const Tasks = () => {
     priority: 'all',
     responsible: 'all',
   });
-  
+
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
+  // Ensure arrays are always defined
+  const safeTasks = tasks || [];
+  const safeProjects = projects || [];
+  const safePhases = phases || [];
+  const safePeople = people || [];
+  const safeCustomColumns = customColumns || [];
+
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
+    return safeTasks.filter(task => {
       const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase());
       const matchesProject = filters.project === 'all' || task.projectId === filters.project;
       const matchesStatus = filters.status === 'all' || task.status === filters.status;
@@ -87,32 +94,32 @@ const Tasks = () => {
       const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
       return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesResponsible;
     });
-  }, [tasks, search, filters]);
+  }, [safeTasks, search, filters]);
 
   // Get custom columns for the selected project (or all if no project selected)
   // Columns are automatically displayed based on project selection
   const displayedCustomColumns = useMemo(() => {
     if (filters.project !== 'all') {
-      return customColumns
+      return safeCustomColumns
         .filter(col => col.projectId === filters.project && col.active)
         .sort((a, b) => a.order - b.order);
     }
     // When viewing all projects, don't show custom columns (they are project-specific)
     return [];
-  }, [customColumns, filters.project]);
+  }, [safeCustomColumns, filters.project]);
 
   const getProjectName = (projectId: string) => {
-    return projects.find(p => p.id === projectId)?.name || '-';
+    return safeProjects.find(p => p.id === projectId)?.name || '-';
   };
 
   const getPhaseName = (phaseId?: string) => {
     if (!phaseId) return '-';
-    return phases.find(p => p.id === phaseId)?.name || '-';
+    return safePhases.find(p => p.id === phaseId)?.name || '-';
   };
 
   const getPerson = (personId?: string) => {
     if (!personId) return null;
-    return people.find(p => p.id === personId);
+    return safePeople.find(p => p.id === personId);
   };
 
   const toggleTaskSelection = (taskId: string) => {
@@ -135,7 +142,7 @@ const Tasks = () => {
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = safeTasks.find(t => t.id === taskId);
     if (!task) return;
     
     try {
@@ -148,7 +155,7 @@ const Tasks = () => {
     } catch (err) {
       console.error('Error updating custom value:', err);
     }
-  }, [tasks, updateTask]);
+  }, [safeTasks, updateTask]);
 
   // Handler to update task progress (as percentage)
   const handleProgressUpdate = useCallback(async (taskId: string, progress: number) => {
@@ -253,7 +260,7 @@ const Tasks = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os Projetos</SelectItem>
-                {projects.map(p => (
+                {safeProjects.map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -317,7 +324,7 @@ const Tasks = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
-                        {people.filter(p => p.active).map(p => (
+                        {safePeople.filter(p => p.active).map(p => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -519,7 +526,7 @@ const Tasks = () => {
         {/* Footer with count */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Mostrando {filteredTasks.length} de {tasks.length} tarefas
+            Mostrando {filteredTasks.length} de {safeTasks.length} tarefas
           </span>
         </div>
       </div>

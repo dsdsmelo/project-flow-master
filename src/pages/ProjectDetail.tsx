@@ -66,7 +66,7 @@ const statusColors = {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, tasks, people, phases, cells, customColumns, milestones, deleteMilestone, updateMilestone, deletePhase, loading, error } = useData();
+  const { projects = [], tasks = [], people = [], phases = [], cells = [], customColumns = [], milestones = [], deleteMilestone, updateMilestone, deletePhase, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [taskDefaultResponsible, setTaskDefaultResponsible] = useState<string | undefined>(undefined);
@@ -76,17 +76,26 @@ const ProjectDetail = () => {
   const [editingPhase, setEditingPhase] = useState<Phase | undefined>(undefined);
   const [phaseManagerOpen, setPhaseManagerOpen] = useState(false);
 
+  // Ensure arrays are always defined
+  const safeProjects = projects || [];
+  const safeTasks = tasks || [];
+  const safePeople = people || [];
+  const safePhases = phases || [];
+  const safeCells = cells || [];
+  const safeCustomColumns = customColumns || [];
+  const safeMilestones = milestones || [];
+
   const project = useMemo(() => {
-    return projects.find(p => p.id === projectId);
-  }, [projects, projectId]);
+    return safeProjects.find(p => p.id === projectId);
+  }, [safeProjects, projectId]);
 
   const projectTasks = useMemo(() => {
-    return tasks.filter(t => t.projectId === projectId);
-  }, [tasks, projectId]);
+    return safeTasks.filter(t => t.projectId === projectId);
+  }, [safeTasks, projectId]);
 
   const projectPhases = useMemo(() => {
-    return phases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order);
-  }, [phases, projectId]);
+    return safePhases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order);
+  }, [safePhases, projectId]);
 
   const stats = useMemo(() => {
     const pending = projectTasks.filter(t => t.status === 'pending').length;
@@ -112,15 +121,15 @@ const ProjectDetail = () => {
 
   // Project milestones
   const projectMilestones = useMemo(() => {
-    return milestones.filter(m => m.projectId === projectId);
-  }, [milestones, projectId]);
+    return safeMilestones.filter(m => m.projectId === projectId);
+  }, [safeMilestones, projectId]);
 
   const tasksByPerson = useMemo(() => {
     const personMap = new Map<string, { name: string; color: string; tasks: number }>();
-    
+
     projectTasks.forEach(task => {
       if (task.responsibleId) {
-        const person = people.find(p => p.id === task.responsibleId);
+        const person = safePeople.find(p => p.id === task.responsibleId);
         if (person) {
           const existing = personMap.get(person.id);
           if (existing) {
@@ -137,7 +146,7 @@ const ProjectDetail = () => {
     });
 
     return Array.from(personMap.values()).sort((a, b) => b.tasks - a.tasks);
-  }, [projectTasks, people]);
+  }, [projectTasks, safePeople]);
 
   const alerts = useMemo(() => {
     const overdue = projectTasks.filter(isTaskOverdue);
@@ -149,17 +158,17 @@ const ProjectDetail = () => {
 
   const getPersonName = (personId?: string) => {
     if (!personId) return null;
-    return people.find(p => p.id === personId);
+    return safePeople.find(p => p.id === personId);
   };
 
   const getPhaseName = (phaseId?: string) => {
     if (!phaseId) return '-';
-    return phases.find(p => p.id === phaseId)?.name || '-';
+    return safePhases.find(p => p.id === phaseId)?.name || '-';
   };
 
   const getCellName = (cellId?: string) => {
     if (!cellId) return '-';
-    return cells.find(c => c.id === cellId)?.name || '-';
+    return safeCells.find(c => c.id === cellId)?.name || '-';
   };
 
   if (loading) {

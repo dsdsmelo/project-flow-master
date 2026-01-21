@@ -24,13 +24,18 @@ type ZoomLevel = 'day' | 'week' | 'month';
 type GroupBy = 'project' | 'responsible';
 
 const Gantt = () => {
-  const { tasks, projects, people } = useData();
+  const { tasks = [], projects = [], people = [] } = useData();
   const [zoom, setZoom] = useState<ZoomLevel>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('project');
 
+  // Ensure arrays are always defined
+  const safeTasks = tasks || [];
+  const safeProjects = projects || [];
+  const safePeople = people || [];
+
   // Calculate date range
   const dateRange = useMemo(() => {
-    const dates = tasks.flatMap(t => [t.startDate, t.endDate].filter(Boolean)) as string[];
+    const dates = safeTasks.flatMap(t => [t.startDate, t.endDate].filter(Boolean)) as string[];
     if (dates.length === 0) {
       const today = new Date();
       return {
@@ -43,7 +48,7 @@ const Gantt = () => {
     startDate.setDate(startDate.getDate() - 7);
     endDate.setDate(endDate.getDate() + 7);
     return { start: startDate, end: endDate };
-  }, [tasks]);
+  }, [safeTasks]);
 
   // Generate columns based on zoom level
   const columns = useMemo(() => {
@@ -76,30 +81,30 @@ const Gantt = () => {
 
   // Group tasks
   const groupedTasks = useMemo(() => {
-    const groups: { id: string; name: string; color?: string; tasks: typeof tasks }[] = [];
-    
+    const groups: { id: string; name: string; color?: string; tasks: typeof safeTasks }[] = [];
+
     if (groupBy === 'project') {
-      projects.forEach(project => {
-        const projectTasks = tasks.filter(t => t.projectId === project.id);
+      safeProjects.forEach(project => {
+        const projectTasks = safeTasks.filter(t => t.projectId === project.id);
         if (projectTasks.length > 0) {
           groups.push({ id: project.id, name: project.name, tasks: projectTasks });
         }
       });
     } else if (groupBy === 'responsible') {
-      people.forEach(person => {
-        const personTasks = tasks.filter(t => t.responsibleId === person.id);
+      safePeople.forEach(person => {
+        const personTasks = safeTasks.filter(t => t.responsibleId === person.id);
         if (personTasks.length > 0) {
           groups.push({ id: person.id, name: person.name, color: person.color, tasks: personTasks });
         }
       });
-      const unassigned = tasks.filter(t => !t.responsibleId);
+      const unassigned = safeTasks.filter(t => !t.responsibleId);
       if (unassigned.length > 0) {
         groups.push({ id: 'unassigned', name: 'Sem Responsável', tasks: unassigned });
       }
     }
-    
+
     return groups;
-  }, [tasks, projects, people, groupBy]);
+  }, [safeTasks, safeProjects, safePeople, groupBy]);
 
   const getTaskPosition = (task: typeof tasks[0]) => {
     if (!task.startDate || !task.endDate) return null;
@@ -225,7 +230,7 @@ const Gantt = () => {
                     {group.tasks.map((task) => {
                       const position = getTaskPosition(task);
                       const overdue = isTaskOverdue(task);
-                      const person = people.find(p => p.id === task.responsibleId);
+                      const person = safePeople.find(p => p.id === task.responsibleId);
 
                       return (
                         <div key={task.id} className="flex border-b border-border/50 hover:bg-muted/20">

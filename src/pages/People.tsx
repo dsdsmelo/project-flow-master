@@ -20,14 +20,18 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const People = () => {
-  const { people, tasks, updatePerson, loading, error } = useData();
+  const { people = [], tasks = [], updatePerson, loading, error } = useData();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | undefined>();
 
+  // Ensure arrays are always defined
+  const safePeople = people || [];
+  const safeTasks = tasks || [];
+
   const filteredPeople = useMemo(() => {
-    return people.filter(person => {
+    return safePeople.filter(person => {
       const matchesSearch = person.name.toLowerCase().includes(search.toLowerCase());
       const matchesTab = 
         activeTab === 'all' || 
@@ -35,18 +39,18 @@ const People = () => {
         (activeTab === 'partner' && person.type === 'partner');
       return matchesSearch && matchesTab;
     });
-  }, [people, search, activeTab]);
+  }, [safePeople, search, activeTab]);
 
   const getTaskCount = (personId: string) => {
-    return tasks.filter(t => t.responsibleId === personId && t.status !== 'completed' && t.status !== 'cancelled').length;
+    return safeTasks.filter(t => t.responsibleId === personId && t.status !== 'completed' && t.status !== 'cancelled').length;
   };
 
   const getCompletedTaskCount = (personId: string) => {
-    return tasks.filter(t => t.responsibleId === personId && t.status === 'completed').length;
+    return safeTasks.filter(t => t.responsibleId === personId && t.status === 'completed').length;
   };
 
   const toggleActive = async (personId: string) => {
-    const person = people.find(p => p.id === personId);
+    const person = safePeople.find(p => p.id === personId);
     if (!person) return;
     try {
       await updatePerson(personId, { active: !person.active });
@@ -121,15 +125,15 @@ const People = () => {
           <TabsList>
             <TabsTrigger value="all">
               Todos
-              <Badge variant="secondary" className="ml-2">{people.length}</Badge>
+              <Badge variant="secondary" className="ml-2">{safePeople.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="internal">
               Internos
-              <Badge variant="secondary" className="ml-2">{people.filter(p => p.type === 'internal').length}</Badge>
+              <Badge variant="secondary" className="ml-2">{safePeople.filter(p => p.type === 'internal').length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="partner">
               Parceiros
-              <Badge variant="secondary" className="ml-2">{people.filter(p => p.type === 'partner').length}</Badge>
+              <Badge variant="secondary" className="ml-2">{safePeople.filter(p => p.type === 'partner').length}</Badge>
             </TabsTrigger>
           </TabsList>
         </Tabs>

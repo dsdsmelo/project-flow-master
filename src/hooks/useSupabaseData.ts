@@ -2,6 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
 
+// Helper to get current user ID
+async function getCurrentUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user?.id || null;
+}
+
 export function useSupabaseData() {
   const [people, setPeople] = useState<Person[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -101,9 +107,12 @@ export function useSupabaseData() {
 
   // CRUD operations for People
   const addPerson = async (person: Omit<Person, 'id'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('people')
-      .insert([personToDb(person)])
+      .insert([{ ...personToDb(person), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -129,9 +138,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Projects
   const addProject = async (project: Omit<Project, 'id'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('projects')
-      .insert([projectToDb(project)])
+      .insert([{ ...projectToDb(project), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -157,9 +169,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Phases
   const addPhase = async (phase: Omit<Phase, 'id'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('phases')
-      .insert([phaseToDb(phase)])
+      .insert([{ ...phaseToDb(phase), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -185,9 +200,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Cells
   const addCell = async (cell: Omit<Cell, 'id'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('cells')
-      .insert([cellToDb(cell)])
+      .insert([{ ...cellToDb(cell), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -213,9 +231,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Tasks
   const addTask = async (task: Omit<Task, 'id' | 'updatedAt'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('tasks')
-      .insert([taskToDb(task)])
+      .insert([{ ...taskToDb(task), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -242,9 +263,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Custom Columns
   const addCustomColumn = async (column: Omit<CustomColumn, 'id'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('custom_columns')
-      .insert([customColumnToDb(column)])
+      .insert([{ ...customColumnToDb(column), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -270,9 +294,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Milestones
   const addMilestone = async (milestone: Omit<Milestone, 'id'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('milestones')
-      .insert([milestoneToDb(milestone)])
+      .insert([{ ...milestoneToDb(milestone), user_id: userId }])
       .select()
       .single();
     if (error) throw error;
@@ -298,9 +325,12 @@ export function useSupabaseData() {
 
   // CRUD operations for Meeting Notes
   const addMeetingNote = async (note: Omit<MeetingNote, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('meeting_notes')
-      .insert([meetingNoteToDb(note)])
+      .insert([{ ...meetingNoteToDb(note), user_id: userId }])
       .select()
       .single();
     if (error) throw error;

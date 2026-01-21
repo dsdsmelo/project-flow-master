@@ -56,7 +56,7 @@ const statusColors = {
 
 const Projects = () => {
   const navigate = useNavigate();
-  const { projects, tasks, phases, deleteProject, loading, error } = useData();
+  const { projects = [], tasks = [], phases = [], deleteProject, loading, error } = useData();
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -65,16 +65,21 @@ const Projects = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
+  // Ensure arrays are always defined
+  const safeProjects = projects || [];
+  const safeTasks = tasks || [];
+  const safePhases = phases || [];
+
   const filteredProjects = useMemo(() => {
-    return projects.filter(project => {
+    return safeProjects.filter(project => {
       const matchesSearch = project.name.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [projects, search, statusFilter]);
+  }, [safeProjects, search, statusFilter]);
 
   const getProjectProgress = (projectId: string) => {
-    const projectTasks = tasks.filter(t => t.projectId === projectId);
+    const projectTasks = safeTasks.filter(t => t.projectId === projectId);
     if (projectTasks.length === 0) return 0;
     return Math.round(
       projectTasks.reduce((acc, t) => acc + calculatePercentage(t), 0) / projectTasks.length
@@ -82,11 +87,11 @@ const Projects = () => {
   };
 
   const getProjectTaskCount = (projectId: string) => {
-    return tasks.filter(t => t.projectId === projectId).length;
+    return safeTasks.filter(t => t.projectId === projectId).length;
   };
 
   const getProjectPhaseCount = (projectId: string) => {
-    return phases.filter(p => p.projectId === projectId).length;
+    return safePhases.filter(p => p.projectId === projectId).length;
   };
 
   const handleOpenNew = () => {
