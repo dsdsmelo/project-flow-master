@@ -282,199 +282,325 @@ const ProjectDetail = () => {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6 mt-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard
-            title="Total de Tarefas"
-            value={stats.total}
-            icon={ListTodo}
-            variant="default"
-          />
-          <StatCard
-            title="Pendentes"
-            value={stats.pending}
-            icon={Clock}
-            variant="warning"
-          />
-          <StatCard
-            title="Em Progresso"
-            value={stats.inProgress}
-            icon={TrendingUp}
-            variant="primary"
-          />
-          <StatCard
-            title="Concluídas"
-            value={stats.completed}
-            icon={CheckCircle2}
-            variant="success"
-          />
-          <StatCard
-            title="Progresso Geral"
-            value={`${stats.avgProgress}%`}
-            icon={TrendingUp}
-            variant="primary"
-          />
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Status Distribution */}
-          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Distribuição por Status</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {statusDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Tasks by Person & Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Tasks by Person */}
-          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Tarefas por Responsável</h3>
-            {tasksByPerson.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={tasksByPerson}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
-                      {tasksByPerson.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            {/* Stats Cards - 4 cards iguais */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-card rounded-xl border border-border p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <ListTodo className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total</span>
+                </div>
+                <p className="text-3xl font-bold">{stats.total}</p>
+                <p className="text-sm text-muted-foreground mt-1">tarefas no projeto</p>
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <p>Nenhuma tarefa atribuída</p>
+
+              <div className="bg-card rounded-xl border border-border p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Em Progresso</span>
+                </div>
+                <p className="text-3xl font-bold text-blue-600">{stats.inProgress}</p>
+                <p className="text-sm text-muted-foreground mt-1">sendo executadas</p>
               </div>
-            )}
-          </div>
 
-          {/* Alerts */}
-          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Alertas do Projeto</h3>
-            <div className="space-y-4 max-h-64 overflow-y-auto">
-              {alerts.overdue.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-status-blocked">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="font-medium text-sm">Tarefas Atrasadas ({alerts.overdue.length})</span>
+              <div className="bg-card rounded-xl border border-border p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                   </div>
-                  {alerts.overdue.slice(0, 3).map(task => (
-                    <Link 
-                      key={task.id} 
-                      to={`/tasks?highlight=${task.id}&project=${projectId}`}
-                      className="block p-3 bg-status-blocked/5 border border-status-blocked/20 rounded-lg hover:bg-status-blocked/10 transition-colors"
-                    >
-                      <p className="font-medium text-sm">{task.name}</p>
-                      <p className="text-xs text-muted-foreground">{getPhaseName(task.phaseId)}</p>
-                    </Link>
-                  ))}
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Concluídas</span>
                 </div>
-              )}
+                <p className="text-3xl font-bold text-emerald-600">{stats.completed}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% do total
+                </p>
+              </div>
 
-              {alerts.dueSoon.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-status-pending">
-                    <Calendar className="w-4 h-4" />
-                    <span className="font-medium text-sm">Próximos do Prazo ({alerts.dueSoon.length})</span>
+              <div className="bg-card rounded-xl border border-border p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-amber-500" />
                   </div>
-                  {alerts.dueSoon.slice(0, 3).map(task => (
-                    <Link 
-                      key={task.id} 
-                      to={`/tasks?highlight=${task.id}&project=${projectId}`}
-                      className="block p-3 bg-status-pending/5 border border-status-pending/20 rounded-lg hover:bg-status-pending/10 transition-colors"
-                    >
-                      <p className="font-medium text-sm">{task.name}</p>
-                      <p className="text-xs text-muted-foreground">{getPhaseName(task.phaseId)}</p>
-                    </Link>
-                  ))}
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Progresso</span>
                 </div>
-              )}
-
-              {alerts.unassigned.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    <span className="font-medium text-sm">Sem Responsável ({alerts.unassigned.length})</span>
-                  </div>
-                  {alerts.unassigned.slice(0, 3).map(task => (
-                    <Link 
-                      key={task.id} 
-                      to={`/tasks?highlight=${task.id}&project=${projectId}`}
-                      className="block p-3 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <p className="font-medium text-sm">{task.name}</p>
-                      <p className="text-xs text-muted-foreground">{getPhaseName(task.phaseId)}</p>
-                    </Link>
-                  ))}
-                </div>
-              )}
-
-              {alerts.overdue.length === 0 && alerts.dueSoon.length === 0 && alerts.unassigned.length === 0 && (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <p>Nenhum alerta no momento 🎉</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Phases List */}
-        {projectPhases.length > 0 && (
-          <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Fases do Projeto</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projectPhases.map(phase => {
-                const phaseTasks = projectTasks.filter(t => t.phaseId === phase.id);
-                const progress = phaseTasks.length > 0
-                  ? Math.round(phaseTasks.reduce((acc, t) => acc + calculatePercentage(t), 0) / phaseTasks.length)
-                  : 0;
-                const completed = phaseTasks.filter(t => t.status === 'completed').length;
-
-                return (
+                <p className="text-3xl font-bold text-amber-600">{stats.avgProgress}%</p>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-2">
                   <div 
-                    key={phase.id} 
-                    className="p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                    style={{ borderLeftColor: phase.color, borderLeftWidth: 4 }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{phase.name}</h4>
-                      <span className="text-xs text-muted-foreground">
-                        {completed}/{phaseTasks.length} concluídas
-                      </span>
-                    </div>
-                    <ProgressBar value={progress} size="sm" showLabel />
-                  </div>
-                );
-              })}
+                    className="h-full bg-amber-500 rounded-full transition-all"
+                    style={{ width: `${stats.avgProgress}%` }}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
+            {/* Charts Row - 2 colunas iguais */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Status Distribution - Pie Chart */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <h3 className="text-lg font-semibold mb-4">Distribuição por Status</h3>
+                <div className="h-64">
+                  {stats.total > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statusDistribution.filter(s => s.value > 0)}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={4}
+                          dataKey="value"
+                          label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {statusDistribution.filter(s => s.value > 0).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <ListTodo className="w-10 h-10 mb-2 opacity-50" />
+                      <p className="text-sm">Nenhuma tarefa cadastrada</p>
+                      <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => setTaskModalOpen(true)}>
+                        Criar tarefa
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-4 justify-center">
+                  {statusDistribution.filter(s => s.value > 0).map((item, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tasks by Person - Bar Chart */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <h3 className="text-lg font-semibold mb-4">Tarefas por Responsável</h3>
+                <div className="h-64">
+                  {tasksByPerson.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={tasksByPerson} layout="vertical" margin={{ left: 0, right: 20 }}>
+                        <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis 
+                          type="category" 
+                          dataKey="name" 
+                          tickLine={false} 
+                          axisLine={false} 
+                          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                          width={70}
+                        />
+                        <RechartsTooltip
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Bar dataKey="tasks" radius={[0, 4, 4, 0]}>
+                          {tasksByPerson.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <Users className="w-10 h-10 mb-2 opacity-50" />
+                      <p className="text-sm">Nenhuma tarefa atribuída</p>
+                      <p className="text-xs mt-1">Atribua responsáveis às tarefas</p>
+                    </div>
+                  )}
+                </div>
+                {tasksByPerson.length > 0 && (
+                  <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
+                    <Users className="w-3 h-3" />
+                    <span>{tasksByPerson.length} responsáveis com tarefas</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Row - 3 colunas iguais */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Fases do Projeto */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Fases do Projeto</h3>
+                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setPhaseManagerOpen(true)}>
+                    <Layers className="w-3 h-3 mr-1" />
+                    Gerenciar
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {projectPhases.length > 0 ? (
+                    projectPhases.slice(0, 5).map(phase => {
+                      const phaseTasks = projectTasks.filter(t => t.phaseId === phase.id);
+                      const completedInPhase = phaseTasks.filter(t => t.status === 'completed').length;
+                      const phaseProgress = phaseTasks.length > 0 
+                        ? Math.round((completedInPhase / phaseTasks.length) * 100) 
+                        : 0;
+                      return (
+                        <div key={phase.id} className="p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-sm truncate flex-1 mr-2">{phase.name}</p>
+                            <span className="text-xs font-semibold text-primary">{phaseProgress}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full transition-all"
+                              style={{ width: `${phaseProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1.5">{completedInPhase}/{phaseTasks.length} tarefas</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                      <Layers className="w-8 h-8 mb-2 opacity-50" />
+                      <p className="text-sm">Nenhuma fase criada</p>
+                      <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => setPhaseModalOpen(true)}>
+                        Criar fase
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Alertas */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <h3 className="text-lg font-semibold mb-4">Alertas</h3>
+                <div className="space-y-3">
+                  {alerts.overdue.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-red-500">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="font-medium text-xs">Atrasadas ({alerts.overdue.length})</span>
+                      </div>
+                      {alerts.overdue.slice(0, 2).map(task => (
+                        <div 
+                          key={task.id} 
+                          className="p-2.5 bg-red-500/5 border border-red-500/20 rounded-lg"
+                        >
+                          <p className="font-medium text-sm truncate">{task.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{getPhaseName(task.phaseId)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {alerts.dueSoon.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-amber-500">
+                        <Calendar className="w-4 h-4" />
+                        <span className="font-medium text-xs">Próximas ({alerts.dueSoon.length})</span>
+                      </div>
+                      {alerts.dueSoon.slice(0, 2).map(task => (
+                        <div 
+                          key={task.id} 
+                          className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg"
+                        >
+                          <p className="font-medium text-sm truncate">{task.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{getPhaseName(task.phaseId)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {alerts.unassigned.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="w-4 h-4" />
+                        <span className="font-medium text-xs">Sem Responsável ({alerts.unassigned.length})</span>
+                      </div>
+                      {alerts.unassigned.slice(0, 2).map(task => (
+                        <div 
+                          key={task.id} 
+                          className="p-2.5 bg-muted/50 border border-border rounded-lg"
+                        >
+                          <p className="font-medium text-sm truncate">{task.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{getPhaseName(task.phaseId)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {alerts.overdue.length === 0 && alerts.dueSoon.length === 0 && alerts.unassigned.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                      <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-500" />
+                      <p className="text-sm font-medium">Tudo em dia!</p>
+                      <p className="text-xs">Nenhum alerta no momento</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Marcos do Projeto */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Marcos</h3>
+                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setEditingMilestone(undefined); setMilestoneModalOpen(true); }}>
+                    <Plus className="w-3 h-3 mr-1" />
+                    Novo
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {projectMilestones.length > 0 ? (
+                    projectMilestones.slice(0, 5).map(milestone => (
+                      <div 
+                        key={milestone.id} 
+                        className={cn(
+                          "p-3 rounded-lg border cursor-pointer hover:bg-muted/30 transition-colors",
+                          milestone.completed 
+                            ? "bg-emerald-500/5 border-emerald-500/20" 
+                            : "bg-muted/20 border-border"
+                        )}
+                        onClick={() => { setEditingMilestone(milestone); setMilestoneModalOpen(true); }}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          {milestone.completed ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/50 flex-shrink-0" />
+                          )}
+                          <p className={cn(
+                            "font-medium text-sm truncate",
+                            milestone.completed && "line-through text-muted-foreground"
+                          )}>{milestone.name}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground ml-6">
+                          {new Date(milestone.date).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                      <Calendar className="w-8 h-8 mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum marco criado</p>
+                      <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => { setEditingMilestone(undefined); setMilestoneModalOpen(true); }}>
+                        Criar marco
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Tasks Tab */}
