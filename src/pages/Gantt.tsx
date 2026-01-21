@@ -230,7 +230,7 @@ const Gantt = () => {
                       return (
                         <div key={task.id} className="flex border-b border-border/50 hover:bg-muted/20">
                           <div className="w-64 flex-shrink-0 p-3 text-sm flex items-center gap-2">
-                            {person && <AvatarCircle name={person.name} color={person.color} size="sm" />}
+                            {person && <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />}
                             <span className={cn("truncate", overdue && "text-status-blocked")}>
                               {task.name}
                             </span>

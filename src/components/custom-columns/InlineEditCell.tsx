@@ -165,7 +165,7 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
             {activePeople.map(person => (
               <SelectItem key={person.id} value={person.id}>
                 <div className="flex items-center gap-2">
-                  <AvatarCircle name={person.name} color={person.color} size="xs" />
+                  <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
                   {person.name}
                 </div>
               </SelectItem>
@@ -273,7 +273,7 @@ const PercentageEditCell = ({ value, onSave }: PercentageEditCellProps) => {
 interface DisplayValueProps {
   column: CustomColumn;
   value: string | number | undefined;
-  people: { id: string; name: string; color: string }[];
+  people: { id: string; name: string; color: string; avatarUrl?: string }[];
 }
 
 const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
@@ -306,7 +306,7 @@ const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
       if (!person) return <span className="text-muted-foreground text-sm">-</span>;
       return (
         <div className="flex items-center gap-2">
-          <AvatarCircle name={person.name} color={person.color} size="sm" />
+          <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
           <span className="text-sm">{person.name}</span>
         </div>
       );
