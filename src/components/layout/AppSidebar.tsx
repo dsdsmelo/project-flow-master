@@ -81,11 +81,6 @@ export const AppSidebar = () => {
 
         {/* Settings Navigation */}
         <div className="space-y-1">
-          {!collapsed && (
-            <span className="px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-              Cadastros
-            </span>
-          )}
           {settingsNavItems.map((item) => (
             <NavLink
               key={item.path}
