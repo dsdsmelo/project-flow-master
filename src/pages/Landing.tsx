@@ -105,22 +105,16 @@ const Landing = () => {
   }, []);
 
   const handleSubscribe = async () => {
-    // Se não estiver autenticado, redireciona para login
-    if (!isAuthenticated) {
-      navigate('/login?redirect=checkout');
-      return;
-    }
-
     // Se já tem assinatura ativa, vai para dashboard
-    if (hasActiveSubscription) {
+    if (isAuthenticated && hasActiveSubscription) {
       navigate('/dashboard');
       return;
     }
 
-    // Cria checkout session via edge function
+    // Cria checkout session via edge function (guest checkout - não requer autenticação)
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout');
+      const { data, error } = await supabase.functions.invoke('create-guest-checkout');
 
       if (error) throw error;
 

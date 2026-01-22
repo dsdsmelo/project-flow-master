@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
-import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,40 +24,24 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  const redirectTo = searchParams.get('redirect');
+  const subscriptionSuccess = searchParams.get('subscription') === 'success';
 
-  // Handle redirect after authentication
+  // Show success message if coming from successful payment
   useEffect(() => {
-    const handlePostLoginRedirect = async () => {
-      if (!isAuthenticated || !subscriptionChecked) return;
+    if (subscriptionSuccess) {
+      toast({
+        title: 'Pagamento confirmado!',
+        description: 'Sua conta foi criada. Verifique seu email para definir sua senha e acessar.',
+      });
+    }
+  }, [subscriptionSuccess, toast]);
 
-      // If user needs to go to checkout
-      if (redirectTo === 'checkout' && !hasActiveSubscription) {
-        try {
-          const { data, error } = await supabase.functions.invoke('create-checkout');
-          if (error) throw error;
-          if (data?.url) {
-            window.location.href = data.url;
-            return;
-          }
-        } catch (error) {
-          console.error('Erro ao criar checkout:', error);
-          toast({
-            title: 'Erro',
-            description: 'Não foi possível iniciar o checkout. Tente novamente.',
-            variant: 'destructive',
-          });
-        }
-      }
-
-      // If has active subscription, go to dashboard
-      if (hasActiveSubscription) {
-        navigate('/dashboard', { replace: true });
-      }
-    };
-
-    handlePostLoginRedirect();
-  }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate, redirectTo, toast]);
+  // Redirect authenticated users with active subscription to dashboard
+  useEffect(() => {
+    if (isAuthenticated && subscriptionChecked && hasActiveSubscription) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +79,7 @@ const Login = () => {
       } else {
         toast({
           title: 'Bem-vindo!',
-          description: redirectTo === 'checkout' ? 'Redirecionando para o checkout...' : 'Login realizado com sucesso.',
+          description: 'Login realizado com sucesso.',
         });
         // Navigation handled by useEffect
       }
@@ -160,10 +143,29 @@ const Login = () => {
             </Link>
           </div>
 
+          {subscriptionSuccess && (
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-green-800 dark:text-green-200">Pagamento confirmado!</h3>
+                  <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                    Sua conta foi criada com sucesso. Verifique seu email para definir sua senha e fazer o primeiro acesso.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-foreground">Bem-vindo de volta</h2>
+            <h2 className="text-3xl font-bold text-foreground">
+              {subscriptionSuccess ? 'Acesse sua conta' : 'Bem-vindo de volta'}
+            </h2>
             <p className="text-muted-foreground mt-2">
-              Entre com suas credenciais para continuar
+              {subscriptionSuccess
+                ? 'Use o link enviado por email para definir sua senha'
+                : 'Entre com suas credenciais para continuar'
+              }
             </p>
           </div>
 

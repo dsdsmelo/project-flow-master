@@ -7,6 +7,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
+};
+
+// Generate a secure random password
+const generateSecurePassword = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+  let password = '';
+  for (let i = 0; i < 16; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -43,7 +58,7 @@ serve(async (req) => {
       return new Response(`Webhook Error: ${message}`, { status: 400 });
     }
 
-    console.log("Received webhook event:", event.type);
+    logStep("Received webhook event", { type: event.type });
 
     // Create Supabase admin client
     const supabaseAdmin = createClient(
@@ -55,36 +70,129 @@ serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log("Checkout completed:", session.id);
+        logStep("Checkout completed", { sessionId: session.id });
 
         if (session.subscription && session.customer) {
-          // Get subscription details
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-          
-          const userId = session.metadata?.supabase_user_id;
+          const customerEmail = session.customer_details?.email;
+          const customerName = session.customer_details?.name;
+
+          // Check if this is a guest checkout (no supabase_user_id in metadata)
+          let userId = session.metadata?.supabase_user_id;
+
+          if (!userId && customerEmail) {
+            logStep("Guest checkout detected, creating user", { email: customerEmail });
+
+            // Check if user already exists
+            const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+            const existingUser = existingUsers?.users?.find(u => u.email === customerEmail);
+
+            if (existingUser) {
+              userId = existingUser.id;
+              logStep("User already exists", { userId });
+            } else {
+              // Create new user in Supabase Auth
+              const tempPassword = generateSecurePassword();
+              const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                email: customerEmail,
+                password: tempPassword,
+                email_confirm: true,
+                user_metadata: {
+                  full_name: customerName || '',
+                  stripe_customer_id: session.customer as string,
+                },
+              });
+
+              if (createError) {
+                logStep("Error creating user", { error: createError.message });
+                throw createError;
+              }
+
+              userId = newUser.user.id;
+              logStep("User created", { userId, email: customerEmail });
+
+              // Create profile for the user
+              const { error: profileError } = await supabaseAdmin
+                .from("profiles")
+                .insert({
+                  id: userId,
+                  full_name: customerName || '',
+                  email: customerEmail,
+                });
+
+              if (profileError) {
+                logStep("Error creating profile (may already exist)", { error: profileError.message });
+              }
+
+              // Send password reset email so user can set their own password
+              const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+                type: "recovery",
+                email: customerEmail,
+                options: {
+                  redirectTo: "https://tarefaa.com.br/reset-password",
+                },
+              });
+
+              if (resetError) {
+                logStep("Error sending reset email", { error: resetError.message });
+              } else {
+                logStep("Password reset email sent", { email: customerEmail });
+              }
+            }
+          }
+
           if (!userId) {
-            console.error("No supabase_user_id in session metadata");
+            logStep("ERROR: No user ID available");
             break;
           }
 
-          // Update subscription in database
-          const { error } = await supabaseAdmin
+          // Check if subscription record exists
+          const { data: existingSub } = await supabaseAdmin
             .from("subscriptions")
-            .update({
-              stripe_customer_id: session.customer as string,
-              stripe_subscription_id: subscription.id,
-              stripe_price_id: subscription.items.data[0]?.price.id,
-              status: subscription.status,
-              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-              cancel_at_period_end: subscription.cancel_at_period_end,
-            })
-            .eq("user_id", userId);
+            .select("id")
+            .eq("user_id", userId)
+            .single();
 
-          if (error) {
-            console.error("Error updating subscription:", error);
+          if (existingSub) {
+            // Update existing subscription
+            const { error } = await supabaseAdmin
+              .from("subscriptions")
+              .update({
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: subscription.id,
+                stripe_price_id: subscription.items.data[0]?.price.id,
+                status: subscription.status,
+                current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                cancel_at_period_end: subscription.cancel_at_period_end,
+              })
+              .eq("user_id", userId);
+
+            if (error) {
+              logStep("Error updating subscription", { error: error.message });
+            } else {
+              logStep("Subscription updated", { userId });
+            }
           } else {
-            console.log("Subscription updated for user:", userId);
+            // Create new subscription record
+            const { error } = await supabaseAdmin
+              .from("subscriptions")
+              .insert({
+                user_id: userId,
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: subscription.id,
+                stripe_price_id: subscription.items.data[0]?.price.id,
+                status: subscription.status,
+                current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                cancel_at_period_end: subscription.cancel_at_period_end,
+              });
+
+            if (error) {
+              logStep("Error creating subscription", { error: error.message });
+            } else {
+              logStep("Subscription created", { userId });
+            }
           }
         }
         break;
@@ -93,7 +201,7 @@ serve(async (req) => {
       case "customer.subscription.updated":
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        console.log("Subscription updated:", subscription.id);
+        logStep("Subscription event", { type: event.type, subscriptionId: subscription.id });
 
         // Find user by stripe_customer_id
         const { data: subData } = await supabaseAdmin
@@ -116,17 +224,19 @@ serve(async (req) => {
             .eq("user_id", subData.user_id);
 
           if (error) {
-            console.error("Error updating subscription:", error);
+            logStep("Error updating subscription", { error: error.message });
           } else {
-            console.log("Subscription updated for user:", subData.user_id);
+            logStep("Subscription updated", { userId: subData.user_id });
           }
+        } else {
+          logStep("No subscription found for customer", { customerId: subscription.customer });
         }
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        console.log("Subscription cancelled:", subscription.id);
+        logStep("Subscription deleted", { subscriptionId: subscription.id });
 
         const { error } = await supabaseAdmin
           .from("subscriptions")
@@ -137,14 +247,14 @@ serve(async (req) => {
           .eq("stripe_subscription_id", subscription.id);
 
         if (error) {
-          console.error("Error updating subscription:", error);
+          logStep("Error updating subscription", { error: error.message });
         }
         break;
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log("Payment failed for invoice:", invoice.id);
+        logStep("Payment failed", { invoiceId: invoice.id });
 
         if (invoice.subscription) {
           const { error } = await supabaseAdmin
@@ -153,14 +263,14 @@ serve(async (req) => {
             .eq("stripe_subscription_id", invoice.subscription as string);
 
           if (error) {
-            console.error("Error updating subscription:", error);
+            logStep("Error updating subscription", { error: error.message });
           }
         }
         break;
       }
 
       default:
-        console.log("Unhandled event type:", event.type);
+        logStep("Unhandled event type", { type: event.type });
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -168,8 +278,8 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error: unknown) {
-    console.error("Webhook error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
+    logStep("ERROR", { message });
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
