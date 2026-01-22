@@ -147,6 +147,69 @@ serve(async (req) => {
         break;
       }
 
+      case "activateSubscription": {
+        // Calculate period dates (30 days from now)
+        const now = new Date();
+        const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        // Check if subscription exists
+        const { data: existingSub } = await supabaseAdmin
+          .from("subscriptions")
+          .select("id")
+          .eq("user_id", userId)
+          .single();
+
+        if (existingSub) {
+          // Update existing subscription
+          const { error } = await supabaseAdmin
+            .from("subscriptions")
+            .update({
+              status: "active",
+              current_period_start: now.toISOString(),
+              current_period_end: periodEnd.toISOString(),
+              updated_at: now.toISOString(),
+            })
+            .eq("user_id", userId);
+
+          if (error) throw error;
+        } else {
+          // Create new subscription
+          const { error } = await supabaseAdmin
+            .from("subscriptions")
+            .insert({
+              user_id: userId,
+              status: "active",
+              current_period_start: now.toISOString(),
+              current_period_end: periodEnd.toISOString(),
+              created_at: now.toISOString(),
+              updated_at: now.toISOString(),
+            });
+
+          if (error) throw error;
+        }
+
+        result = {
+          success: true,
+          message: `Assinatura ativada com sucesso. Válida até ${periodEnd.toLocaleDateString('pt-BR')}.`
+        };
+        break;
+      }
+
+      case "deactivateSubscription": {
+        const { error } = await supabaseAdmin
+          .from("subscriptions")
+          .update({
+            status: "inactive",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId);
+
+        if (error) throw error;
+
+        result = { success: true, message: "Assinatura desativada com sucesso." };
+        break;
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: "Invalid action" }),

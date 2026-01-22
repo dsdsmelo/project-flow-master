@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
+import {
   Search,
   Crown,
   AlertCircle,
@@ -41,7 +41,9 @@ import {
   Ban,
   CreditCard,
   Mail,
-  ExternalLink
+  ExternalLink,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -80,7 +82,7 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; varia
 export const AdminUsersTab = ({ users, isLoading, onRefresh }: AdminUsersTabProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithSubscription | null>(null);
-  const [actionType, setActionType] = useState<'reset_password' | 'block' | 'cancel_subscription' | null>(null);
+  const [actionType, setActionType] = useState<'reset_password' | 'block' | 'cancel_subscription' | 'activate_subscription' | 'deactivate_subscription' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
@@ -140,6 +142,32 @@ export const AdminUsersTab = ({ users, isLoading, onRefresh }: AdminUsersTabProp
           });
           onRefresh();
           break;
+
+        case 'activate_subscription': {
+          const { data: activateData, error: activateError } = await supabase.functions.invoke('admin-reset-password', {
+            body: { userId: selectedUser.id, action: 'activateSubscription' },
+          });
+          if (activateError) throw activateError;
+          toast({
+            title: 'Assinatura ativada',
+            description: activateData.message || `Assinatura de ${selectedUser.email} foi ativada`,
+          });
+          onRefresh();
+          break;
+        }
+
+        case 'deactivate_subscription': {
+          const { data: deactivateData, error: deactivateError } = await supabase.functions.invoke('admin-reset-password', {
+            body: { userId: selectedUser.id, action: 'deactivateSubscription' },
+          });
+          if (deactivateError) throw deactivateError;
+          toast({
+            title: 'Assinatura desativada',
+            description: deactivateData.message || `Assinatura de ${selectedUser.email} foi desativada`,
+          });
+          onRefresh();
+          break;
+        }
       }
     } catch (error: any) {
       console.error('Action error:', error);
@@ -283,6 +311,24 @@ export const AdminUsersTab = ({ users, isLoading, onRefresh }: AdminUsersTabProp
                                 <Ban className="w-4 h-4 mr-2" />
                                 {user.is_blocked ? 'Desbloquear usuário' : 'Bloquear usuário'}
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {(!user.subscription || user.subscription.status !== 'active') ? (
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedUser(user);
+                                  setActionType('activate_subscription');
+                                }} className="text-green-600">
+                                  <UserCheck className="w-4 h-4 mr-2" />
+                                  Ativar assinatura manual
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedUser(user);
+                                  setActionType('deactivate_subscription');
+                                }} className="text-orange-600">
+                                  <UserX className="w-4 h-4 mr-2" />
+                                  Desativar assinatura
+                                </DropdownMenuItem>
+                              )}
                               {user.subscription?.stripe_customer_id && (
                                 <>
                                   <DropdownMenuSeparator />
@@ -323,14 +369,18 @@ export const AdminUsersTab = ({ users, isLoading, onRefresh }: AdminUsersTabProp
               {actionType === 'reset_password' && 'Enviar link de redefinição de senha?'}
               {actionType === 'block' && (selectedUser?.is_blocked ? 'Desbloquear usuário?' : 'Bloquear usuário?')}
               {actionType === 'cancel_subscription' && 'Cancelar assinatura?'}
+              {actionType === 'activate_subscription' && 'Ativar assinatura manualmente?'}
+              {actionType === 'deactivate_subscription' && 'Desativar assinatura?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {actionType === 'reset_password' && `Um email de redefinição será enviado para ${selectedUser?.email}`}
-              {actionType === 'block' && (selectedUser?.is_blocked 
+              {actionType === 'block' && (selectedUser?.is_blocked
                 ? `O usuário ${selectedUser?.email} poderá acessar o sistema novamente.`
                 : `O usuário ${selectedUser?.email} não poderá mais acessar o sistema.`
               )}
               {actionType === 'cancel_subscription' && `A assinatura de ${selectedUser?.email} será cancelada imediatamente no Stripe.`}
+              {actionType === 'activate_subscription' && `A assinatura de ${selectedUser?.email} será ativada por 30 dias. Esta ação não cria cobrança no Stripe.`}
+              {actionType === 'deactivate_subscription' && `A assinatura de ${selectedUser?.email} será desativada. O usuário perderá acesso ao sistema.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
