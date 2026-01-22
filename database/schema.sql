@@ -196,6 +196,7 @@ CREATE TABLE IF NOT EXISTS public.custom_columns (
   options TEXT[],
   is_milestone BOOLEAN NOT NULL DEFAULT FALSE,
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  hidden BOOLEAN NOT NULL DEFAULT FALSE,
   standard_field TEXT CHECK (standard_field IN ('name', 'description', 'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

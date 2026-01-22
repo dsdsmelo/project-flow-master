@@ -24,7 +24,7 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, FolderKanban, Pencil, Palette } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, FolderKanban, Pencil, Palette, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const projectSchema = z.object({
@@ -62,6 +62,11 @@ export const COVER_GRADIENTS = [
   { id: 'indigo', name: 'Indigo', class: 'from-indigo-500 to-violet-500' },
   { id: 'teal', name: 'Teal', class: 'from-teal-500 to-cyan-500' },
   { id: 'pink', name: 'Rosa', class: 'from-pink-500 to-fuchsia-500' },
+];
+
+// Protected standard fields that cannot be deleted (used in Gantt)
+const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
+  'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
 ];
 
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
@@ -274,6 +279,18 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       console.error('Error deleting custom column:', err);
       toast.error('Erro ao remover coluna');
     }
+  };
+
+  const handleToggleColumnVisibility = async (column: CustomColumn) => {
+    try {
+      await updateCustomColumn(column.id, { hidden: !column.hidden });
+    } catch (err) {
+      console.error('Error toggling column visibility:', err);
+    }
+  };
+
+  const isProtectedColumn = (column: CustomColumn | typeof pendingColumns[0]) => {
+    return 'standardField' in column && column.standardField && PROTECTED_FIELDS.includes(column.standardField);
   };
 
   // Drag and Drop handlers
@@ -538,15 +555,28 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
           >
             <Edit className="w-4 h-4" />
           </Button>
-          <Button 
-            type="button"
-            variant="ghost" 
-            size="sm" 
-            className="text-destructive hover:text-destructive flex-shrink-0"
-            onClick={() => handleDeleteColumn(column.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {isProtectedColumn(column) ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn("flex-shrink-0", (column as CustomColumn).hidden ? "text-muted-foreground" : "text-foreground")}
+              onClick={() => handleToggleColumnVisibility(column as CustomColumn)}
+              title={(column as CustomColumn).hidden ? "Mostrar na tabela de tarefas" : "Ocultar da tabela de tarefas"}
+            >
+              {(column as CustomColumn).hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive flex-shrink-0"
+              onClick={() => handleDeleteColumn(column.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ))}
     </div>

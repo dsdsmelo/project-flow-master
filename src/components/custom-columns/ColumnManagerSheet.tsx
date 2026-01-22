@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, GripVertical, X, Settings2, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, X, Settings2, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +55,11 @@ const standardFieldLabels: Record<string, string> = {
   endDate: 'Data de Fim',
   progress: 'Progresso',
 };
+
+// Protected standard fields that cannot be deleted (used in Gantt)
+const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
+  'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
+];
 
 // Default columns that are created for every new project
 const DEFAULT_COLUMNS: Array<{
@@ -174,6 +179,18 @@ export const ColumnManagerSheet = ({
     } catch (err) {
       console.error('Error deleting custom column:', err);
     }
+  };
+
+  const handleToggleVisibility = async (column: CustomColumn) => {
+    try {
+      await updateCustomColumn(column.id, { hidden: !column.hidden });
+    } catch (err) {
+      console.error('Error toggling column visibility:', err);
+    }
+  };
+
+  const isProtectedColumn = (column: CustomColumn) => {
+    return column.standardField && PROTECTED_FIELDS.includes(column.standardField);
   };
 
   // Restore default columns for existing projects
@@ -426,14 +443,26 @@ export const ColumnManagerSheet = ({
                         <Edit className="w-4 h-4" />
                       </Button>
                     )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-destructive hover:text-destructive flex-shrink-0"
-                      onClick={() => handleDelete(column.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {isProtectedColumn(column) ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn("flex-shrink-0", column.hidden ? "text-muted-foreground" : "text-foreground")}
+                        onClick={() => handleToggleVisibility(column)}
+                        title={column.hidden ? "Mostrar na tabela de tarefas" : "Ocultar da tabela de tarefas"}
+                      >
+                        {column.hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive flex-shrink-0"
+                        onClick={() => handleDelete(column.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

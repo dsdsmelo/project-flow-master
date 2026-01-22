@@ -108,7 +108,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   // Get all columns for this project (unified - no distinction)
   const projectColumns = useMemo(() => {
     return customColumns
-      .filter(col => col.projectId === projectId && col.active)
+      .filter(col => col.projectId === projectId && col.active && !col.hidden)
       .sort((a, b) => a.order - b.order);
   }, [customColumns, projectId]);
 
