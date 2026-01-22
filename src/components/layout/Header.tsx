@@ -1,4 +1,4 @@
-import { Search, Bell, User, Settings, LogOut } from 'lucide-react';
+import { Search, User, Settings, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,14 +40,6 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
             className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1"
           />
         </div>
-
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-            3
-          </span>
-        </Button>
 
         {/* User Menu */}
         <DropdownMenu>

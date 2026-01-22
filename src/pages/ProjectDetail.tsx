@@ -226,7 +226,7 @@ const ProjectDetail = () => {
         subtitle={project.description || 'Dashboard do projeto'}
       />
       
-      <div className="p-6 space-y-6">
+      <div className="px-6 pt-3 pb-6 space-y-4">
         {/* Back button and project info */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={() => navigate('/projects')}>
@@ -290,7 +290,7 @@ const ProjectDetail = () => {
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-6 mt-6">
+          <TabsContent value="dashboard" className="space-y-5 mt-4">
             {/* Stats Cards - 4 cards iguais */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-card rounded-xl border border-border p-5 shadow-soft">
@@ -613,12 +613,12 @@ const ProjectDetail = () => {
           </TabsContent>
 
           {/* Tasks Tab */}
-          <TabsContent value="tasks" className="mt-6">
+          <TabsContent value="tasks" className="mt-4">
             <ProjectTasksTable projectId={projectId || ''} />
           </TabsContent>
 
           {/* Gantt Tab */}
-          <TabsContent value="gantt" className="mt-6">
+          <TabsContent value="gantt" className="mt-4">
             <ProjectGanttChart
               tasks={projectTasks}
               people={people}
@@ -671,7 +671,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           {/* Meetings Tab */}
-          <TabsContent value="meetings" className="mt-6">
+          <TabsContent value="meetings" className="mt-4">
             <MeetingNotesTab projectId={projectId || ''} />
           </TabsContent>
         </Tabs>
