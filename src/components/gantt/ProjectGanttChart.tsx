@@ -72,12 +72,20 @@ export const ProjectGanttChart = ({
   const projectPhases = useMemo(() => phases.filter(p => p.projectId === projectId), [phases, projectId]);
   const projectMilestones = useMemo(() => milestones.filter(m => m.projectId === projectId), [milestones, projectId]);
 
-  // Helper para obter data atual em São Paulo
+  // Helper para obter data atual em São Paulo (normalizada ao meio-dia UTC para alinhar com datas do banco)
   const getTodaySaoPaulo = () => {
     const now = new Date();
-    const saoPauloTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-    saoPauloTime.setHours(12, 0, 0, 0);
-    return saoPauloTime;
+    // Obter a data no timezone de São Paulo
+    const spFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const dateStr = spFormatter.format(now); // "YYYY-MM-DD"
+    // Criar a data como UTC meio-dia para alinhar com as datas do banco (que são "YYYY-MM-DD" parseadas como UTC)
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
   };
 
   const dateRange = useMemo(() => {
