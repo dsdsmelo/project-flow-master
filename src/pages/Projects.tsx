@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
-  LayoutGrid, 
+import {
+  Plus,
+  Search,
+  LayoutGrid,
   List,
   Calendar,
   MoreVertical,
-  Edit,
+  Pencil,
   Trash2,
   Eye
 } from 'lucide-react';
@@ -209,7 +209,7 @@ const Projects = () => {
 
         {/* Projects Grid/Table */}
         {view === 'cards' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProjects.map(project => {
               const progress = getProjectProgress(project.id);
               const taskCount = getProjectTaskCount(project.id);
@@ -220,14 +220,13 @@ const Projects = () => {
               const hasCover = project.coverUrl || coverGradient;
 
               return (
-                <Link
+                <div
                   key={project.id}
-                  to={`/projects/${project.id}`}
-                  className="bg-card rounded-xl border border-border shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in block overflow-hidden group"
+                  className="bg-card rounded-lg border border-border hover:border-primary/30 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in overflow-hidden group relative"
                 >
-                  {/* Cover Section */}
-                  {hasCover ? (
-                    <div className="relative h-32 overflow-hidden">
+                  {/* Cover Section - compact */}
+                  {hasCover && (
+                    <Link to={`/projects/${project.id}`} className="block relative h-24 overflow-hidden">
                       {project.coverUrl ? (
                         <img
                           src={project.coverUrl}
@@ -237,59 +236,32 @@ const Projects = () => {
                       ) : coverGradient ? (
                         <div className={cn("w-full h-full bg-gradient-to-br group-hover:scale-105 transition-transform duration-300", coverGradient.class)} />
                       ) : null}
-                      {/* Status badge overlay */}
-                      <div className="absolute top-3 left-3">
-                        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-sm">
-                          <div className={cn('w-2 h-2 rounded-full', statusColors[project.status])} />
-                          <span className="text-xs font-medium text-white uppercase">
-                            {projectStatusLabels[project.status]}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Actions overlay */}
-                      <div className="absolute top-3 right-3">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="secondary" size="sm" className="h-8 w-8 p-0 bg-black/30 backdrop-blur-sm border-0 text-white hover:bg-black/50">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
-                            <DropdownMenuItem asChild>
-                              <Link to={`/projects/${project.id}`}>
-                                <Eye className="w-4 h-4 mr-2" />
-                                Ver Detalhes
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ) : null}
+                    </Link>
+                  )}
 
                   {/* Content Section */}
-                  <div className="p-6">
-                    {/* Status bar for cards without cover */}
-                    {!hasCover && (
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className={cn('w-3 h-3 rounded-full', statusColors[project.status])} />
-                          <span className="text-xs font-medium text-muted-foreground uppercase">
-                            {projectStatusLabels[project.status]}
-                          </span>
-                        </div>
+                  <div className="p-4">
+                    {/* Header: Status + Actions */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn('w-2 h-2 rounded-full', statusColors[project.status])} />
+                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                          {projectStatusLabels[project.status]}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => { e.preventDefault(); handleEdit(project); }}
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-muted-foreground hover:text-primary" />
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreVertical className="w-3.5 h-3.5 text-muted-foreground" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
@@ -300,7 +272,7 @@ const Projects = () => {
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
-                              <Edit className="w-4 h-4 mr-2" />
+                              <Pencil className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
@@ -310,41 +282,42 @@ const Projects = () => {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                    )}
+                    </div>
 
-                    <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
-                    {project.description && (
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
+                    {/* Project name */}
+                    <Link to={`/projects/${project.id}`} className="block">
+                      <h3 className="text-sm font-semibold truncate hover:text-primary transition-colors">
+                        {project.name}
+                      </h3>
+                    </Link>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{phaseCount} fases</span>
-                        <span>•</span>
-                        <span>{taskCount} tarefas</span>
-                      </div>
-
+                    {/* Meta info inline */}
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                      <span>{phaseCount} fases</span>
+                      <span className="text-border">•</span>
+                      <span>{taskCount} tarefas</span>
                       {project.startDate && project.endDate && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          <span>
-                            {new Date(project.startDate).toLocaleDateString('pt-BR')} - {new Date(project.endDate).toLocaleDateString('pt-BR')}
+                        <>
+                          <span className="text-border">•</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(project.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                           </span>
-                        </div>
+                        </>
                       )}
+                    </div>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Progresso</span>
-                          <span className="font-medium">{progress}%</span>
-                        </div>
-                        <ProgressBar value={progress} size="md" />
+                    {/* Progress bar inline */}
+                    <div className="flex items-center gap-2 mt-3">
+                      <div className="flex-1">
+                        <ProgressBar value={progress} size="sm" />
                       </div>
+                      <span className="text-xs font-medium text-muted-foreground min-w-[32px] text-right">
+                        {progress}%
+                      </span>
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
@@ -414,7 +387,7 @@ const Projects = () => {
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEdit(project)}>
-                              <Edit className="w-4 h-4 mr-2" />
+                              <Pencil className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(project.id)}>
