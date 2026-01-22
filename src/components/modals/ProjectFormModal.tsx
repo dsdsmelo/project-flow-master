@@ -382,9 +382,16 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
     setIsUploadingCover(true);
     try {
+      // Get current user ID for storage path (required by bucket policy)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `project-cover-${Date.now()}.${fileExt}`;
-      const filePath = `project-covers/${fileName}`;
+      const filePath = `${session.user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -502,8 +509,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: data.status,
-        coverUrl: coverUrl || undefined,
-        coverColor: coverColor || undefined,
+        coverUrl: coverUrl || null,
+        coverColor: coverColor || null,
       });
       toast.success('Projeto atualizado com sucesso!');
       onOpenChange(false);

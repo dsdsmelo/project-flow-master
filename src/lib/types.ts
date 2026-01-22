@@ -17,8 +17,8 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   status: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
-  coverUrl?: string;
-  coverColor?: string; // Gradient color like 'blue', 'purple', 'green', etc.
+  coverUrl?: string | null;
+  coverColor?: string | null;
 }
 
 export interface Phase {
