@@ -221,7 +221,8 @@ const Projects = () => {
               return (
                 <div
                   key={project.id}
-                  className="bg-card rounded-lg border border-border hover:border-primary/30 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in overflow-hidden group relative"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  className="bg-card rounded-lg border border-border hover:border-primary/40 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in overflow-hidden group relative cursor-pointer"
                 >
                   {/* Color strip */}
                   {coverGradient && (
@@ -238,12 +239,12 @@ const Projects = () => {
                           {projectStatusLabels[project.status]}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => { e.preventDefault(); handleEdit(project); }}
+                          onClick={() => handleEdit(project)}
                         >
                           <Pencil className="w-3.5 h-3.5 text-muted-foreground hover:text-primary" />
                         </Button>
@@ -253,18 +254,16 @@ const Projects = () => {
                               <MoreVertical className="w-3.5 h-3.5 text-muted-foreground" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.preventDefault()}>
-                            <DropdownMenuItem asChild>
-                              <Link to={`/projects/${project.id}`}>
-                                <Eye className="w-4 h-4 mr-2" />
-                                Ver Detalhes
-                              </Link>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Detalhes
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleEdit(project); }}>
+                            <DropdownMenuItem onClick={() => handleEdit(project)}>
                               <Pencil className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); handleDeleteClick(project.id); }}>
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(project.id)}>
                               <Trash2 className="w-4 h-4 mr-2" />
                               Excluir
                             </DropdownMenuItem>
@@ -274,11 +273,9 @@ const Projects = () => {
                     </div>
 
                     {/* Project name */}
-                    <Link to={`/projects/${project.id}`} className="block">
-                      <h3 className="text-sm font-semibold truncate hover:text-primary transition-colors">
-                        {project.name}
-                      </h3>
-                    </Link>
+                    <h3 className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                      {project.name}
+                    </h3>
 
                     {/* Meta info inline */}
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
