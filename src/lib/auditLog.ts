@@ -30,32 +30,6 @@ export type AuditLogAction =
   // Profile
   | 'profile_updated'
   | 'avatar_updated'
-  // Projects
-  | 'project_created'
-  | 'project_updated'
-  | 'project_deleted'
-  | 'project_archived'
-  // Tasks
-  | 'task_created'
-  | 'task_updated'
-  | 'task_deleted'
-  | 'task_completed'
-  | 'task_status_changed'
-  // Phases
-  | 'phase_created'
-  | 'phase_updated'
-  | 'phase_deleted'
-  // People
-  | 'person_created'
-  | 'person_updated'
-  | 'person_deleted'
-  | 'person_deactivated'
-  | 'person_activated'
-  // Milestones
-  | 'milestone_created'
-  | 'milestone_updated'
-  | 'milestone_deleted'
-  | 'milestone_completed'
   // Admin
   | 'admin_action'
   | 'admin_login'
@@ -68,16 +42,9 @@ export type AuditLogAction =
   | 'data_imported';
 
 export type EntityType =
-  | 'project'
-  | 'task'
-  | 'phase'
-  | 'person'
-  | 'milestone'
   | 'subscription'
   | 'profile'
-  | 'user'
-  | 'custom_column'
-  | 'meeting_note';
+  | 'user';
 
 interface AuditLogEntry {
   user_id?: string;
@@ -167,165 +134,6 @@ export const auditLog = {
 
   signupFailed: (email: string, reason?: string) =>
     logAuditEvent({ action: 'signup_failed', user_email: email, level: 'warning', details: reason || 'Falha no cadastro' }),
-
-  // Project events
-  projectCreated: (projectId: string, projectName: string) =>
-    logAuditEvent({
-      action: 'project_created',
-      entity_type: 'project',
-      entity_id: projectId,
-      entity_name: projectName,
-      level: 'success',
-      details: `Projeto "${projectName}" criado`
-    }),
-
-  projectUpdated: (projectId: string, projectName: string, changes?: Record<string, unknown>) =>
-    logAuditEvent({
-      action: 'project_updated',
-      entity_type: 'project',
-      entity_id: projectId,
-      entity_name: projectName,
-      level: 'info',
-      details: `Projeto "${projectName}" atualizado`,
-      metadata: changes
-    }),
-
-  projectDeleted: (projectId: string, projectName: string) =>
-    logAuditEvent({
-      action: 'project_deleted',
-      entity_type: 'project',
-      entity_id: projectId,
-      entity_name: projectName,
-      level: 'warning',
-      details: `Projeto "${projectName}" excluído`
-    }),
-
-  // Task events
-  taskCreated: (taskId: string, taskName: string, projectName?: string) =>
-    logAuditEvent({
-      action: 'task_created',
-      entity_type: 'task',
-      entity_id: taskId,
-      entity_name: taskName,
-      level: 'success',
-      details: projectName ? `Tarefa "${taskName}" criada no projeto "${projectName}"` : `Tarefa "${taskName}" criada`
-    }),
-
-  taskUpdated: (taskId: string, taskName: string, changes?: Record<string, unknown>) =>
-    logAuditEvent({
-      action: 'task_updated',
-      entity_type: 'task',
-      entity_id: taskId,
-      entity_name: taskName,
-      level: 'info',
-      details: `Tarefa "${taskName}" atualizada`,
-      metadata: changes
-    }),
-
-  taskDeleted: (taskId: string, taskName: string) =>
-    logAuditEvent({
-      action: 'task_deleted',
-      entity_type: 'task',
-      entity_id: taskId,
-      entity_name: taskName,
-      level: 'warning',
-      details: `Tarefa "${taskName}" excluída`
-    }),
-
-  taskCompleted: (taskId: string, taskName: string) =>
-    logAuditEvent({
-      action: 'task_completed',
-      entity_type: 'task',
-      entity_id: taskId,
-      entity_name: taskName,
-      level: 'success',
-      details: `Tarefa "${taskName}" concluída`
-    }),
-
-  taskStatusChanged: (taskId: string, taskName: string, oldStatus: string, newStatus: string) =>
-    logAuditEvent({
-      action: 'task_status_changed',
-      entity_type: 'task',
-      entity_id: taskId,
-      entity_name: taskName,
-      level: 'info',
-      details: `Status da tarefa "${taskName}" alterado de "${oldStatus}" para "${newStatus}"`,
-      metadata: { oldStatus, newStatus }
-    }),
-
-  // Person events
-  personCreated: (personId: string, personName: string) =>
-    logAuditEvent({
-      action: 'person_created',
-      entity_type: 'person',
-      entity_id: personId,
-      entity_name: personName,
-      level: 'success',
-      details: `Pessoa "${personName}" criada`
-    }),
-
-  personUpdated: (personId: string, personName: string, changes?: Record<string, unknown>) =>
-    logAuditEvent({
-      action: 'person_updated',
-      entity_type: 'person',
-      entity_id: personId,
-      entity_name: personName,
-      level: 'info',
-      details: `Pessoa "${personName}" atualizada`,
-      metadata: changes
-    }),
-
-  personDeleted: (personId: string, personName: string) =>
-    logAuditEvent({
-      action: 'person_deleted',
-      entity_type: 'person',
-      entity_id: personId,
-      entity_name: personName,
-      level: 'warning',
-      details: `Pessoa "${personName}" excluída`
-    }),
-
-  // Phase events
-  phaseCreated: (phaseId: string, phaseName: string, projectName?: string) =>
-    logAuditEvent({
-      action: 'phase_created',
-      entity_type: 'phase',
-      entity_id: phaseId,
-      entity_name: phaseName,
-      level: 'success',
-      details: projectName ? `Fase "${phaseName}" criada no projeto "${projectName}"` : `Fase "${phaseName}" criada`
-    }),
-
-  phaseDeleted: (phaseId: string, phaseName: string) =>
-    logAuditEvent({
-      action: 'phase_deleted',
-      entity_type: 'phase',
-      entity_id: phaseId,
-      entity_name: phaseName,
-      level: 'warning',
-      details: `Fase "${phaseName}" excluída`
-    }),
-
-  // Milestone events
-  milestoneCreated: (milestoneId: string, milestoneName: string) =>
-    logAuditEvent({
-      action: 'milestone_created',
-      entity_type: 'milestone',
-      entity_id: milestoneId,
-      entity_name: milestoneName,
-      level: 'success',
-      details: `Marco "${milestoneName}" criado`
-    }),
-
-  milestoneCompleted: (milestoneId: string, milestoneName: string) =>
-    logAuditEvent({
-      action: 'milestone_completed',
-      entity_type: 'milestone',
-      entity_id: milestoneId,
-      entity_name: milestoneName,
-      level: 'success',
-      details: `Marco "${milestoneName}" concluído`
-    }),
 
   // Admin events
   adminAction: (action: string, details?: string, targetUserId?: string) =>

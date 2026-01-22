@@ -38,13 +38,7 @@ import {
   RefreshCw,
   Download,
   Calendar,
-  FolderPlus,
-  FileEdit,
-  Trash2,
   UserCheck,
-  Users,
-  Milestone,
-  ListTodo,
   Shield,
   Clock,
   Eye
@@ -95,26 +89,6 @@ const actionIcons: Record<string, React.ReactNode> = {
   // Profile
   profile_updated: <Settings className="w-4 h-4" />,
   avatar_updated: <UserCheck className="w-4 h-4" />,
-  // Projects
-  project_created: <FolderPlus className="w-4 h-4" />,
-  project_updated: <FileEdit className="w-4 h-4" />,
-  project_deleted: <Trash2 className="w-4 h-4" />,
-  // Tasks
-  task_created: <ListTodo className="w-4 h-4" />,
-  task_updated: <FileEdit className="w-4 h-4" />,
-  task_deleted: <Trash2 className="w-4 h-4" />,
-  task_completed: <CheckCircle className="w-4 h-4" />,
-  task_status_changed: <Activity className="w-4 h-4" />,
-  // People
-  person_created: <Users className="w-4 h-4" />,
-  person_updated: <FileEdit className="w-4 h-4" />,
-  person_deleted: <Trash2 className="w-4 h-4" />,
-  // Phases
-  phase_created: <FolderPlus className="w-4 h-4" />,
-  phase_deleted: <Trash2 className="w-4 h-4" />,
-  // Milestones
-  milestone_created: <Milestone className="w-4 h-4" />,
-  milestone_completed: <CheckCircle className="w-4 h-4" />,
   // Admin
   admin_action: <Shield className="w-4 h-4" />,
   admin_login: <Shield className="w-4 h-4" />,
@@ -159,32 +133,6 @@ const actionLabels: Record<string, string> = {
   // Profile
   profile_updated: 'Perfil atualizado',
   avatar_updated: 'Avatar atualizado',
-  // Projects
-  project_created: 'Projeto criado',
-  project_updated: 'Projeto atualizado',
-  project_deleted: 'Projeto excluído',
-  project_archived: 'Projeto arquivado',
-  // Tasks
-  task_created: 'Tarefa criada',
-  task_updated: 'Tarefa atualizada',
-  task_deleted: 'Tarefa excluída',
-  task_completed: 'Tarefa concluída',
-  task_status_changed: 'Status alterado',
-  // People
-  person_created: 'Pessoa criada',
-  person_updated: 'Pessoa atualizada',
-  person_deleted: 'Pessoa excluída',
-  person_deactivated: 'Pessoa desativada',
-  person_activated: 'Pessoa ativada',
-  // Phases
-  phase_created: 'Fase criada',
-  phase_updated: 'Fase atualizada',
-  phase_deleted: 'Fase excluída',
-  // Milestones
-  milestone_created: 'Marco criado',
-  milestone_updated: 'Marco atualizado',
-  milestone_deleted: 'Marco excluído',
-  milestone_completed: 'Marco concluído',
   // Admin
   admin_action: 'Ação admin',
   admin_login: 'Login admin',
@@ -198,19 +146,15 @@ const actionLabels: Record<string, string> = {
 };
 
 const entityTypeLabels: Record<string, string> = {
-  project: 'Projeto',
-  task: 'Tarefa',
-  phase: 'Fase',
-  person: 'Pessoa',
-  milestone: 'Marco',
   subscription: 'Assinatura',
   profile: 'Perfil',
   user: 'Usuário',
-  custom_column: 'Coluna',
-  meeting_note: 'Nota de reunião',
 };
 
 type DateFilter = 'all' | 'today' | 'week' | 'month';
+
+const ITEMS_PER_PAGE = 25;
+const RETENTION_DAYS = 15;
 
 export const AdminLogsTab = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -223,11 +167,32 @@ export const AdminLogsTab = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
+
+  // Cleanup logs older than 15 days
+  const cleanupOldLogs = useCallback(async () => {
+    try {
+      const cutoffDate = subDays(new Date(), RETENTION_DAYS);
+      const { error } = await supabase
+        .from('activity_logs')
+        .delete()
+        .lt('created_at', cutoffDate.toISOString());
+
+      if (error && error.code !== '42P01') {
+        console.warn('Cleanup old logs failed:', error.message);
+      }
+    } catch (err) {
+      console.warn('Cleanup error:', err);
+    }
+  }, []);
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Run cleanup before fetching
+      await cleanupOldLogs();
+
       let query = supabase
         .from('activity_logs')
         .select('*')
@@ -278,7 +243,7 @@ export const AdminLogsTab = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, toast]);
+  }, [dateFilter, toast, cleanupOldLogs]);
 
   // Auto-refresh every 30 seconds if enabled
   useEffect(() => {
@@ -339,7 +304,15 @@ export const AdminLogsTab = () => {
     }
 
     setFilteredLogs(filtered);
+    setCurrentPage(1);
   }, [searchQuery, levelFilter, actionFilter, entityTypeFilter, logs]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
+  const paginatedLogs = filteredLogs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const uniqueActions = [...new Set(logs.map(l => l.action))].sort();
   const uniqueEntityTypes = [...new Set(logs.filter(l => l.entity_type).map(l => l.entity_type!))].sort();
@@ -574,7 +547,7 @@ export const AdminLogsTab = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredLogs.slice(0, 100).map((log) => {
+                  paginatedLogs.map((log) => {
                     const level = levelConfig[log.level] || levelConfig.info;
                     const actionIcon = actionIcons[log.action] || actionIcons.default;
 
@@ -673,10 +646,50 @@ export const AdminLogsTab = () => {
             </Table>
           </div>
 
-          {filteredLogs.length > 100 && (
-            <p className="text-sm text-muted-foreground text-center mt-4">
-              Mostrando 100 de {filteredLogs.length} registros. Use os filtros para refinar a busca.
-            </p>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredLogs.length)} de {filteredLogs.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  {"<<"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  {"<"}
+                </Button>
+                <span className="text-sm px-3 text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  {">"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  {">>"}
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* Log Details Panel */}
