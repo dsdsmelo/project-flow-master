@@ -1002,6 +1002,40 @@ const Landing = () => {
           </div>
         </div>
       </footer>
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="bg-card border border-border rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-6 max-w-sm mx-4"
+          >
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-4 border-muted animate-pulse" />
+              <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-transparent border-t-[hsl(130,70%,45%)] animate-spin" />
+              <CreditCard className="absolute inset-0 m-auto w-6 h-6 text-[hsl(130,70%,45%)]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Preparando checkout seguro
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Você será redirecionado para o pagamento...
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Lock className="w-3 h-3" />
+              <span>Ambiente seguro Stripe</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 };
