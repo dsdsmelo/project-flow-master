@@ -24,8 +24,7 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, FolderKanban, Pencil, Palette } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, FolderKanban, Pencil, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const projectSchema = z.object({
@@ -772,19 +771,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               </div>
             )}
 
-            <div className="flex items-center space-x-2 pt-2 border-t">
-              <Checkbox
-                id="isMilestone"
-                checked={columnFormData.isMilestone}
-                onCheckedChange={(checked) => setColumnFormData(prev => ({ ...prev, isMilestone: !!checked }))}
-              />
-              <div className="grid gap-1.5 leading-none">
-                <label htmlFor="isMilestone" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                  <Flag className="w-4 h-4 text-amber-500" />
-                  Marcar como Marco
-                </label>
-              </div>
-            </div>
           </div>
 
           <div className="flex justify-end gap-2">
