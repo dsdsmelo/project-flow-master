@@ -126,14 +126,14 @@ export const ResponsibleEditCell = ({ responsibleId, people, onSave }: Responsib
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]">
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
           {person ? (
-            <div className="flex items-center gap-2">
-              <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
-              <span className="text-sm">{person.name}</span>
+            <div className="flex items-center gap-1.5">
+              <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
+              <span className="text-xs truncate max-w-[80px]">{person.name}</span>
             </div>
           ) : (
-            <span className="text-sm text-muted-foreground">-</span>
+            <span className="text-xs text-muted-foreground">-</span>
           )}
           <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
@@ -189,7 +189,7 @@ export const PhaseEditCell = ({ phaseId, phases, projectId, onSave }: PhaseEditC
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]">
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
           <span className="text-sm text-muted-foreground">{currentPhase?.name || '-'}</span>
           <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
@@ -293,13 +293,13 @@ export const TextEditCell = ({ value, placeholder, onSave, className, isOverdue 
 
   return (
     <div 
-      className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]"
+      className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]"
       onClick={() => {
         setLocalValue(value);
         setIsEditing(true);
       }}
     >
-      <span className={cn("font-medium", className, isOverdue && "text-status-blocked")}>
+      <span className={cn("text-sm", className, isOverdue && "text-status-blocked")}>
         {value || <span className="text-muted-foreground">{placeholder || '-'}</span>}
       </span>
       <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -335,13 +335,13 @@ export const DateEditCell = ({ value, placeholder, onSave }: DateEditCellProps) 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[28px]">
-          <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
+          <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           <span className={cn(
-            "text-sm",
+            "text-xs",
             !date && "text-muted-foreground"
           )}>
-            {date ? format(date, 'dd/MM/yyyy', { locale: ptBR }) : (placeholder || '-')}
+            {date ? format(date, 'dd/MM/yy', { locale: ptBR }) : (placeholder || '-')}
           </span>
           <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>

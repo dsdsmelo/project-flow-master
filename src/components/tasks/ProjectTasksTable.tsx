@@ -634,12 +634,12 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
       </div>
 
       {/* Tasks Table */}
-      <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
+      <div className="bg-card rounded-lg border border-border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left py-4 px-4 w-12">
+                <th className="text-left py-2 px-3 w-10">
                   <Checkbox
                     checked={selectedTasks.length === paginatedTasks.length && paginatedTasks.length > 0}
                     onCheckedChange={toggleAllTasks}
@@ -650,10 +650,10 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   <th
                     key={col.id}
                     className={cn(
-                      "text-left py-4 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap transition-all",
+                      "text-left py-2 px-3 text-xs font-medium text-muted-foreground whitespace-nowrap transition-all",
                       draggedColumnId === col.id && "opacity-50",
                       dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
-                      col.standardField === 'progress' && "w-40"
+                      col.standardField === 'progress' && "w-36"
                     )}
                     draggable
                     onDragStart={(e) => handleColumnDragStart(e, col.id)}
@@ -679,7 +679,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                               cancelEditingColumn();
                             }
                           }}
-                          className="bg-background border border-primary rounded px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[80px]"
+                          className="bg-background border border-primary rounded px-1.5 py-0.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[70px]"
                           autoFocus
                         />
                       ) : (
@@ -694,7 +694,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     </div>
                   </th>
                 ))}
-                <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground w-12"></th>
+                <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground w-10"></th>
               </tr>
             </thead>
             <tbody>
@@ -710,7 +710,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       selectedTasks.includes(task.id) && "bg-primary/5"
                     )}
                   >
-                    <td className="py-4 px-4">
+                    <td className="py-1.5 px-3">
                       <Checkbox
                         checked={selectedTasks.includes(task.id)}
                         onCheckedChange={() => toggleTaskSelection(task.id)}
@@ -721,27 +721,27 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       <td
                         key={col.id}
                         className={cn(
-                          "py-4 px-4",
-                          col.standardField === 'description' && "max-w-[200px]"
+                          "py-1.5 px-3 text-sm",
+                          col.standardField === 'description' && "max-w-[180px]"
                         )}
                       >
                         {renderCellContent(task, col)}
                       </td>
                     ))}
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-1.5 px-3 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <MoreVertical className="w-3.5 h-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleEditTask(task)}>
-                            <Edit className="w-4 h-4 mr-2" />
+                            <Edit className="w-3.5 h-3.5 mr-2" />
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(task.id)}>
-                            <Trash2 className="w-4 h-4 mr-2" />
+                            <Trash2 className="w-3.5 h-3.5 mr-2" />
                             Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>

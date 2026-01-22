@@ -18,7 +18,7 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
+        'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border',
         statusStyles[status],
         className
       )}
@@ -44,7 +44,7 @@ export const PriorityBadge = ({ priority, className }: PriorityBadgeProps) => {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
+        'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border',
         priorityStyles[priority],
         className
       )}
