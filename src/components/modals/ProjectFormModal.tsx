@@ -24,10 +24,9 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, FolderKanban, Pencil, ImagePlus, Palette, Loader2 } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, Flag, FolderKanban, Pencil, Palette } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
 
 const projectSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -70,10 +69,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Cover states
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  // Cover state
   const [coverColor, setCoverColor] = useState<string | null>(null);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
   
   // Custom columns state
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
@@ -122,7 +119,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: project.endDate || '',
         status: project.status,
       });
-      setCoverUrl(project.coverUrl || null);
       setCoverColor(project.coverColor || null);
       setPendingColumns([]);
     } else {
@@ -133,7 +129,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         endDate: '',
         status: 'planning',
       });
-      setCoverUrl(null);
       setCoverColor(null);
       setPendingColumns([]);
     }
@@ -363,65 +358,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
     setDragOverId(null);
   }, []);
 
-  // Cover image upload handler
-  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecione uma imagem');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Imagem muito grande. Máximo 5MB');
-      return;
-    }
-
-    setIsUploadingCover(true);
-    try {
-      // Get current user ID for storage path (required by bucket policy)
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) {
-        toast.error('Usuário não autenticado');
-        return;
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `project-cover-${Date.now()}.${fileExt}`;
-      const filePath = `${session.user.id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      setCoverUrl(publicUrl);
-      setCoverColor(null); // Clear color when image is uploaded
-      toast.success('Imagem enviada com sucesso!');
-    } catch (error) {
-      console.error('Error uploading cover:', error);
-      toast.error('Erro ao enviar imagem');
-    } finally {
-      setIsUploadingCover(false);
-    }
-  };
-
   const handleSelectGradient = (gradientId: string) => {
-    setCoverColor(gradientId);
-    setCoverUrl(null); // Clear image when gradient is selected
-  };
-
-  const handleClearCover = () => {
-    setCoverUrl(null);
-    setCoverColor(null);
+    setCoverColor(coverColor === gradientId ? null : gradientId);
   };
 
   // Default columns that are created for every new project
@@ -450,7 +388,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: data.status,
-        coverUrl: coverUrl || undefined,
         coverColor: coverColor || undefined,
       };
 
@@ -509,7 +446,6 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: data.status,
-        coverUrl: coverUrl || null,
         coverColor: coverColor || null,
       });
       toast.success('Projeto atualizado com sucesso!');
@@ -524,103 +460,36 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
   const handleClose = () => {
     setPendingColumns([]);
-    setCoverUrl(null);
     setCoverColor(null);
     onOpenChange(false);
   };
 
-  // Cover selection component
-  const CoverSection = () => {
-    const selectedGradient = COVER_GRADIENTS.find(g => g.id === coverColor);
-
-    return (
-      <div className="space-y-3">
-        <Label>Capa do Projeto</Label>
-
-        {/* Preview */}
-        <div className="relative h-32 rounded-xl overflow-hidden border border-border">
-          {coverUrl ? (
-            <img src={coverUrl} alt="Capa do projeto" className="w-full h-full object-cover" />
-          ) : coverColor && selectedGradient ? (
-            <div className={cn("w-full h-full bg-gradient-to-br", selectedGradient.class)} />
-          ) : (
-            <div className="w-full h-full bg-muted flex items-center justify-center">
-              <span className="text-muted-foreground text-sm">Sem capa</span>
-            </div>
-          )}
-
-          {/* Clear button */}
-          {(coverUrl || coverColor) && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="absolute top-2 right-2 h-7 px-2"
-              onClick={handleClearCover}
-            >
-              <X className="w-3 h-3 mr-1" />
-              Remover
-            </Button>
-          )}
-        </div>
-
-        {/* Options */}
-        <div className="flex gap-2">
-          {/* Upload image button */}
-          <label className="flex-1">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleCoverUpload}
-              className="hidden"
-              disabled={isUploadingCover}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={isUploadingCover}
-              asChild
-            >
-              <span>
-                {isUploadingCover ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <ImagePlus className="w-4 h-4 mr-2" />
-                )}
-                {isUploadingCover ? 'Enviando...' : 'Enviar Imagem'}
-              </span>
-            </Button>
-          </label>
-        </div>
-
-        {/* Gradient options */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Palette className="w-4 h-4" />
-            <span>Ou escolha um gradiente:</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {COVER_GRADIENTS.map((gradient) => (
-              <button
-                key={gradient.id}
-                type="button"
-                onClick={() => handleSelectGradient(gradient.id)}
-                className={cn(
-                  "w-10 h-10 rounded-lg bg-gradient-to-br transition-all",
-                  gradient.class,
-                  coverColor === gradient.id
-                    ? "ring-2 ring-primary ring-offset-2 scale-110"
-                    : "hover:scale-105 hover:ring-1 hover:ring-border"
-                )}
-                title={gradient.name}
-              />
-            ))}
-          </div>
-        </div>
+  // Cover color selection component
+  const CoverSection = () => (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-2">
+        <Palette className="w-4 h-4" />
+        Cor do Projeto
+      </Label>
+      <div className="flex flex-wrap gap-2">
+        {COVER_GRADIENTS.map((gradient) => (
+          <button
+            key={gradient.id}
+            type="button"
+            onClick={() => handleSelectGradient(gradient.id)}
+            className={cn(
+              "w-8 h-8 rounded-md bg-gradient-to-br transition-all",
+              gradient.class,
+              coverColor === gradient.id
+                ? "ring-2 ring-primary ring-offset-2 scale-110"
+                : "hover:scale-105 hover:ring-1 hover:ring-border"
+            )}
+            title={gradient.name}
+          />
+        ))}
       </div>
-    );
-  };
+    </div>
+  );
 
   const renderColumnList = (columns: typeof pendingColumns | CustomColumn[], isPending: boolean) => (
     <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
@@ -773,7 +642,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-                <Button type="submit" disabled={isSubmitting || isUploadingCover} className="gradient-primary text-white">
+                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
                   {isSubmitting ? 'Salvando...' : 'Atualizar'}
                 </Button>
               </div>
@@ -823,7 +692,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-                <Button type="submit" disabled={isSubmitting || isUploadingCover} className="gradient-primary text-white">
+                <Button type="submit" disabled={isSubmitting} className="gradient-primary text-white">
                   {isSubmitting ? 'Criando...' : 'Criar Projeto'}
                 </Button>
               </div>

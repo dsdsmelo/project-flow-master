@@ -217,26 +217,15 @@ const Projects = () => {
               const coverGradient = project.coverColor
                 ? COVER_GRADIENTS.find(g => g.id === project.coverColor)
                 : null;
-              const hasCover = project.coverUrl || coverGradient;
 
               return (
                 <div
                   key={project.id}
                   className="bg-card rounded-lg border border-border hover:border-primary/30 shadow-soft hover:shadow-medium transition-all duration-200 animate-fade-in overflow-hidden group relative"
                 >
-                  {/* Cover Section - compact */}
-                  {hasCover && (
-                    <Link to={`/projects/${project.id}`} className="block relative h-24 overflow-hidden">
-                      {project.coverUrl ? (
-                        <img
-                          src={project.coverUrl}
-                          alt={project.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : coverGradient ? (
-                        <div className={cn("w-full h-full bg-gradient-to-br group-hover:scale-105 transition-transform duration-300", coverGradient.class)} />
-                      ) : null}
-                    </Link>
+                  {/* Color strip */}
+                  {coverGradient && (
+                    <div className={cn("h-1.5 w-full bg-gradient-to-r", coverGradient.class)} />
                   )}
 
                   {/* Content Section */}

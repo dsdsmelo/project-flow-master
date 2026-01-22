@@ -17,7 +17,6 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   status: 'planning' | 'active' | 'paused' | 'completed' | 'cancelled';
-  coverUrl?: string | null;
   coverColor?: string | null;
 }
 
