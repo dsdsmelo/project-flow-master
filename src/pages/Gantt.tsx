@@ -1,15 +1,10 @@
-import { useState, useMemo } from 'react';
-import { 
-  ChevronLeft,
-  ChevronRight,
-  ZoomIn,
-  ZoomOut
-} from 'lucide-react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { ChevronDown, ChevronRight, LocateFixed } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/contexts/DataContext';
-import { isTaskOverdue } from '@/lib/mockData';
+import { isTaskOverdue, calculatePercentage } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import {
   Select,
@@ -18,70 +13,128 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 
 type ZoomLevel = 'day' | 'week' | 'month';
 type GroupBy = 'project' | 'responsible';
 
+// UTC helpers (same as ProjectGanttChart)
+const normalizeToNoonUTC = (date: Date) => {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));
+};
+
+const parseDate = (dateStr: string) => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+};
+
+const getTodaySaoPaulo = () => {
+  const now = new Date();
+  const spFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const dateStr = spFormatter.format(now);
+  return parseDate(dateStr);
+};
+
 const Gantt = () => {
   const { tasks = [], projects = [], people = [] } = useData();
-  const [zoom, setZoom] = useState<ZoomLevel>('week');
+  const [zoom, setZoom] = useState<ZoomLevel>('day');
   const [groupBy, setGroupBy] = useState<GroupBy>('project');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  // Ensure arrays are always defined
+  const labelsRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+
   const safeTasks = tasks || [];
   const safeProjects = projects || [];
   const safePeople = people || [];
 
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
   // Calculate date range
   const dateRange = useMemo(() => {
+    const today = getTodaySaoPaulo();
     const dates = safeTasks.flatMap(t => [t.startDate, t.endDate].filter(Boolean)) as string[];
+
     if (dates.length === 0) {
-      const today = new Date();
       return {
-        start: new Date(today.getFullYear(), today.getMonth(), 1),
-        end: new Date(today.getFullYear(), today.getMonth() + 2, 0),
+        start: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 12, 0, 0)),
+        end: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 3, 0, 12, 0, 0))
       };
     }
-    const startDate = new Date(Math.min(...dates.map(d => new Date(d).getTime())));
-    const endDate = new Date(Math.max(...dates.map(d => new Date(d).getTime())));
-    startDate.setDate(startDate.getDate() - 7);
-    endDate.setDate(endDate.getDate() + 7);
-    return { start: startDate, end: endDate };
+
+    const parsedDates = dates.map(d => parseDate(d));
+    const minDate = new Date(Math.min(...parsedDates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...parsedDates.map(d => d.getTime())));
+
+    const startDate = new Date(minDate);
+    startDate.setUTCDate(startDate.getUTCDate() - 7);
+
+    const endDate = new Date(Math.max(maxDate.getTime(), today.getTime()));
+    endDate.setUTCDate(endDate.getUTCDate() + 14);
+
+    return { start: normalizeToNoonUTC(startDate), end: normalizeToNoonUTC(endDate) };
   }, [safeTasks]);
 
-  // Generate columns based on zoom level
+  // Generate columns
   const columns = useMemo(() => {
-    const cols: { date: Date; label: string }[] = [];
+    const cols: { date: Date; label: string; subLabel?: string }[] = [];
     const current = new Date(dateRange.start);
-    
+
     while (current <= dateRange.end) {
       if (zoom === 'day') {
+        const d = normalizeToNoonUTC(current);
         cols.push({
-          date: new Date(current),
-          label: current.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          date: d,
+          label: d.getUTCDate().toString().padStart(2, '0'),
+          subLabel: d.getUTCDate() === 1 ? d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }) : undefined
         });
-        current.setDate(current.getDate() + 1);
+        current.setUTCDate(current.getUTCDate() + 1);
       } else if (zoom === 'week') {
+        const d = normalizeToNoonUTC(current);
         cols.push({
-          date: new Date(current),
-          label: `Sem ${Math.ceil(current.getDate() / 7)}`,
+          date: d,
+          label: `${d.getUTCDate().toString().padStart(2, '0')}/${(d.getUTCMonth() + 1).toString().padStart(2, '0')}`
         });
-        current.setDate(current.getDate() + 7);
+        current.setUTCDate(current.getUTCDate() + 7);
       } else {
+        const d = normalizeToNoonUTC(current);
         cols.push({
-          date: new Date(current),
-          label: current.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+          date: d,
+          label: d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', ''),
+          subLabel: d.toLocaleDateString('pt-BR', { year: '2-digit', timeZone: 'UTC' })
         });
-        current.setMonth(current.getMonth() + 1);
+        current.setUTCMonth(current.getUTCMonth() + 1);
+        current.setUTCDate(1);
       }
     }
     return cols;
   }, [dateRange, zoom]);
 
+  // Column widths
+  const columnWidth = zoom === 'day' ? 'min-w-[40px]' : zoom === 'week' ? 'min-w-[100px]' : 'min-w-[120px]';
+
   // Group tasks
   const groupedTasks = useMemo(() => {
-    const groups: { id: string; name: string; color?: string; tasks: typeof safeTasks }[] = [];
+    const groups: { id: string; name: string; color?: string; avatarUrl?: string; tasks: typeof safeTasks }[] = [];
 
     if (groupBy === 'project') {
       safeProjects.forEach(project => {
@@ -90,11 +143,15 @@ const Gantt = () => {
           groups.push({ id: project.id, name: project.name, tasks: projectTasks });
         }
       });
-    } else if (groupBy === 'responsible') {
+      const orphanTasks = safeTasks.filter(t => !t.projectId || !safeProjects.find(p => p.id === t.projectId));
+      if (orphanTasks.length > 0) {
+        groups.push({ id: 'no-project', name: 'Sem Projeto', tasks: orphanTasks });
+      }
+    } else {
       safePeople.forEach(person => {
         const personTasks = safeTasks.filter(t => t.responsibleId === person.id);
         if (personTasks.length > 0) {
-          groups.push({ id: person.id, name: person.name, color: person.color, tasks: personTasks });
+          groups.push({ id: person.id, name: person.name, color: person.color, avatarUrl: person.avatarUrl, tasks: personTasks });
         }
       });
       const unassigned = safeTasks.filter(t => !t.responsibleId);
@@ -106,38 +163,102 @@ const Gantt = () => {
     return groups;
   }, [safeTasks, safeProjects, safePeople, groupBy]);
 
-  const getTaskPosition = (task: typeof tasks[0]) => {
-    if (!task.startDate || !task.endDate) return null;
-    
-    const start = new Date(task.startDate);
-    const end = new Date(task.endDate);
+  // Position helpers
+  const getPosition = (start: string | null | undefined, end: string | null | undefined) => {
+    if (!start) return null;
+    const startD = parseDate(start);
+    const endD = end ? parseDate(end) : parseDate(start);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    const startOffset = (start.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
-    const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    
-    return {
-      left: `${(startOffset / totalDays) * 100}%`,
-      width: `${(duration / totalDays) * 100}%`,
-    };
+    const startOffset = (startD.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+    const duration = Math.max((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24), 1);
+    return { left: `${(startOffset / totalDays) * 100}%`, width: `${Math.max((duration / totalDays) * 100, 0.5)}%` };
   };
 
   const getTodayPosition = () => {
-    const today = new Date();
+    const today = getTodaySaoPaulo();
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (today.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
   };
 
+  // Status colors
+  const getStatusStyles = (task: typeof safeTasks[0]) => {
+    const overdue = isTaskOverdue(task);
+    if (overdue) return { bg: 'bg-red-500', dot: 'bg-red-500' };
+    switch (task.status) {
+      case 'completed': return { bg: 'bg-emerald-500', dot: 'bg-emerald-500' };
+      case 'in_progress': return { bg: 'bg-blue-500', dot: 'bg-blue-500' };
+      case 'blocked': return { bg: 'bg-red-500', dot: 'bg-red-500' };
+      default: return { bg: 'bg-amber-500', dot: 'bg-amber-500' };
+    }
+  };
+
+  // Scroll sync
+  const handleChartScroll = useCallback(() => {
+    if (chartRef.current && headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = chartRef.current.scrollLeft;
+    }
+  }, []);
+
+  const handleLabelsScroll = useCallback(() => {
+    if (labelsRef.current && chartRef.current) {
+      chartRef.current.scrollTop = labelsRef.current.scrollTop;
+    }
+  }, []);
+
+  const handleChartVerticalScroll = useCallback(() => {
+    if (chartRef.current && labelsRef.current) {
+      labelsRef.current.scrollTop = chartRef.current.scrollTop;
+    }
+  }, []);
+
+  // Scroll to today
+  const scrollToToday = useCallback(() => {
+    const today = getTodaySaoPaulo();
+    const columnWidthPx = zoom === 'day' ? 40 : zoom === 'week' ? 100 : 120;
+
+    const todayIndex = columns.findIndex(col => {
+      if (zoom === 'day') {
+        return col.date.getUTCFullYear() === today.getUTCFullYear() && col.date.getUTCMonth() === today.getUTCMonth() && col.date.getUTCDate() === today.getUTCDate();
+      } else if (zoom === 'week') {
+        const weekEnd = new Date(col.date);
+        weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+        return today >= col.date && today <= weekEnd;
+      } else {
+        return col.date.getUTCMonth() === today.getUTCMonth() && col.date.getUTCFullYear() === today.getUTCFullYear();
+      }
+    });
+
+    if (todayIndex !== -1 && chartRef.current && headerScrollRef.current) {
+      const chartWidth = chartRef.current.clientWidth;
+      const scrollPosition = Math.max(0, (todayIndex * columnWidthPx) - (chartWidth / 2) + (columnWidthPx / 2));
+      chartRef.current.scrollLeft = scrollPosition;
+      headerScrollRef.current.scrollLeft = scrollPosition;
+    }
+  }, [columns, zoom]);
+
+  useEffect(() => {
+    scrollToToday();
+  }, [scrollToToday]);
+
+  // Row heights
+  const groupHeaderHeight = 'h-9';
+  const taskRowHeight = 'h-8';
+
+  // Total task count
+  const totalTasks = safeTasks.length;
+  const completedTasks = safeTasks.filter(t => t.status === 'completed').length;
+
   return (
     <MainLayout>
       <Header title="Gráfico Gantt" subtitle="Visualização temporal das tarefas" />
-      
-      <div className="p-6 space-y-6">
+
+      <div className="px-6 pt-3 pb-6 space-y-3">
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 h-9">
                 <SelectValue placeholder="Agrupar por" />
               </SelectTrigger>
               <SelectContent>
@@ -145,16 +266,28 @@ const Gantt = () => {
                 <SelectItem value="responsible">Responsável</SelectItem>
               </SelectContent>
             </Select>
+
+            <div className="text-xs text-muted-foreground">
+              {completedTasks}/{totalTasks} concluídas
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground mr-2">Zoom:</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={scrollToToday} className="h-8">
+                  <LocateFixed className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Ir para Hoje</TooltipContent>
+            </Tooltip>
+
             <div className="flex border border-border rounded-lg overflow-hidden">
               <Button
                 variant={zoom === 'day' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setZoom('day')}
-                className="rounded-none"
+                className="rounded-none h-8 text-xs"
               >
                 Dia
               </Button>
@@ -162,7 +295,7 @@ const Gantt = () => {
                 variant={zoom === 'week' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setZoom('week')}
-                className="rounded-none"
+                className="rounded-none h-8 text-xs"
               >
                 Semana
               </Button>
@@ -170,7 +303,7 @@ const Gantt = () => {
                 variant={zoom === 'month' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setZoom('month')}
-                className="rounded-none"
+                className="rounded-none h-8 text-xs"
               >
                 Mês
               </Button>
@@ -179,138 +312,275 @@ const Gantt = () => {
         </div>
 
         {/* Gantt Chart */}
-        <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[1000px]">
-              {/* Header */}
-              <div className="flex border-b border-border">
-                <div className="w-64 flex-shrink-0 p-4 bg-muted/50 font-medium text-sm text-muted-foreground">
-                  {groupBy === 'project' ? 'Projeto' : 'Responsável'}
-                </div>
-                <div className="flex-1 flex relative">
-                  {columns.map((col, i) => (
-                    <div 
-                      key={i} 
-                      className="flex-1 p-2 text-center text-xs text-muted-foreground border-l border-border"
-                    >
-                      {col.label}
+        <TooltipProvider>
+          <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
+            {/* Header Row */}
+            <div className="flex border-b border-border flex-shrink-0">
+              {/* Labels header */}
+              <div className="w-56 flex-shrink-0 px-3 py-2 bg-muted/50 font-medium text-xs text-muted-foreground flex items-center border-r border-border">
+                {groupBy === 'project' ? 'Projeto' : 'Responsável'}
+              </div>
+              {/* Columns header */}
+              <div ref={headerScrollRef} className="flex-1 overflow-hidden">
+                <div className="flex relative">
+                  {/* Today marker on header */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                    style={{ left: getTodayPosition() }}
+                  >
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-t whitespace-nowrap">
+                      Hoje
                     </div>
-                  ))}
+                  </div>
+                  {columns.map((col, i) => {
+                    const today = getTodaySaoPaulo();
+                    const isToday = zoom !== 'month' && col.date.getUTCFullYear() === today.getUTCFullYear() && col.date.getUTCMonth() === today.getUTCMonth() && col.date.getUTCDate() === today.getUTCDate();
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex-1 py-1.5 text-center border-l border-border/30 flex flex-col justify-center",
+                          columnWidth,
+                          isToday && "bg-primary/10"
+                        )}
+                      >
+                        {col.subLabel && <span className="text-[9px] text-muted-foreground uppercase">{col.subLabel}</span>}
+                        <span className="text-[11px] font-medium text-foreground/80">{col.label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
+            </div>
 
-              {/* Body */}
-              <div className="relative">
-                {/* Today line */}
-                <div 
-                  className="absolute top-0 bottom-0 w-0.5 bg-primary z-10"
-                  style={{ left: getTodayPosition() }}
-                >
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary" />
-                </div>
+            {/* Body */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Labels column */}
+              <div
+                ref={labelsRef}
+                className="w-56 flex-shrink-0 overflow-y-auto overflow-x-hidden border-r border-border scrollbar-hide"
+                onScroll={handleLabelsScroll}
+              >
+                {groupedTasks.map((group) => {
+                  const isCollapsed = collapsedGroups.has(group.id);
 
-                {groupedTasks.map((group) => (
-                  <div key={group.id}>
-                    {/* Group Header */}
-                    <div className="flex border-b border-border bg-muted/30">
-                      <div className="w-64 flex-shrink-0 p-3 font-medium text-sm flex items-center gap-2">
-                        {group.color && (
-                          <div 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: group.color }}
-                          />
-                        )}
-                        {group.name}
-                        <span className="text-xs text-muted-foreground">({group.tasks.length})</span>
+                  return (
+                    <div key={group.id}>
+                      {/* Group header */}
+                      <div
+                        className={cn(groupHeaderHeight, "flex items-center px-2 bg-muted/30 border-b border-border/50 cursor-pointer hover:bg-muted/50 transition-colors")}
+                        onClick={() => toggleGroup(group.id)}
+                      >
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                          {groupBy === 'responsible' && group.id !== 'unassigned' && (
+                            <AvatarCircle name={group.name} color={group.color} size="sm" avatarUrl={group.avatarUrl} />
+                          )}
+                          <span className="text-xs font-medium truncate">{group.name}</span>
+                          <span className="text-[10px] text-muted-foreground flex-shrink-0">({group.tasks.length})</span>
+                        </div>
                       </div>
-                      <div className="flex-1" />
-                    </div>
 
-                    {/* Tasks */}
-                    {group.tasks.map((task) => {
-                      const position = getTaskPosition(task);
-                      const overdue = isTaskOverdue(task);
-                      const person = safePeople.find(p => p.id === task.responsibleId);
-
-                      return (
-                        <div key={task.id} className="flex border-b border-border/50 hover:bg-muted/20">
-                          <div className="w-64 flex-shrink-0 p-3 text-sm flex items-center gap-2">
-                            {person && <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />}
-                            <span className={cn("truncate", overdue && "text-status-blocked")}>
+                      {/* Task labels */}
+                      {!isCollapsed && group.tasks.map((task, taskIndex) => {
+                        const styles = getStatusStyles(task);
+                        const person = groupBy === 'project' ? safePeople.find(p => p.id === task.responsibleId) : undefined;
+                        return (
+                          <div
+                            key={task.id}
+                            className={cn(
+                              taskRowHeight,
+                              "flex items-center px-3 pl-7 border-b border-border/20 hover:bg-muted/30 transition-colors",
+                              taskIndex % 2 === 1 && "bg-muted/10"
+                            )}
+                          >
+                            <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", styles.dot)} />
+                            {person && (
+                              <div className="ml-1.5 flex-shrink-0">
+                                <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
+                              </div>
+                            )}
+                            <span className={cn(
+                              "text-xs truncate flex-1 ml-1.5",
+                              task.status === 'completed' && "line-through text-muted-foreground"
+                            )}>
                               {task.name}
                             </span>
                           </div>
-                          <div className="flex-1 relative h-12">
-                            {position && (
-                              <div
-                                className={cn(
-                                  "absolute top-2 h-8 rounded-md cursor-pointer transition-all hover:shadow-md",
-                                  overdue ? "bg-status-blocked" : 
-                                  task.status === 'completed' ? "bg-status-completed" :
-                                  task.status === 'in_progress' ? "bg-status-progress" :
-                                  task.status === 'blocked' ? "bg-status-blocked" :
-                                  "bg-status-pending"
-                                )}
-                                style={{
-                                  left: position.left,
-                                  width: position.width,
-                                  minWidth: '20px',
-                                }}
-                              >
-                                <div className="h-full flex items-center px-2 text-xs text-white font-medium truncate">
-                                  {task.name}
-                                </div>
-                              </div>
-                            )}
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
 
-                            {/* Sprint marker */}
-                            {task.sprintDate && (
+              {/* Chart area */}
+              <div
+                ref={chartRef}
+                className="flex-1 overflow-auto"
+                onScroll={(e) => {
+                  handleChartScroll();
+                  handleChartVerticalScroll();
+                }}
+              >
+                <div className="relative" style={{ minWidth: `${columns.length * (zoom === 'day' ? 40 : zoom === 'week' ? 100 : 120)}px` }}>
+                  {groupedTasks.map((group) => {
+                    const isCollapsed = collapsedGroups.has(group.id);
+
+                    return (
+                      <div key={group.id}>
+                        {/* Group header row in chart */}
+                        <div className={cn(groupHeaderHeight, "relative bg-muted/20 border-b border-border/50")}>
+                          <div
+                            className="absolute top-0 bottom-0 w-0.5 bg-primary z-10 pointer-events-none"
+                            style={{ left: getTodayPosition() }}
+                          />
+                          {/* Group progress bar */}
+                          {(() => {
+                            const groupCompleted = group.tasks.filter(t => t.status === 'completed').length;
+                            const groupProgress = group.tasks.length > 0 ? Math.round((groupCompleted / group.tasks.length) * 100) : 0;
+                            const position = getPosition(
+                              group.tasks.reduce((min, t) => !min || (t.startDate && t.startDate < min) ? t.startDate || min : min, '' as string),
+                              group.tasks.reduce((max, t) => !max || (t.endDate && t.endDate > max) ? t.endDate || max : max, '' as string)
+                            );
+                            if (!position) return null;
+                            return (
                               <div
-                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-purple-500 transform rotate-45"
-                                style={{
-                                  left: `${((new Date(task.sprintDate).getTime() - dateRange.start.getTime()) / (dateRange.end.getTime() - dateRange.start.getTime())) * 100}%`,
-                                }}
-                                title={`Sprint: ${new Date(task.sprintDate).toLocaleDateString('pt-BR')}`}
-                              />
-                            )}
-                          </div>
+                                className="absolute top-1.5 h-[22px] rounded bg-muted/60 border border-border/40 overflow-hidden"
+                                style={{ left: position.left, width: position.width, minWidth: '30px' }}
+                              >
+                                <div
+                                  className="h-full bg-primary/20 transition-all"
+                                  style={{ width: `${groupProgress}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-muted-foreground">
+                                  {groupProgress}%
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
+
+                        {/* Task bars */}
+                        {!isCollapsed && group.tasks.map((task, taskIndex) => {
+                          const position = getPosition(task.startDate, task.endDate);
+                          const styles = getStatusStyles(task);
+                          const taskProgress = calculatePercentage(task);
+                          const person = safePeople.find(p => p.id === task.responsibleId);
+                          const project = safeProjects.find(p => p.id === task.projectId);
+
+                          return (
+                            <div
+                              key={task.id}
+                              className={cn(
+                                taskRowHeight,
+                                "relative border-b border-border/15",
+                                taskIndex % 2 === 1 && "bg-muted/10"
+                              )}
+                            >
+                              {/* Today line */}
+                              <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                                style={{ left: getTodayPosition() }}
+                              />
+                              {/* Grid lines */}
+                              <div className="absolute inset-0 flex pointer-events-none">
+                                {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/30", columnWidth)} />)}
+                              </div>
+                              {/* Task bar */}
+                              {position && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      className={cn("absolute top-[5px] h-[14px] rounded shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer", styles.bg)}
+                                      style={{ left: position.left, width: position.width, minWidth: '12px' }}
+                                    >
+                                      {taskProgress > 0 && taskProgress < 100 && (
+                                        <div className="absolute inset-0 bg-black/20" style={{ width: `${100 - taskProgress}%`, right: 0, left: 'auto' }} />
+                                      )}
+                                      <span className="absolute inset-0 flex items-center px-1 text-[9px] text-white font-medium truncate">
+                                        {zoom !== 'day' && task.name}
+                                      </span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-sm">{task.name}</p>
+                                      {project && groupBy === 'responsible' && (
+                                        <p className="text-xs text-muted-foreground">Projeto: {project.name}</p>
+                                      )}
+                                      {person && groupBy === 'project' && (
+                                        <p className="text-xs text-muted-foreground">Responsável: {person.name}</p>
+                                      )}
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span>{task.startDate?.split('-').reverse().join('/')}</span>
+                                        <span>→</span>
+                                        <span>{task.endDate?.split('-').reverse().join('/')}</span>
+                                      </div>
+                                      {taskProgress > 0 && (
+                                        <p className="text-xs">Progresso: {taskProgress}%</p>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {/* Sprint marker */}
+                              {task.sprintDate && (() => {
+                                const sprintD = parseDate(task.sprintDate);
+                                const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+                                const offset = (sprintD.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
+                                const pos = `${(offset / totalDays) * 100}%`;
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-purple-500 transform rotate-45 z-10 cursor-pointer"
+                                        style={{ left: pos }}
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent>Sprint: {task.sprintDate.split('-').reverse().join('/')}</TooltipContent>
+                                  </Tooltip>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-muted/30 flex-shrink-0 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-amber-500" />
+                <span>Pendente</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-blue-500" />
+                <span>Em Progresso</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-red-500" />
+                <span>Bloqueado/Atrasado</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-emerald-500" />
+                <span>Concluído</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-purple-500 transform rotate-45" />
+                <span>Sprint</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-0.5 h-3 bg-primary rounded" />
+                <span>Hoje</span>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-status-pending" />
-            <span>Pendente</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-status-progress" />
-            <span>Em Progresso</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-status-blocked" />
-            <span>Bloqueado/Atrasado</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-status-completed" />
-            <span>Concluído</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-purple-500 transform rotate-45" />
-            <span>Sprint</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-4 bg-primary rounded" />
-            <span>Hoje</span>
-          </div>
-        </div>
+        </TooltipProvider>
       </div>
     </MainLayout>
   );
