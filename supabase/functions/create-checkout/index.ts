@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PRICE_ID = "price_1SrSEWB9FTsCRyJTfi5z28B3";
+const PRICE_ID = "price_1SrU56B9FTsCRyJTGzLOngsp";
 
 // Helper logging function for debugging
 const logStep = (step: string, details?: Record<string, unknown>) => {

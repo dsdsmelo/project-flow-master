@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PRICE_ID = "price_1SrSEWB9FTsCRyJTfi5z28B3";
+const PRICE_ID = "price_1SrU56B9FTsCRyJTGzLOngsp";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -34,7 +34,7 @@ serve(async (req) => {
     logStep("Origin", { origin });
 
     // Create checkout session without requiring authentication
-    // Stripe will collect email during checkout
+    // For subscription mode, customer is created automatically
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
@@ -47,8 +47,6 @@ serve(async (req) => {
         enabled: true,
       },
       billing_address_collection: "required",
-      // Collect customer email
-      customer_creation: "always",
       success_url: `${origin}/login?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?subscription=cancelled`,
       allow_promotion_codes: true,

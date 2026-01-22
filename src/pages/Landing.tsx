@@ -255,14 +255,24 @@ const Landing = () => {
                   <Link to="/login">
                     <Button variant="ghost" size="sm">Entrar</Button>
                   </Link>
-                  <Button 
-                    onClick={handleSubscribe} 
+                  <Button
+                    onClick={handleSubscribe}
                     size="sm"
                     variant="success"
                     className="group"
+                    disabled={isLoading}
                   >
-                    Começar Agora
-                    <Sparkles className="w-4 h-4 ml-1" />
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        Carregando...
+                      </>
+                    ) : (
+                      <>
+                        Começar Agora
+                        <Sparkles className="w-4 h-4 ml-1" />
+                      </>
+                    )}
                   </Button>
                 </>
               )}
@@ -319,16 +329,24 @@ const Landing = () => {
                 transition={{ duration: 0.6 }}
                 className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4 mb-6"
               >
-                <Button 
-                  size="xl" 
+                <Button
+                  size="xl"
                   onClick={handleSubscribe}
                   disabled={isLoading}
                   variant="success"
-                  className="group"
+                  className="group min-w-[220px]"
                 >
-                  {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-                  {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Preparando checkout...
+                    </>
+                  ) : (
+                    <>
+                      {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
+                      <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
                 </Button>
                 <a
                   href="https://wa.me/5511994831461?text=Queria%20saber%20mais%20sobre%20o%20Tarefaa!"
@@ -655,16 +673,24 @@ const Landing = () => {
                     <button
                       onClick={handleSubscribe}
                       disabled={isLoading}
-                      className="group relative w-full py-4 px-8 rounded-xl font-bold text-lg flex items-center justify-center gap-3 disabled:opacity-50 overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+                      className="group relative w-full py-4 px-8 rounded-xl font-bold text-lg flex items-center justify-center gap-3 disabled:opacity-70 overflow-hidden transition-all duration-300 hover:scale-[1.02]"
                       style={{
                         background: 'linear-gradient(135deg, hsl(130,70%,42%) 0%, hsl(130,70%,35%) 100%)',
                         boxShadow: '0 0 20px hsl(130,70%,45%,0.3), inset 0 1px 0 hsl(130,70%,60%,0.2)'
                       }}
                     >
                       <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                      {isLoading ? <Loader2 className="w-5 h-5 animate-spin text-white" /> : null}
-                      <span className="text-white">Começar Agora</span>
-                      <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin text-white" />
+                          <span className="text-white">Preparando checkout...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-white">Começar Agora</span>
+                          <ArrowRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
                     </button>
 
                     {/* Trust badges */}
@@ -828,11 +854,19 @@ const Landing = () => {
             onClick={handleSubscribe}
             disabled={isLoading}
             variant="success"
-            className="group"
+            className="group min-w-[220px]"
           >
-            {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
-            {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
-            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Preparando checkout...
+              </>
+            ) : (
+              <>
+                {priceLoading ? 'Assinar agora' : `Assinar por ${formatPrice(priceAmount!)}/mês`}
+                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
           </Button>
           <p className="text-sm text-muted-foreground mt-6">
             Acesso imediato • Cancele quando quiser • Suporte prioritário
