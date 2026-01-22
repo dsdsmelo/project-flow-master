@@ -4,7 +4,6 @@ import { MeetingNote } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,16 +13,20 @@ import {
   Pencil,
   Calendar,
   Users,
-  FileText,
-  ChevronDown,
-  ChevronUp,
+  Search,
+  X,
+  NotebookPen,
   Save,
   Download,
   Mail,
   Share2,
-  Search,
-  X,
-  NotebookPen
+  FileText,
+  Lightbulb,
+  MessageSquare,
+  Bell,
+  StickyNote,
+  Pin,
+  Copy,
 } from 'lucide-react';
 import {
   Dialog,
@@ -56,6 +59,39 @@ import {
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 
+// Note categories with colors and icons
+const NOTE_CATEGORIES = [
+  { id: 'meeting', label: 'Reunião', color: 'bg-blue-500', textColor: 'text-blue-600', bgLight: 'bg-blue-50 dark:bg-blue-500/10', borderColor: 'border-blue-200 dark:border-blue-500/30', icon: MessageSquare },
+  { id: 'decision', label: 'Decisão', color: 'bg-emerald-500', textColor: 'text-emerald-600', bgLight: 'bg-emerald-50 dark:bg-emerald-500/10', borderColor: 'border-emerald-200 dark:border-emerald-500/30', icon: FileText },
+  { id: 'idea', label: 'Ideia', color: 'bg-amber-500', textColor: 'text-amber-600', bgLight: 'bg-amber-50 dark:bg-amber-500/10', borderColor: 'border-amber-200 dark:border-amber-500/30', icon: Lightbulb },
+  { id: 'reminder', label: 'Lembrete', color: 'bg-purple-500', textColor: 'text-purple-600', bgLight: 'bg-purple-50 dark:bg-purple-500/10', borderColor: 'border-purple-200 dark:border-purple-500/30', icon: Bell },
+  { id: 'general', label: 'Geral', color: 'bg-slate-500', textColor: 'text-slate-600', bgLight: 'bg-slate-50 dark:bg-slate-500/10', borderColor: 'border-slate-200 dark:border-slate-500/30', icon: StickyNote },
+] as const;
+
+type NoteCategory = typeof NOTE_CATEGORIES[number]['id'];
+
+// Extract category from participants array (we store it as first entry prefixed with "cat:")
+const getNoteCategory = (note: MeetingNote): NoteCategory => {
+  if (note.participants && note.participants.length > 0) {
+    const catEntry = note.participants.find(p => p.startsWith('cat:'));
+    if (catEntry) {
+      const cat = catEntry.replace('cat:', '') as NoteCategory;
+      if (NOTE_CATEGORIES.some(c => c.id === cat)) return cat;
+    }
+  }
+  return 'general';
+};
+
+const getCategoryInfo = (category: NoteCategory) => {
+  return NOTE_CATEGORIES.find(c => c.id === category) || NOTE_CATEGORIES[4];
+};
+
+// Get actual participants (excluding category marker)
+const getActualParticipants = (participants?: string[]): string[] => {
+  if (!participants) return [];
+  return participants.filter(p => !p.startsWith('cat:'));
+};
+
 interface MeetingNotesTabProps {
   projectId: string;
 }
@@ -65,66 +101,72 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<MeetingNote | null>(null);
-  const [expandedNote, setExpandedNote] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<MeetingNote | null>(null);
+  const [pinnedNotes, setPinnedNotes] = useState<Set<string>>(new Set());
 
-  // Search and pagination state
+  // Search and filter state
   const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
 
   // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [meetingDate, setMeetingDate] = useState<Date | undefined>(new Date());
   const [participants, setParticipants] = useState('');
+  const [category, setCategory] = useState<NoteCategory>('general');
 
   const projectNotes = useMemo(() => {
     return meetingNotes
       .filter(n => n.projectId === projectId)
-      .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime());
-  }, [meetingNotes, projectId]);
+      .sort((a, b) => {
+        // Pinned first
+        const aPinned = pinnedNotes.has(a.id);
+        const bPinned = pinnedNotes.has(b.id);
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        return new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime();
+      });
+  }, [meetingNotes, projectId, pinnedNotes]);
 
-  // Filtered notes based on search
+  // Filtered notes based on search and category
   const filteredNotes = useMemo(() => {
-    if (!search.trim()) return projectNotes;
-    const searchLower = search.toLowerCase();
-    return projectNotes.filter(note =>
-      note.title.toLowerCase().includes(searchLower) ||
-      note.content.toLowerCase().includes(searchLower)
-    );
-  }, [projectNotes, search]);
+    let notes = projectNotes;
 
-  // Paginated notes
-  const paginatedNotes = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    const end = start + pageSize;
-    return filteredNotes.slice(start, end);
-  }, [filteredNotes, currentPage, pageSize]);
+    if (categoryFilter !== 'all') {
+      notes = notes.filter(note => getNoteCategory(note) === categoryFilter);
+    }
 
-  const totalPages = Math.ceil(filteredNotes.length / pageSize);
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      notes = notes.filter(note =>
+        note.title.toLowerCase().includes(searchLower) ||
+        note.content.toLowerCase().includes(searchLower)
+      );
+    }
 
-  // Reset to page 1 when search changes
+    return notes;
+  }, [projectNotes, search, categoryFilter]);
+
+  // Category counts for filter pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: projectNotes.length };
+    NOTE_CATEGORIES.forEach(cat => {
+      counts[cat.id] = projectNotes.filter(n => getNoteCategory(n) === cat.id).length;
+    });
+    return counts;
+  }, [projectNotes]);
+
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
-    setCurrentPage(1);
   }, []);
-
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setCurrentPage(1);
-  }, []);
-
-  const activePeople = useMemo(() => {
-    return people.filter(p => p.active);
-  }, [people]);
 
   const resetForm = () => {
     setTitle('');
     setContent('');
     setMeetingDate(new Date());
     setParticipants('');
+    setCategory('general');
     setEditingNote(null);
   };
 
@@ -134,16 +176,14 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
       setTitle(note.title);
       setContent(note.content);
       setMeetingDate(new Date(note.meetingDate));
-      // Handle participants - could be string[] (old) or string (new)
-      if (Array.isArray(note.participants)) {
-        // Convert old format: look up names or join IDs
-        const names = note.participants
-          .map(id => people.find(p => p.id === id)?.name || id)
-          .join(', ');
-        setParticipants(names);
-      } else {
-        setParticipants((note.participants as unknown as string) || '');
-      }
+      setCategory(getNoteCategory(note));
+      const actualParticipants = getActualParticipants(note.participants);
+      // Handle participants - could be UUID or names
+      const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+      const names = actualParticipants
+        .map(entry => isUUID(entry) ? (people.find(p => p.id === entry)?.name || entry) : entry)
+        .join(', ');
+      setParticipants(names);
     } else {
       resetForm();
     }
@@ -160,28 +200,27 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
       toast.error('Título é obrigatório');
       return;
     }
-    if (!content.trim()) {
-      toast.error('Conteúdo é obrigatório');
-      return;
-    }
     if (!meetingDate) {
-      toast.error('Data da reunião é obrigatória');
+      toast.error('Data é obrigatória');
       return;
     }
 
     try {
-      // Parse participants text to array (split by comma, trim whitespace)
+      // Build participants array with category marker
       const participantsArray = participants
         .split(',')
         .map(p => p.trim())
         .filter(p => p.length > 0);
-        
+
+      // Add category as first entry
+      const fullParticipants = [`cat:${category}`, ...participantsArray];
+
       if (editingNote) {
         await updateMeetingNote(editingNote.id, {
           title: title.trim(),
           content: content.trim(),
           meetingDate: meetingDate.toISOString().split('T')[0],
-          participants: participantsArray,
+          participants: fullParticipants,
         });
         toast.success('Anotação atualizada!');
       } else {
@@ -190,7 +229,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
           title: title.trim(),
           content: content.trim(),
           meetingDate: meetingDate.toISOString().split('T')[0],
-          participants: participantsArray,
+          participants: fullParticipants,
         });
         toast.success('Anotação criada!');
       }
@@ -220,152 +259,85 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
     }
   };
 
-  // Get participant display text (handles both old format with IDs and new format with names)
-  const getParticipantDisplay = (participantData?: string[]) => {
-    if (!participantData || participantData.length === 0) return '';
-    
-    // Check if entries look like UUIDs (old format) or names (new format)
-    const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-    
-    return participantData
-      .map(entry => {
-        if (isUUID(entry)) {
-          const person = people.find(p => p.id === entry);
-          return person?.name || entry;
-        }
-        return entry;
-      })
-      .join(', ');
-  };
-
-  const generateNoteText = (note: MeetingNote) => {
-    const participantNames = getParticipantDisplay(note.participants);
-    
-    return `
-ANOTAÇÃO DE REUNIÃO
-==================
-
-Título: ${note.title}
-Data: ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}
-${participantNames ? `Participantes: ${participantNames}` : ''}
-
-CONTEÚDO
---------
-${note.content}
-
----
-Última atualização: ${format(new Date(note.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-    `.trim();
-  };
-
-  const handleExportPDF = (note: MeetingNote) => {
-    const participantNames = getParticipantDisplay(note.participants);
-    
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${note.title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            padding: 40px; 
-            max-width: 800px; 
-            margin: 0 auto;
-            color: #333;
-            line-height: 1.6;
-          }
-          h1 { 
-            color: #1a1a1a; 
-            border-bottom: 2px solid #e5e5e5; 
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-          }
-          .meta { 
-            background: #f5f5f5; 
-            padding: 15px 20px; 
-            border-radius: 8px; 
-            margin-bottom: 25px;
-          }
-          .meta p { margin: 5px 0; color: #666; }
-          .meta strong { color: #333; }
-          .content { 
-            white-space: pre-wrap; 
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #3b82f6;
-          }
-          .footer { 
-            margin-top: 30px; 
-            font-size: 12px; 
-            color: #999; 
-            border-top: 1px solid #e5e5e5;
-            padding-top: 15px;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>${note.title}</h1>
-        <div class="meta">
-          <p><strong>Data da Reunião:</strong> ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}</p>
-          ${participantNames ? `<p><strong>Participantes:</strong> ${participantNames}</p>` : ''}
-        </div>
-        <h2>Conteúdo</h2>
-        <div class="content">${note.content}</div>
-        <div class="footer">
-          Última atualização: ${format(new Date(note.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-        </div>
-      </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-      toast.success('Janela de impressão aberta - salve como PDF');
-    } else {
-      toast.error('Não foi possível abrir a janela de impressão');
-    }
-  };
-
-  const handleShareEmail = (note: MeetingNote) => {
-    const text = generateNoteText(note);
-    const subject = encodeURIComponent(`Anotação de Reunião: ${note.title}`);
-    const body = encodeURIComponent(text);
-    
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-    toast.success('Cliente de email aberto');
+  const togglePin = (noteId: string) => {
+    setPinnedNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(noteId)) next.delete(noteId);
+      else next.add(noteId);
+      return next;
+    });
   };
 
   const handleCopyToClipboard = async (note: MeetingNote) => {
-    const text = generateNoteText(note);
+    const catInfo = getCategoryInfo(getNoteCategory(note));
+    const actualParticipants = getActualParticipants(note.participants);
+    const text = `[${catInfo.label}] ${note.title}\nData: ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}${actualParticipants.length > 0 ? `\nParticipantes: ${actualParticipants.join(', ')}` : ''}\n\n${note.content}`;
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('Anotação copiada para a área de transferência');
-    } catch (err) {
+      toast.success('Copiado para a área de transferência');
+    } catch {
       toast.error('Erro ao copiar');
     }
   };
 
+  const handleExportPDF = (note: MeetingNote) => {
+    const catInfo = getCategoryInfo(getNoteCategory(note));
+    const actualParticipants = getActualParticipants(note.participants);
+    const printContent = `
+      <!DOCTYPE html>
+      <html><head><title>${note.title}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; line-height: 1.6; }
+        h1 { color: #1a1a1a; margin-bottom: 8px; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-bottom: 16px; background: #f0f0f0; }
+        .meta { background: #f5f5f5; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; }
+        .meta p { margin: 5px 0; color: #666; }
+        .meta strong { color: #333; }
+        .content { white-space: pre-wrap; background: #fafafa; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; }
+        .footer { margin-top: 30px; font-size: 12px; color: #999; border-top: 1px solid #e5e5e5; padding-top: 15px; }
+      </style></head><body>
+        <div class="badge">${catInfo.label}</div>
+        <h1>${note.title}</h1>
+        <div class="meta">
+          <p><strong>Data:</strong> ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}</p>
+          ${actualParticipants.length > 0 ? `<p><strong>Participantes:</strong> ${actualParticipants.join(', ')}</p>` : ''}
+        </div>
+        <div class="content">${note.content}</div>
+        <div class="footer">Criado em: ${format(new Date(note.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
+      </body></html>`;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    }
+  };
+
+  const handleShareEmail = (note: MeetingNote) => {
+    const catInfo = getCategoryInfo(getNoteCategory(note));
+    const subject = encodeURIComponent(`[${catInfo.label}] ${note.title}`);
+    const body = encodeURIComponent(`${note.title}\nData: ${format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}\n\n${note.content}`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-semibold">Anotações de Reuniões</h3>
-          <span className="text-sm text-muted-foreground">({filteredNotes.length})</span>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-gradient-to-br from-[hsl(207,90%,45%)] to-[hsl(130,70%,40%)]">
+            <StickyNote className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Anotações do Projeto</h3>
+            <p className="text-xs text-muted-foreground">{projectNotes.length} {projectNotes.length === 1 ? 'anotação' : 'anotações'}</p>
+          </div>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar reuniões..."
+              placeholder="Buscar anotações..."
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-9 pr-9"
@@ -379,164 +351,181 @@ ${note.content}
               </button>
             )}
           </div>
-          <Button onClick={() => handleOpenModal()}>
+          <Button onClick={() => handleOpenModal()} className="gradient-primary text-white">
             <Plus className="w-4 h-4 mr-2" />
             Nova Anotação
           </Button>
         </div>
       </div>
 
-      {/* Notes List */}
+      {/* Category Filter Pills */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => setCategoryFilter('all')}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+            categoryFilter === 'all'
+              ? "bg-foreground text-background border-foreground"
+              : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+          )}
+        >
+          Todas ({categoryCounts.all})
+        </button>
+        {NOTE_CATEGORIES.map(cat => (
+          categoryCounts[cat.id] > 0 && (
+            <button
+              key={cat.id}
+              onClick={() => setCategoryFilter(cat.id)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border flex items-center gap-1.5",
+                categoryFilter === cat.id
+                  ? cn(cat.bgLight, cat.textColor, cat.borderColor)
+                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+              )}
+            >
+              <div className={cn("w-2 h-2 rounded-full", cat.color)} />
+              {cat.label} ({categoryCounts[cat.id]})
+            </button>
+          )
+        ))}
+      </div>
+
+      {/* Notes Grid */}
       {projectNotes.length === 0 ? (
-        <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
-          <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-          <p className="text-muted-foreground">Nenhuma anotação de reunião</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Registre as decisões e discussões importantes do projeto
+        <div className="text-center py-16 bg-muted/20 rounded-xl border-2 border-dashed border-border">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[hsl(207,90%,45%)]/10 to-[hsl(130,70%,40%)]/10 flex items-center justify-center mx-auto mb-4">
+            <StickyNote className="w-8 h-8 text-primary opacity-60" />
+          </div>
+          <p className="text-base font-medium mb-1">Nenhuma anotação ainda</p>
+          <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
+            Registre decisões, ideias, lembretes e tudo que é importante para o projeto
           </p>
-          <Button variant="outline" className="mt-4" onClick={() => handleOpenModal()}>
+          <Button onClick={() => handleOpenModal()} className="gradient-primary text-white">
             <Plus className="w-4 h-4 mr-2" />
             Criar primeira anotação
           </Button>
         </div>
       ) : filteredNotes.length === 0 ? (
-        <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
-          <Search className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-          <p className="text-muted-foreground">Nenhuma anotação encontrada</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Tente ajustar os termos de busca
-          </p>
-          <Button variant="outline" className="mt-4" onClick={() => handleSearchChange('')}>
-            Limpar Busca
+        <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed border-border">
+          <Search className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+          <p className="text-muted-foreground font-medium">Nenhuma anotação encontrada</p>
+          <p className="text-sm text-muted-foreground mt-1">Tente ajustar o filtro ou termo de busca</p>
+          <Button variant="outline" className="mt-4" onClick={() => { setSearch(''); setCategoryFilter('all'); }}>
+            Limpar filtros
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {paginatedNotes.map((note) => {
-            const isExpanded = expandedNote === note.id;
-            const participantText = getParticipantDisplay(note.participants);
-            
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredNotes.map((note) => {
+            const catInfo = getCategoryInfo(getNoteCategory(note));
+            const CatIcon = catInfo.icon;
+            const isPinned = pinnedNotes.has(note.id);
+            const actualParticipants = getActualParticipants(note.participants);
+            const contentPreview = note.content.length > 120 ? note.content.slice(0, 120) + '...' : note.content;
+
             return (
-              <div 
-                key={note.id} 
-                className="bg-card rounded-xl border border-border shadow-soft overflow-hidden"
+              <div
+                key={note.id}
+                className={cn(
+                  "group bg-card rounded-xl border overflow-hidden shadow-soft hover:shadow-md transition-all relative",
+                  isPinned ? "ring-2 ring-primary/30" : "border-border"
+                )}
               >
-                {/* Note Header */}
-                <div 
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => setExpandedNote(isExpanded ? null : note.id)}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
-                      <Calendar className="w-4 h-4" />
-                      <span className="text-sm font-medium">
-                        {format(new Date(note.meetingDate), 'dd/MM/yyyy', { locale: ptBR })}
+                {/* Category Color Strip */}
+                <div className={cn("h-1", catInfo.color)} />
+
+                {/* Card Content */}
+                <div className="p-4 space-y-3">
+                  {/* Top row: category + date + pin */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", catInfo.bgLight, catInfo.textColor)}>
+                        <CatIcon className="w-3 h-3" />
+                        {catInfo.label}
                       </span>
                     </div>
-                    <h4 className="font-medium truncate">{note.title}</h4>
-                    {participantText && (
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                          {participantText}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => togglePin(note.id)}
+                        className={cn(
+                          "p-1 rounded hover:bg-muted transition-colors",
+                          isPinned ? "text-primary" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                        )}
+                        title={isPinned ? 'Desafixar' : 'Fixar'}
+                      >
+                        <Pin className={cn("w-3.5 h-3.5", isPinned && "fill-current")} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {/* Share Menu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuItem onClick={() => handleExportPDF(note)}>
-                          <Download className="w-4 h-4 mr-2" />
-                          Exportar PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShareEmail(note)}>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Enviar por Email
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleCopyToClipboard(note)}>
-                          <FileText className="w-4 h-4 mr-2" />
-                          Copiar Texto
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenModal(note);
-                      }}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClick(note);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                    {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                    )}
+
+                  {/* Title */}
+                  <h4 className="font-semibold text-sm leading-snug line-clamp-2">{note.title}</h4>
+
+                  {/* Content Preview */}
+                  {note.content && (
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                      {contentPreview}
+                    </p>
+                  )}
+
+                  {/* Participants */}
+                  {actualParticipants.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {actualParticipants.join(', ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Footer: date + actions */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Calendar className="w-3 h-3" />
+                      <span className="text-[11px]">
+                        {format(new Date(note.meetingDate), 'dd MMM yyyy', { locale: ptBR })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleCopyToClipboard(note)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copiar texto
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExportPDF(note)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Exportar PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleShareEmail(note)}>
+                            <Mail className="w-4 h-4 mr-2" />
+                            Enviar por email
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <button
+                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => handleOpenModal(note)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        className="p-1 rounded hover:bg-muted text-destructive/70 hover:text-destructive transition-colors"
+                        onClick={() => handleDeleteClick(note)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Note Content (Expanded) */}
-                {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-border pt-4">
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <div className="whitespace-pre-wrap text-sm text-foreground/90">
-                        {note.content}
-                      </div>
-                    </div>
-                    {participantText && (
-                      <div className="mt-4 pt-4 border-t border-border">
-                        <p className="text-xs text-muted-foreground mb-2">Participantes:</p>
-                        <p className="text-sm">{participantText}</p>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-4">
-                      Última atualização: {format(new Date(note.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                )}
               </div>
             );
           })}
-
-          {/* Pagination */}
-          {filteredNotes.length > 0 && (
-            <div className="bg-card rounded-xl border border-border shadow-soft">
-              <TablePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                pageSize={pageSize}
-                totalItems={filteredNotes.length}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={handlePageSizeChange}
-              />
-            </div>
-          )}
         </div>
       )}
 
@@ -545,29 +534,55 @@ ${note.content}
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-[hsl(207,90%,45%)]/20 to-[hsl(130,70%,40%)]/20 text-primary">
                 {editingNote ? <Pencil className="w-5 h-5" /> : <NotebookPen className="w-5 h-5" />}
               </div>
               <DialogTitle className="text-lg">
-                {editingNote ? 'Editar Anotação' : 'Nova Anotação de Reunião'}
+                {editingNote ? 'Editar Anotação' : 'Nova Anotação'}
               </DialogTitle>
             </div>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-5 py-4">
+            {/* Category Selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoria</label>
+              <div className="flex flex-wrap gap-2">
+                {NOTE_CATEGORIES.map(cat => {
+                  const CatIcon = cat.icon;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setCategory(cat.id)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all",
+                        category === cat.id
+                          ? cn(cat.bgLight, cat.textColor, cat.borderColor, "shadow-sm")
+                          : "border-border hover:bg-muted/50 text-muted-foreground"
+                      )}
+                    >
+                      <CatIcon className="w-4 h-4" />
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Title */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Título</label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Alinhamento Sprint 3, Kickoff do projeto..."
+                placeholder="Ex: Definição de escopo, Brainstorm ideias, Lembrar de..."
               />
             </div>
 
             {/* Date */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Data da Reunião</label>
+              <label className="text-sm font-medium">Data</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -578,11 +593,7 @@ ${note.content}
                     )}
                   >
                     <Calendar className="mr-2 h-4 w-4" />
-                    {meetingDate ? (
-                      format(meetingDate, 'PPP', { locale: ptBR })
-                    ) : (
-                      <span>Selecione uma data</span>
-                    )}
+                    {meetingDate ? format(meetingDate, 'PPP', { locale: ptBR }) : <span>Selecione uma data</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -596,13 +607,15 @@ ${note.content}
               </Popover>
             </div>
 
-            {/* Participants - Free text input */}
+            {/* Participants (optional) */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Participantes</label>
+              <label className="text-sm font-medium">
+                Participantes <span className="text-muted-foreground font-normal">(opcional)</span>
+              </label>
               <Input
                 value={participants}
                 onChange={(e) => setParticipants(e.target.value)}
-                placeholder="Ex: João Silva, Maria Santos, Pedro Oliveira..."
+                placeholder="Ex: João, Maria, Pedro..."
               />
               <p className="text-xs text-muted-foreground">
                 Separe os nomes por vírgula
@@ -611,12 +624,12 @@ ${note.content}
 
             {/* Content */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Conteúdo / Ata da Reunião</label>
+              <label className="text-sm font-medium">Conteúdo</label>
               <Textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Registre os principais pontos discutidos, decisões tomadas, próximos passos..."
-                className="min-h-[200px]"
+                placeholder="Descreva os pontos importantes, decisões, ideias..."
+                className="min-h-[180px] resize-y"
               />
             </div>
           </div>
@@ -625,7 +638,7 @@ ${note.content}
             <Button variant="outline" onClick={handleCloseModal}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} className="gradient-primary text-white">
               <Save className="w-4 h-4 mr-2" />
               {editingNote ? 'Salvar' : 'Criar Anotação'}
             </Button>
@@ -639,7 +652,7 @@ ${note.content}
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Anotação</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a anotação "{noteToDelete?.title}"? 
+              Tem certeza que deseja excluir "{noteToDelete?.title}"?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -15,7 +15,7 @@ import {
   Plus,
   ClipboardList,
   Layers,
-  FileText
+  StickyNote
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -280,12 +280,12 @@ const ProjectDetail = () => {
               <GanttChart className="w-4 h-4" />
               Gantt
             </TabsTrigger>
-            <TabsTrigger 
-              value="meetings" 
+            <TabsTrigger
+              value="meetings"
               className="flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary transition-all"
             >
-              <FileText className="w-4 h-4" />
-              Reuniões
+              <StickyNote className="w-4 h-4" />
+              Anotações
             </TabsTrigger>
           </TabsList>
 
