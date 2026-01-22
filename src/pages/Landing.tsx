@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   FolderKanban, 
@@ -74,14 +74,22 @@ const formatPrice = (amountInCents: number) => {
 };
 
 const Landing = () => {
-  const { isAuthenticated, hasActiveSubscription } = useAuth();
+  const { isAuthenticated, hasActiveSubscription, subscriptionChecked } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [priceAmount, setPriceAmount] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const { toast } = useToast();
 
   const subscriptionRequired = searchParams.get('subscription') === 'required';
+
+  // Redirect authenticated users with active subscription to dashboard
+  useEffect(() => {
+    if (isAuthenticated && subscriptionChecked && hasActiveSubscription && !subscriptionRequired) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, subscriptionRequired, navigate]);
 
   // Fetch price from Stripe on mount
   useEffect(() => {

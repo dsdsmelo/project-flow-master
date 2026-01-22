@@ -11,14 +11,33 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Get the hash fragment if present (for implicit flow)
+        // Get parameters from URL
+        const tokenHash = searchParams.get('token_hash');
+        const type = searchParams.get('type');
+        const code = searchParams.get('code');
+
+        // Get hash fragment parameters (for implicit flow)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
-        const type = hashParams.get('type') || searchParams.get('type');
+        const hashType = hashParams.get('type');
 
-        // If we have tokens in the hash, set the session
-        if (accessToken && refreshToken) {
+        // Method 1: Token hash verification (invite, email confirmation)
+        if (tokenHash && type) {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as 'invite' | 'signup' | 'recovery' | 'email',
+          });
+
+          if (verifyError) {
+            console.error('Error verifying token:', verifyError);
+            setError('Link expirado ou inválido. Solicite um novo convite.');
+            setTimeout(() => navigate('/login'), 3000);
+            return;
+          }
+        }
+        // Method 2: Hash fragment tokens (implicit flow)
+        else if (accessToken && refreshToken) {
           const { error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -27,38 +46,37 @@ const AuthCallback = () => {
           if (sessionError) {
             console.error('Error setting session:', sessionError);
             setError('Erro ao processar autenticação. Tente novamente.');
+            setTimeout(() => navigate('/login'), 3000);
             return;
           }
-        } else {
-          // For PKCE flow, exchange the code for a session
-          const code = searchParams.get('code');
-          if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeError) {
-              console.error('Error exchanging code:', exchangeError);
-              setError('Erro ao processar autenticação. Tente novamente.');
-              return;
-            }
+        }
+        // Method 3: PKCE flow (code exchange)
+        else if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            console.error('Error exchanging code:', exchangeError);
+            setError('Erro ao processar autenticação. Tente novamente.');
+            setTimeout(() => navigate('/login'), 3000);
+            return;
           }
         }
 
-        // Wait a moment for the auth state to propagate
+        // Wait for auth state to propagate
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Check if we have a valid session
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {
-          // No session, might be an error or the user needs to complete signup
           setError('Sessão não encontrada. Tente fazer login novamente.');
           setTimeout(() => navigate('/login'), 3000);
           return;
         }
 
-        // Redirect based on the authentication type
-        switch (type) {
+        // Redirect based on authentication type
+        const authType = type || hashType;
+        switch (authType) {
           case 'recovery':
-          case 'PASSWORD_RECOVERY':
             navigate('/reset-password', { replace: true });
             break;
           case 'invite':
