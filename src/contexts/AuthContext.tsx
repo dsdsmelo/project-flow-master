@@ -81,13 +81,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const fetchSubscription = async () => {
+  const fetchSubscription = async (forceRefresh = false) => {
     try {
+      // If already checked and not forcing, skip (use cached value)
+      if (subscriptionChecked && !forceRefresh) {
+        return;
+      }
+
+      // Add timeout to prevent infinite blocking
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
       const { data, error } = await supabase.functions.invoke('get-subscription');
+
+      clearTimeout(timeout);
 
       if (error) {
         console.error('Error fetching subscription:', error);
-        // Even on error, mark as checked so we don't block the user forever
         setSubscriptionChecked(true);
         return;
       }
@@ -183,11 +193,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          // Reset subscription checked and fetch again
+        if (session?.user && event === 'SIGNED_IN') {
+          // Only block UI on fresh sign-in
           setSubscriptionChecked(false);
           fetchProfile(session.user.id);
-          fetchSubscription();
+          fetchSubscription(true);
+        } else if (session?.user && event === 'TOKEN_REFRESHED') {
+          // Token refresh: update in background without blocking UI
+          fetchSubscription(true);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setSubscription(null);

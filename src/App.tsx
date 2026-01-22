@@ -36,11 +36,14 @@ const queryClient = new QueryClient({
 const ProtectedRoute = ({ children, requireSubscription = true }: { children: React.ReactNode; requireSubscription?: boolean }) => {
   const { isAuthenticated, isLoading, hasActiveSubscription, subscriptionChecked } = useAuth();
 
-  // Wait for initial auth loading
+  // Wait for initial auth loading only
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        </div>
       </div>
     );
   }
@@ -49,16 +52,9 @@ const ProtectedRoute = ({ children, requireSubscription = true }: { children: Re
     return <Navigate to="/login" replace />;
   }
 
-  // Wait for subscription check before redirecting
-  if (requireSubscription && !subscriptionChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (requireSubscription && !hasActiveSubscription) {
+  // Only redirect if subscription was checked AND is not active
+  // Don't block rendering while waiting for subscription check
+  if (requireSubscription && subscriptionChecked && !hasActiveSubscription) {
     return <Navigate to="/?subscription=required" replace />;
   }
 
@@ -70,8 +66,11 @@ const AppRoutes = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        </div>
       </div>
     );
   }

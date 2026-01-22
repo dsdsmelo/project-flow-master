@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { 
-  FolderKanban, 
+import {
+  FolderKanban,
   AlertTriangle,
   CheckCircle2,
   Calendar,
@@ -17,6 +17,7 @@ import { isTaskOverdue, isTaskDueSoon } from '@/lib/mockData';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 const Dashboard = () => {
@@ -110,10 +111,61 @@ const Dashboard = () => {
     return (
       <MainLayout>
         <Header title="Dashboard" subtitle="Visão geral do workspace" />
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando dados...</p>
+        <div className="p-6 space-y-6">
+          {/* KPI Cards Skeleton */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-card rounded-xl border border-border p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+                <Skeleton className="h-8 w-16 mb-1" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            ))}
+          </div>
+          {/* Charts Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <Skeleton className="h-5 w-40 mb-4" />
+              <Skeleton className="h-48 w-full rounded-lg" />
+            </div>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <Skeleton className="h-5 w-40 mb-4" />
+              <Skeleton className="h-48 w-full rounded-lg" />
+            </div>
+          </div>
+          {/* Lists Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <Skeleton className="h-5 w-32 mb-4" />
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-3/4 mb-1" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <Skeleton className="h-5 w-32 mb-4" />
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-3/4 mb-1" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </MainLayout>
