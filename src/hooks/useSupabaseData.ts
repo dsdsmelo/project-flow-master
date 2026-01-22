@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
 import { auditLog } from '@/lib/auditLog';
@@ -19,6 +19,7 @@ export function useSupabaseData() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch all data
@@ -27,10 +28,14 @@ export function useSupabaseData() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setLoading(false);
+      initialLoadDone.current = true;
       return;
     }
 
-    setLoading(true);
+    // Only show loading spinner on initial load, not on background refetches
+    if (!initialLoadDone.current) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -77,6 +82,7 @@ export function useSupabaseData() {
       setError(err.message);
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, []);
 
@@ -98,6 +104,7 @@ export function useSupabaseData() {
         setMilestones([]);
         setMeetingNotes([]);
         setLoading(false);
+        initialLoadDone.current = false;
       }
     });
 

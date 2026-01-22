@@ -107,7 +107,9 @@ const Dashboard = () => {
     return safeProjects.find(p => p.id === projectId)?.name || '-';
   };
 
-  if (loading) {
+  // Only show skeleton on very first load when no data exists yet
+  const hasData = safeTasks.length > 0 || safeProjects.length > 0 || safePeople.length > 0;
+  if (loading && !hasData) {
     return (
       <MainLayout>
         <Header title="Dashboard" subtitle="Visão geral do workspace" />
