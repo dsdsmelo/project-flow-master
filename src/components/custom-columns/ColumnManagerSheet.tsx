@@ -56,9 +56,9 @@ const standardFieldLabels: Record<string, string> = {
   progress: 'Progresso',
 };
 
-// Protected standard fields that cannot be deleted (used in Gantt)
+// Protected standard fields that cannot be deleted
 const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
-  'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
+  'name', 'description', 'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
 ];
 
 // Default columns that are created for every new project

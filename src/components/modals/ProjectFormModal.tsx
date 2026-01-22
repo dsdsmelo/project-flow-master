@@ -64,9 +64,9 @@ export const COVER_GRADIENTS = [
   { id: 'pink', name: 'Rosa', class: 'from-pink-500 to-fuchsia-500' },
 ];
 
-// Protected standard fields that cannot be deleted (used in Gantt)
+// Protected standard fields that cannot be deleted
 const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
-  'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
+  'name', 'description', 'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
 ];
 
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
