@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { 
-  Sun, 
-  Moon, 
+import {
+  Sun,
+  Moon,
   Download,
   Upload,
   Database,
@@ -12,7 +12,12 @@ import {
   User,
   Mail,
   Palette,
-  Camera
+  Camera,
+  CreditCard,
+  AlertTriangle,
+  Calendar,
+  ExternalLink,
+  XCircle
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -25,10 +30,21 @@ import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const Settings = () => {
   const { toast } = useToast();
-  const { user, profile, updateProfile, refreshProfile } = useAuth();
+  const { user, profile, updateProfile, refreshProfile, subscription, refreshSubscription, isAdmin } = useAuth();
   const { projects, tasks, people, cells, phases, customColumns } = useData();
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
   const [newPassword, setNewPassword] = useState('');
@@ -37,6 +53,8 @@ const Settings = () => {
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isLoadingPortal, setIsLoadingPortal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync fullName with profile when it changes
@@ -292,6 +310,85 @@ const Settings = () => {
     }
   };
 
+  const handleCancelSubscription = async () => {
+    setIsCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-subscription');
+
+      if (error) throw error;
+
+      toast({
+        title: 'Assinatura cancelada',
+        description: data.message,
+      });
+
+      // Refresh subscription data
+      await refreshSubscription();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao cancelar',
+        description: error.message || 'Não foi possível cancelar a assinatura.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleOpenPortal = async () => {
+    setIsLoadingPortal(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-portal-session');
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao abrir portal',
+        description: error.message || 'Não foi possível abrir o portal de pagamentos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingPortal(false);
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const getStatusBadge = () => {
+    if (isAdmin) {
+      return <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">Admin</span>;
+    }
+    if (!subscription) {
+      return <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">Sem assinatura</span>;
+    }
+    if (subscription.cancel_at_period_end) {
+      return <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Cancela em breve</span>;
+    }
+    switch (subscription.status) {
+      case 'active':
+        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Ativo</span>;
+      case 'trialing':
+        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Período de teste</span>;
+      case 'canceled':
+        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Cancelado</span>;
+      case 'past_due':
+        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Pagamento pendente</span>;
+      default:
+        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">Inativo</span>;
+    }
+  };
+
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
 
   return (
@@ -304,6 +401,10 @@ const Settings = () => {
             <TabsTrigger value="profile" className="gap-2">
               <User className="w-4 h-4" />
               Perfil
+            </TabsTrigger>
+            <TabsTrigger value="subscription" className="gap-2">
+              <CreditCard className="w-4 h-4" />
+              Assinatura
             </TabsTrigger>
             <TabsTrigger value="appearance" className="gap-2">
               <Palette className="w-4 h-4" />
@@ -430,6 +531,159 @@ const Settings = () => {
                   <p className="text-sm text-muted-foreground">
                     Membro desde: {user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
                   </p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Subscription Tab */}
+          <TabsContent value="subscription" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Subscription Info */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Detalhes da Assinatura
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    {getStatusBadge()}
+                  </div>
+
+                  {subscription && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Plano</span>
+                        <span className="font-medium">Tarefaa Pro</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Período atual</span>
+                        <span className="text-sm">
+                          {formatDate(subscription.current_period_start)} - {formatDate(subscription.current_period_end)}
+                        </span>
+                      </div>
+                      {subscription.cancel_at_period_end && (
+                        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mt-2">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm">
+                              <p className="font-medium text-amber-800 dark:text-amber-200">
+                                Cancelamento agendado
+                              </p>
+                              <p className="text-amber-700 dark:text-amber-300">
+                                Sua assinatura será cancelada em {formatDate(subscription.current_period_end)}.
+                                Você pode continuar usando até essa data.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {isAdmin && !subscription && (
+                    <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                      <p className="text-sm text-purple-700 dark:text-purple-300">
+                        Você tem acesso administrativo ao sistema.
+                      </p>
+                    </div>
+                  )}
+
+                  {!subscription && !isAdmin && (
+                    <div className="bg-muted/50 rounded-lg p-4 text-center">
+                      <p className="text-muted-foreground">Você não possui uma assinatura ativa.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Subscription Actions */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Gerenciar Assinatura
+                </h3>
+                <div className="space-y-4">
+                  {subscription?.stripe_customer_id && (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Portal de Pagamentos</p>
+                        <p className="text-sm text-muted-foreground">Atualizar cartão, ver faturas</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleOpenPortal}
+                        disabled={isLoadingPortal}
+                      >
+                        {isLoadingPortal ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Abrir Portal
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {subscription && (subscription.status === 'active' || subscription.status === 'trialing') && !subscription.cancel_at_period_end && (
+                    <div className="pt-4 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-red-600 dark:text-red-400">Cancelar Assinatura</p>
+                          <p className="text-sm text-muted-foreground">Você poderá usar até o fim do período</p>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Cancelar
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Sua assinatura será cancelada ao final do período atual
+                                ({formatDate(subscription.current_period_end)}).
+                                Você poderá continuar usando o Tarefaa até essa data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Voltar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleCancelSubscription}
+                                className="bg-red-600 hover:bg-red-700"
+                                disabled={isCancelling}
+                              >
+                                {isCancelling ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Cancelando...
+                                  </>
+                                ) : (
+                                  'Sim, cancelar'
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  )}
+
+                  {!subscription && !isAdmin && (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground mb-4">
+                        Assine o Tarefaa para gerenciar seus projetos e tarefas.
+                      </p>
+                      <Button asChild>
+                        <a href="/">Ver planos</a>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
