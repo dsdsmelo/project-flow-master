@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useData } from '@/contexts/DataContext';
 import { Milestone } from '@/lib/types';
 import { toast } from 'sonner';
-import { Calendar, Diamond } from 'lucide-react';
+import { Calendar, Diamond, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,13 +24,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Popover,
   PopoverContent,
@@ -73,6 +66,7 @@ export const MilestoneFormModal = ({
   milestone,
 }: MilestoneFormModalProps) => {
   const { addMilestone, updateMilestone } = useData();
+  const [customColors, setCustomColors] = useState<string[]>([]);
 
   const form = useForm<MilestoneFormData>({
     resolver: zodResolver(milestoneSchema),
@@ -210,34 +204,40 @@ export const MilestoneFormModal = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: field.value }}
-                            />
-                            {colorOptions.find(c => c.value === field.value)?.label || 'Cor'}
-                          </div>
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {colorOptions.map((color) => (
-                        <SelectItem key={color.value} value={color.value}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: color.value }}
-                            />
-                            {color.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {[...colorOptions.map(c => c.value), ...customColors].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => field.onChange(color)}
+                        className={cn(
+                          "w-7 h-7 rounded-full transition-all border-2",
+                          field.value === color
+                            ? "scale-110 border-foreground shadow-md"
+                            : "border-transparent hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color }}
+                        title={colorOptions.find(c => c.value === color)?.label || color}
+                      />
+                    ))}
+                    <label
+                      className="w-7 h-7 rounded-full border-2 border-dashed border-muted-foreground/50 flex items-center justify-center cursor-pointer hover:border-primary hover:scale-105 transition-all"
+                      title="Adicionar cor personalizada"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                      <input
+                        type="color"
+                        className="sr-only"
+                        onChange={(e) => {
+                          const newColor = e.target.value;
+                          if (!colorOptions.some(c => c.value === newColor) && !customColors.includes(newColor)) {
+                            setCustomColors(prev => [...prev, newColor]);
+                          }
+                          field.onChange(newColor);
+                        }}
+                      />
+                    </label>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
