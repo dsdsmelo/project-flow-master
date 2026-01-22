@@ -72,6 +72,17 @@ export const ProjectGanttChart = ({
   const projectPhases = useMemo(() => phases.filter(p => p.projectId === projectId), [phases, projectId]);
   const projectMilestones = useMemo(() => milestones.filter(m => m.projectId === projectId), [milestones, projectId]);
 
+  // Helper para normalizar qualquer data ao meio-dia UTC (evita problemas de timezone/meia-noite)
+  const normalizeToNoonUTC = (date: Date) => {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));
+  };
+
+  // Helper para parsear string "YYYY-MM-DD" como UTC meio-dia
+  const parseDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  };
+
   // Helper para obter data atual em São Paulo (normalizada ao meio-dia UTC para alinhar com datas do banco)
   const getTodaySaoPaulo = () => {
     const now = new Date();
@@ -83,9 +94,7 @@ export const ProjectGanttChart = ({
       day: '2-digit',
     });
     const dateStr = spFormatter.format(now); // "YYYY-MM-DD"
-    // Criar a data como UTC meio-dia para alinhar com as datas do banco (que são "YYYY-MM-DD" parseadas como UTC)
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    return parseDate(dateStr);
   };
 
   const dateRange = useMemo(() => {
@@ -101,23 +110,24 @@ export const ProjectGanttChart = ({
 
     if (allDates.length === 0) {
       return {
-        start: new Date(today.getFullYear(), today.getMonth(), 1),
-        end: new Date(today.getFullYear(), today.getMonth() + 3, 0)
+        start: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 12, 0, 0)),
+        end: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 3, 0, 12, 0, 0))
       };
     }
 
-    const minDate = new Date(Math.min(...allDates.map(d => new Date(d).getTime())));
-    const maxDate = new Date(Math.max(...allDates.map(d => new Date(d).getTime())));
+    const parsedDates = allDates.map(d => parseDate(d));
+    const minDate = new Date(Math.min(...parsedDates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...parsedDates.map(d => d.getTime())));
 
     // Start from the earliest date (project start) with some padding
     const startDate = new Date(minDate);
-    startDate.setDate(startDate.getDate() - 7); // 1 week before earliest date
+    startDate.setUTCDate(startDate.getUTCDate() - 7); // 1 week before earliest date
 
     // End after the latest date or today, whichever is later
     const endDate = new Date(Math.max(maxDate.getTime(), today.getTime()));
-    endDate.setDate(endDate.getDate() + 14); // 2 weeks after latest date
+    endDate.setUTCDate(endDate.getUTCDate() + 14); // 2 weeks after latest date
 
-    return { start: startDate, end: endDate };
+    return { start: normalizeToNoonUTC(startDate), end: normalizeToNoonUTC(endDate) };
   }, [tasks, projectPhases, projectMilestones, project]);
 
   const columns = useMemo(() => {
@@ -126,15 +136,18 @@ export const ProjectGanttChart = ({
 
     while (current <= dateRange.end) {
       if (zoom === 'day') {
-        cols.push({ date: new Date(current), label: current.toLocaleDateString('pt-BR', { day: '2-digit' }), subLabel: current.getDate() === 1 ? current.toLocaleDateString('pt-BR', { month: 'short' }) : undefined });
-        current.setDate(current.getDate() + 1);
+        const d = normalizeToNoonUTC(current);
+        cols.push({ date: d, label: d.getUTCDate().toString().padStart(2, '0'), subLabel: d.getUTCDate() === 1 ? d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }) : undefined });
+        current.setUTCDate(current.getUTCDate() + 1);
       } else if (zoom === 'week') {
-        cols.push({ date: new Date(current), label: current.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) });
-        current.setDate(current.getDate() + 7);
+        const d = normalizeToNoonUTC(current);
+        cols.push({ date: d, label: `${d.getUTCDate().toString().padStart(2, '0')}/${(d.getUTCMonth() + 1).toString().padStart(2, '0')}` });
+        current.setUTCDate(current.getUTCDate() + 7);
       } else {
-        cols.push({ date: new Date(current), label: current.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), subLabel: current.toLocaleDateString('pt-BR', { year: '2-digit' }) });
-        current.setMonth(current.getMonth() + 1);
-        current.setDate(1);
+        const d = normalizeToNoonUTC(current);
+        cols.push({ date: d, label: d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', ''), subLabel: d.toLocaleDateString('pt-BR', { year: '2-digit', timeZone: 'UTC' }) });
+        current.setUTCMonth(current.getUTCMonth() + 1);
+        current.setUTCDate(1);
       }
     }
     return cols;
@@ -154,8 +167,8 @@ export const ProjectGanttChart = ({
 
   const getPosition = (start: string | null | undefined, end: string | null | undefined) => {
     if (!start) return null;
-    const startD = new Date(start);
-    const endD = end ? new Date(end) : new Date(start);
+    const startD = parseDate(start);
+    const endD = end ? parseDate(end) : parseDate(start);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const startOffset = (startD.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const duration = Math.max((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24), 1);
@@ -163,7 +176,7 @@ export const ProjectGanttChart = ({
   };
 
   const getMilestonePosition = (date: string) => {
-    const d = new Date(date);
+    const d = parseDate(date);
     const totalDays = (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     const offset = (d.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24);
     return `${(offset / totalDays) * 100}%`;
@@ -215,13 +228,13 @@ export const ProjectGanttChart = ({
     // Find the column index for today
     const todayIndex = columns.findIndex(col => {
       if (zoom === 'day') {
-        return col.date.toDateString() === today.toDateString();
+        return col.date.getUTCFullYear() === today.getUTCFullYear() && col.date.getUTCMonth() === today.getUTCMonth() && col.date.getUTCDate() === today.getUTCDate();
       } else if (zoom === 'week') {
         const weekEnd = new Date(col.date);
-        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
         return today >= col.date && today <= weekEnd;
       } else {
-        return col.date.getMonth() === today.getMonth() && col.date.getFullYear() === today.getFullYear();
+        return col.date.getUTCMonth() === today.getUTCMonth() && col.date.getUTCFullYear() === today.getUTCFullYear();
       }
     });
 
@@ -351,7 +364,7 @@ export const ProjectGanttChart = ({
                 </div>
                 {columns.map((col, i) => {
                   const today = getTodaySaoPaulo();
-                  const isToday = zoom !== 'month' && col.date.toDateString() === today.toDateString();
+                  const isToday = zoom !== 'month' && col.date.getUTCFullYear() === today.getUTCFullYear() && col.date.getUTCMonth() === today.getUTCMonth() && col.date.getUTCDate() === today.getUTCDate();
                   return (
                     <div
                       key={i}
@@ -469,12 +482,12 @@ export const ProjectGanttChart = ({
                     </div>
 
                     {/* Task Labels */}
-                    {!isCollapsed && group.tasks.map((task) => {
+                    {!isCollapsed && group.tasks.map((task, taskIndex) => {
                       const styles = getStatusStyles(task);
                       return (
                         <div
                           key={task.id}
-                          className={cn(taskRowHeight, "flex items-center hover:bg-muted/30 transition-colors px-4 pl-8")}
+                          className={cn(taskRowHeight, "flex items-center hover:bg-muted/30 transition-colors px-4 pl-8", taskIndex % 2 === 1 && "bg-muted/10")}
                         >
                           <div className={cn("w-2 h-2 rounded-full flex-shrink-0", styles.dot)} />
                           <span className={cn("text-sm truncate flex-1 ml-2", task.status === 'completed' && "line-through text-muted-foreground")}>
@@ -525,7 +538,7 @@ export const ProjectGanttChart = ({
                                 style={{ left: getTodayPosition() }}
                               />
                               <div className="absolute inset-0 flex pointer-events-none">
-                                {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}
+                                {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/30", columnWidth)} />)}
                               </div>
                               {position && (
                                 <Tooltip>
@@ -561,7 +574,7 @@ export const ProjectGanttChart = ({
                               style={{ left: getTodayPosition() }}
                             />
                             <div className="absolute inset-0 flex pointer-events-none">
-                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}
+                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/30", columnWidth)} />)}
                             </div>
                             {projectMilestones.map(m => {
                               const milestoneColor = m.color || '#3b82f6';
@@ -625,19 +638,19 @@ export const ProjectGanttChart = ({
                       </div>
 
                       {/* Task Bars */}
-                      {!isCollapsed && group.tasks.map((task) => {
+                      {!isCollapsed && group.tasks.map((task, taskIndex) => {
                         const position = getPosition(task.startDate, task.endDate);
                         const styles = getStatusStyles(task);
                         const taskProgress = calculatePercentage(task);
 
                         return (
-                          <div key={task.id} className={cn(taskRowHeight, "relative")}>
+                          <div key={task.id} className={cn(taskRowHeight, "relative border-b border-border/15", taskIndex % 2 === 1 && "bg-muted/10")}>
                             <div
                               className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
                               style={{ left: getTodayPosition() }}
                             />
                             <div className="absolute inset-0 flex pointer-events-none">
-                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/10", columnWidth)} />)}
+                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/30", columnWidth)} />)}
                             </div>
                             {position && (
                               <Tooltip>
