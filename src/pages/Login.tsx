@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,14 +22,43 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, isAuthenticated, hasActiveSubscription, subscriptionChecked } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  // Redirect only when authenticated WITH active subscription
+  const redirectTo = searchParams.get('redirect');
+
+  // Handle redirect after authentication
   useEffect(() => {
-    if (isAuthenticated && subscriptionChecked && hasActiveSubscription) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate]);
+    const handlePostLoginRedirect = async () => {
+      if (!isAuthenticated || !subscriptionChecked) return;
+
+      // If user needs to go to checkout
+      if (redirectTo === 'checkout' && !hasActiveSubscription) {
+        try {
+          const { data, error } = await supabase.functions.invoke('create-checkout');
+          if (error) throw error;
+          if (data?.url) {
+            window.location.href = data.url;
+            return;
+          }
+        } catch (error) {
+          console.error('Erro ao criar checkout:', error);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível iniciar o checkout. Tente novamente.',
+            variant: 'destructive',
+          });
+        }
+      }
+
+      // If has active subscription, go to dashboard
+      if (hasActiveSubscription) {
+        navigate('/dashboard', { replace: true });
+      }
+    };
+
+    handlePostLoginRedirect();
+  }, [isAuthenticated, hasActiveSubscription, subscriptionChecked, navigate, redirectTo, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +96,7 @@ const Login = () => {
       } else {
         toast({
           title: 'Bem-vindo!',
-          description: 'Login realizado com sucesso.',
+          description: redirectTo === 'checkout' ? 'Redirecionando para o checkout...' : 'Login realizado com sucesso.',
         });
         // Navigation handled by useEffect
       }

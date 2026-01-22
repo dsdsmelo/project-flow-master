@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   FolderKanban, 
@@ -76,6 +76,7 @@ const formatPrice = (amountInCents: number) => {
 const Landing = () => {
   const { isAuthenticated, hasActiveSubscription } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [priceAmount, setPriceAmount] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
@@ -103,9 +104,41 @@ const Landing = () => {
     fetchPrice();
   }, []);
 
-  const handleSubscribe = () => {
-    // Abrir Stripe diretamente - o Stripe cuida da autenticação
-    window.open('https://buy.stripe.com/4gwbLp8Aqgcl1eU8ww', '_blank');
+  const handleSubscribe = async () => {
+    // Se não estiver autenticado, redireciona para login
+    if (!isAuthenticated) {
+      navigate('/login?redirect=checkout');
+      return;
+    }
+
+    // Se já tem assinatura ativa, vai para dashboard
+    if (hasActiveSubscription) {
+      navigate('/dashboard');
+      return;
+    }
+
+    // Cria checkout session via edge function
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout');
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('URL de checkout não retornada');
+      }
+    } catch (error: any) {
+      console.error('Erro ao criar checkout:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível iniciar o checkout. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const features = [
