@@ -81,8 +81,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     responsible: 'all',
   });
 
-  // Toggle to show/hide completed tasks
-  const [showCompleted, setShowCompleted] = useState(true);
+  // Toggle to show/hide completed tasks (hidden by default to reduce visual clutter)
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

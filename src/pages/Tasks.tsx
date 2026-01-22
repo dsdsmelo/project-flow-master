@@ -1,12 +1,14 @@
 import { useState, useMemo, useCallback } from 'react';
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   Filter,
   MoreVertical,
   Edit,
   Trash2,
-  Columns3
+  Columns3,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -72,6 +74,8 @@ const Tasks = () => {
     priority: 'all',
     responsible: 'all',
   });
+  // Toggle to show/hide completed tasks (hidden by default)
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
@@ -85,8 +89,12 @@ const Tasks = () => {
   const safePeople = people || [];
   const safeCustomColumns = customColumns || [];
 
+  const completedCount = useMemo(() => safeTasks.filter(t => t.status === 'completed').length, [safeTasks]);
+
   const filteredTasks = useMemo(() => {
     return safeTasks.filter(task => {
+      // Hide completed tasks unless toggle is on or status filter is explicitly "completed"
+      if (!showCompleted && task.status === 'completed' && filters.status !== 'completed') return false;
       const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase());
       const matchesProject = filters.project === 'all' || task.projectId === filters.project;
       const matchesStatus = filters.status === 'all' || task.status === filters.status;
@@ -94,7 +102,7 @@ const Tasks = () => {
       const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
       return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesResponsible;
     });
-  }, [safeTasks, search, filters]);
+  }, [safeTasks, search, filters, showCompleted]);
 
   // Get custom columns for the selected project (or all if no project selected)
   // Columns are automatically displayed based on project selection
@@ -279,6 +287,22 @@ const Tasks = () => {
                 <SelectItem value="cancelled">Cancelado</SelectItem>
               </SelectContent>
             </Select>
+
+            <Button
+              variant={showCompleted ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowCompleted(!showCompleted)}
+              className="relative"
+              title={showCompleted ? "Ocultar concluídas" : "Mostrar concluídas"}
+            >
+              {showCompleted ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
+              Concluídas
+              {completedCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+                  {completedCount}
+                </span>
+              )}
+            </Button>
 
             <Sheet>
               <SheetTrigger asChild>
