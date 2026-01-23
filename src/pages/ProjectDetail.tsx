@@ -445,12 +445,15 @@ const ProjectDetail = () => {
               </div>
             </div>
 
-            {/* Bottom Row - 3 colunas iguais */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Bottom Row - 4 colunas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Tarefas mais longas em execução */}
-              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-                <h3 className="text-lg font-semibold mb-4">Mais tempo em execução</h3>
-                <div className="space-y-3">
+              <div className="bg-card rounded-lg border border-border p-4 shadow-soft">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-blue-500" />
+                  <h3 className="text-sm font-semibold">Mais tempo em execução</h3>
+                </div>
+                <div className="space-y-1.5">
                   {(() => {
                     const now = new Date();
                     const inProgressTasks = projectTasks
@@ -461,13 +464,12 @@ const ProjectDetail = () => {
                         return { ...t, daysRunning: Math.max(days, 0) };
                       })
                       .sort((a, b) => b.daysRunning - a.daysRunning)
-                      .slice(0, 5);
+                      .slice(0, 4);
 
                     if (inProgressTasks.length === 0) {
                       return (
-                        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                          <Clock className="w-8 h-8 mb-2 opacity-50" />
-                          <p className="text-sm">Nenhuma tarefa em execução</p>
+                        <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                          <p className="text-xs">Nenhuma tarefa em execução</p>
                         </div>
                       );
                     }
@@ -475,21 +477,18 @@ const ProjectDetail = () => {
                     return inProgressTasks.map(task => {
                       const person = people.find(p => p.id === task.responsibleId);
                       return (
-                        <div key={task.id} className="p-3 bg-muted/30 rounded-lg">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-medium text-sm truncate flex-1 mr-2">{task.name}</p>
-                            <span className={cn(
-                              "text-xs font-bold px-1.5 py-0.5 rounded",
-                              task.daysRunning > 14 ? "text-red-600 bg-red-100 dark:bg-red-900/30" :
-                              task.daysRunning > 7 ? "text-amber-600 bg-amber-100 dark:bg-amber-900/30" :
-                              "text-blue-600 bg-blue-100 dark:bg-blue-900/30"
-                            )}>
-                              {task.daysRunning}d
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {person && <span>{person.name}</span>}
-                            {task.startDate && <span>· Início: {new Date(task.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
+                        <div key={task.id} className="flex items-center gap-2 py-1.5 px-2 bg-muted/30 rounded">
+                          <span className={cn(
+                            "text-[10px] font-bold px-1 py-0.5 rounded shrink-0",
+                            task.daysRunning > 14 ? "text-red-600 bg-red-100 dark:bg-red-900/30" :
+                            task.daysRunning > 7 ? "text-amber-600 bg-amber-100 dark:bg-amber-900/30" :
+                            "text-blue-600 bg-blue-100 dark:bg-blue-900/30"
+                          )}>
+                            {task.daysRunning}d
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">{task.name}</p>
+                            {person && <p className="text-[10px] text-muted-foreground truncate">{person.name}</p>}
                           </div>
                         </div>
                       );
@@ -498,117 +497,116 @@ const ProjectDetail = () => {
                 </div>
               </div>
 
-              {/* Alertas */}
-              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-                <h3 className="text-lg font-semibold mb-4">Alertas</h3>
-                <div className="space-y-3">
+              {/* Tarefas vencidas */}
+              <div className="bg-card rounded-lg border border-border p-4 shadow-soft">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                  <h3 className="text-sm font-semibold">Vencidas</h3>
                   {alerts.overdue.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-red-500">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className="font-medium text-xs">Atrasadas ({alerts.overdue.length})</span>
-                      </div>
-                      {alerts.overdue.slice(0, 2).map(task => (
-                        <div 
-                          key={task.id} 
-                          className="p-2.5 bg-red-500/5 border border-red-500/20 rounded-lg"
-                        >
-                          <p className="font-medium text-sm truncate">{task.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{getPhaseName(task.phaseId)}</p>
+                    <span className="ml-auto text-[10px] font-bold text-red-600 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full">{alerts.overdue.length}</span>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {alerts.overdue.length > 0 ? (
+                    alerts.overdue.slice(0, 4).map(task => {
+                      const person = people.find(p => p.id === task.responsibleId);
+                      const daysOverdue = task.endDate ? Math.floor((new Date().getTime() - new Date(task.endDate + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                      return (
+                        <div key={task.id} className="flex items-center gap-2 py-1.5 px-2 bg-red-500/5 rounded">
+                          <span className="text-[10px] font-bold text-red-600 px-1 py-0.5 bg-red-100 dark:bg-red-900/30 rounded shrink-0">
+                            +{daysOverdue}d
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">{task.name}</p>
+                            {person && <p className="text-[10px] text-muted-foreground truncate">{person.name}</p>}
+                          </div>
                         </div>
-                      ))}
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                      <CheckCircle2 className="w-5 h-5 mb-1 text-emerald-500" />
+                      <p className="text-xs">Nenhuma vencida</p>
                     </div>
                   )}
+                </div>
+              </div>
 
+              {/* Próximas a vencer */}
+              <div className="bg-card rounded-lg border border-border p-4 shadow-soft">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-4 h-4 text-amber-500" />
+                  <h3 className="text-sm font-semibold">Próximas a vencer</h3>
                   {alerts.dueSoon.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-amber-500">
-                        <Calendar className="w-4 h-4" />
-                        <span className="font-medium text-xs">Próximas ({alerts.dueSoon.length})</span>
-                      </div>
-                      {alerts.dueSoon.slice(0, 2).map(task => (
-                        <div 
-                          key={task.id} 
-                          className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg"
-                        >
-                          <p className="font-medium text-sm truncate">{task.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{getPhaseName(task.phaseId)}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <span className="ml-auto text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">{alerts.dueSoon.length}</span>
                   )}
-
-                  {alerts.unassigned.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Users className="w-4 h-4" />
-                        <span className="font-medium text-xs">Sem Responsável ({alerts.unassigned.length})</span>
-                      </div>
-                      {alerts.unassigned.slice(0, 2).map(task => (
-                        <div 
-                          key={task.id} 
-                          className="p-2.5 bg-muted/50 border border-border rounded-lg"
-                        >
-                          <p className="font-medium text-sm truncate">{task.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{getPhaseName(task.phaseId)}</p>
+                </div>
+                <div className="space-y-1.5">
+                  {alerts.dueSoon.length > 0 ? (
+                    alerts.dueSoon.slice(0, 4).map(task => {
+                      const person = people.find(p => p.id === task.responsibleId);
+                      const daysLeft = task.endDate ? Math.max(0, Math.floor((new Date(task.endDate + 'T12:00:00').getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0;
+                      return (
+                        <div key={task.id} className="flex items-center gap-2 py-1.5 px-2 bg-amber-500/5 rounded">
+                          <span className="text-[10px] font-bold text-amber-600 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/30 rounded shrink-0">
+                            {daysLeft}d
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">{task.name}</p>
+                            {person && <p className="text-[10px] text-muted-foreground truncate">{person.name}</p>}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {alerts.overdue.length === 0 && alerts.dueSoon.length === 0 && alerts.unassigned.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                      <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-500" />
-                      <p className="text-sm font-medium">Tudo em dia!</p>
-                      <p className="text-xs">Nenhum alerta no momento</p>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                      <CheckCircle2 className="w-5 h-5 mb-1 text-emerald-500" />
+                      <p className="text-xs">Nenhuma próxima</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Marcos do Projeto */}
-              <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Marcos</h3>
-                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setEditingMilestone(undefined); setMilestoneModalOpen(true); }}>
-                    <Plus className="w-3 h-3 mr-1" />
-                    Novo
+              <div className="bg-card rounded-lg border border-border p-4 shadow-soft">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="w-4 h-4 text-purple-500" />
+                  <h3 className="text-sm font-semibold">Marcos</h3>
+                  <Button variant="ghost" size="sm" className="ml-auto text-[10px] h-5 px-1.5" onClick={() => { setEditingMilestone(undefined); setMilestoneModalOpen(true); }}>
+                    <Plus className="w-3 h-3" />
                   </Button>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-1.5">
                   {projectMilestones.length > 0 ? (
-                    projectMilestones.slice(0, 5).map(milestone => (
-                      <div 
-                        key={milestone.id} 
+                    projectMilestones.slice(0, 4).map(milestone => (
+                      <div
+                        key={milestone.id}
                         className={cn(
-                          "p-3 rounded-lg border cursor-pointer hover:bg-muted/30 transition-colors",
-                          milestone.completed 
-                            ? "bg-emerald-500/5 border-emerald-500/20" 
-                            : "bg-muted/20 border-border"
+                          "flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer hover:bg-muted/50 transition-colors",
+                          milestone.completed ? "bg-emerald-500/5" : "bg-muted/30"
                         )}
                         onClick={() => { setEditingMilestone(milestone); setMilestoneModalOpen(true); }}
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          {milestone.completed ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          ) : (
-                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/50 flex-shrink-0" />
-                          )}
+                        {milestone.completed ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        ) : (
+                          <div className="w-3.5 h-3.5 rounded-full border-2 border-muted-foreground/40 shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
                           <p className={cn(
-                            "font-medium text-sm truncate",
+                            "text-xs font-medium truncate",
                             milestone.completed && "line-through text-muted-foreground"
                           )}>{milestone.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(milestone.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground ml-6">
-                          {new Date(milestone.date).toLocaleDateString('pt-BR')}
-                        </p>
                       </div>
                     ))
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                      <Calendar className="w-8 h-8 mb-2 opacity-50" />
-                      <p className="text-sm">Nenhum marco criado</p>
-                      <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => { setEditingMilestone(undefined); setMilestoneModalOpen(true); }}>
+                    <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                      <p className="text-xs">Nenhum marco criado</p>
+                      <Button variant="link" size="sm" className="mt-1 text-[10px] h-5" onClick={() => { setEditingMilestone(undefined); setMilestoneModalOpen(true); }}>
                         Criar marco
                       </Button>
                     </div>
