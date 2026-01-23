@@ -656,20 +656,23 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left py-1.5 px-1.5 w-7">
+                <th className="text-left py-1.5 px-2 w-8 sticky left-0 z-10 bg-muted/50">
                   <Checkbox
                     checked={selectedTasks.length === paginatedTasks.length && paginatedTasks.length > 0}
                     onCheckedChange={toggleAllTasks}
                   />
                 </th>
                 {/* All columns - unified */}
-                {projectColumns.map(col => (
+                {projectColumns.map((col, colIndex) => {
+                  const isNameCol = colIndex === 0;
+                  return (
                   <th
                     key={col.id}
                     className={cn(
-                      "text-left py-1.5 px-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap transition-all",
+                      "text-left py-1.5 px-2 text-[11px] font-medium text-muted-foreground whitespace-nowrap transition-all",
                       draggedColumnId === col.id && "opacity-50",
-                      dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary"
+                      dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
+                      isNameCol && "sticky left-8 z-10 bg-muted/50 after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border"
                     )}
                     draggable
                     onDragStart={(e) => handleColumnDragStart(e, col.id)}
@@ -709,8 +712,9 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       )}
                     </div>
                   </th>
-                ))}
-                <th className="text-right py-1.5 px-1 text-[11px] font-medium text-muted-foreground w-7"></th>
+                  );
+                })}
+                <th className="text-right py-1.5 px-2 text-[11px] font-medium text-muted-foreground w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -721,32 +725,41 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   <tr
                     key={task.id}
                     className={cn(
-                      "border-t border-border hover:bg-muted/30 transition-colors",
+                      "group/row border-t border-border hover:bg-muted/30 transition-colors",
                       overdue && "bg-status-blocked/5",
                       selectedTasks.includes(task.id) && "bg-primary/5"
                     )}
                   >
-                    <td className="py-1 px-1.5">
+                    <td className={cn(
+                      "py-1 px-2 sticky left-0 z-10 bg-card transition-colors",
+                      "group-hover/row:bg-muted/30",
+                      overdue && "!bg-status-blocked/5 group-hover/row:!bg-muted/30",
+                      selectedTasks.includes(task.id) && "!bg-primary/5 group-hover/row:!bg-muted/30"
+                    )}>
                       <Checkbox
                         checked={selectedTasks.includes(task.id)}
                         onCheckedChange={() => toggleTaskSelection(task.id)}
                       />
                     </td>
                     {/* All columns - unified */}
-                    {projectColumns.map(col => (
+                    {projectColumns.map((col, colIndex) => {
+                      const isNameCol = colIndex === 0;
+                      return (
                       <td
                         key={col.id}
                         className={cn(
-                          "py-1 px-1.5 text-xs whitespace-nowrap",
-                          col.standardField === 'name' && "max-w-[280px] overflow-hidden text-ellipsis",
-                          col.standardField === 'description' && "max-w-[200px] overflow-hidden text-ellipsis",
-                          (col.type === 'text' || col.type === 'list') && !col.standardField && "max-w-[180px] overflow-hidden text-ellipsis"
+                          "py-1 px-2 text-xs whitespace-nowrap",
+                          isNameCol && "sticky left-8 z-10 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border transition-colors",
+                          isNameCol && "group-hover/row:bg-muted/30",
+                          isNameCol && overdue && "!bg-status-blocked/5 group-hover/row:!bg-muted/30",
+                          isNameCol && selectedTasks.includes(task.id) && "!bg-primary/5 group-hover/row:!bg-muted/30"
                         )}
                       >
                         {renderCellContent(task, col)}
                       </td>
-                    ))}
-                    <td className="py-1 px-1 text-right">
+                      );
+                    })}
+                    <td className="py-1 px-2 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
