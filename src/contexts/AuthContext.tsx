@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { logAuditEvent } from '@/lib/auditLog';
 
 interface Subscription {
   id: string;
@@ -245,6 +246,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = async () => {
+    await logAuditEvent({
+      action: 'logout',
+      level: 'info',
+      details: 'Logout realizado',
+    });
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

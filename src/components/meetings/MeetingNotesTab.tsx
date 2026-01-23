@@ -113,6 +113,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [meetingDate, setMeetingDate] = useState<Date | undefined>(new Date());
+  const [meetingDateOpen, setMeetingDateOpen] = useState(false);
   const [participants, setParticipants] = useState('');
   const [category, setCategory] = useState<NoteCategory>('general');
 
@@ -583,7 +584,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
             {/* Date */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Data</label>
-              <Popover>
+              <Popover open={meetingDateOpen} onOpenChange={setMeetingDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -600,7 +601,7 @@ export const MeetingNotesTab = ({ projectId }: MeetingNotesTabProps) => {
                   <CalendarComponent
                     mode="single"
                     selected={meetingDate}
-                    onSelect={setMeetingDate}
+                    onSelect={(date) => { setMeetingDate(date); setMeetingDateOpen(false); }}
                     initialFocus
                   />
                 </PopoverContent>

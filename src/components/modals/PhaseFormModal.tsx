@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -72,6 +72,8 @@ export const PhaseFormModal = ({
 }: PhaseFormModalProps) => {
   const { addPhase, updatePhase } = useData();
   const [customColors, setCustomColors] = useState<string[]>([]);
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
 
   const form = useForm<PhaseFormData>({
     resolver: zodResolver(phaseSchema),
@@ -176,7 +178,7 @@ export const PhaseFormModal = ({
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Data de Início</FormLabel>
-                    <Popover>
+                    <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -199,7 +201,7 @@ export const PhaseFormModal = ({
                         <CalendarComponent
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                          onSelect={(date) => { field.onChange(date?.toISOString().split('T')[0]); setStartDateOpen(false); }}
                           initialFocus
                           className={cn("p-3 pointer-events-auto")}
                         />
@@ -216,7 +218,7 @@ export const PhaseFormModal = ({
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Data de Término</FormLabel>
-                    <Popover>
+                    <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -239,7 +241,7 @@ export const PhaseFormModal = ({
                         <CalendarComponent
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                          onSelect={(date) => { field.onChange(date?.toISOString().split('T')[0]); setEndDateOpen(false); }}
                           initialFocus
                           className={cn("p-3 pointer-events-auto")}
                         />

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { logAuditEvent } from '@/lib/auditLog';
 import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
 
 // Helper to get current user ID
@@ -158,6 +159,8 @@ export function useSupabaseData() {
     const newProject = mapProject(data);
     setProjects(prev => [...prev, newProject]);
 
+    logAuditEvent({ action: 'project_created', entity_type: 'project', entity_id: newProject.id, entity_name: newProject.name, level: 'success', details: `Projeto "${newProject.name}" criado` });
+
     return newProject;
   };
 
@@ -171,9 +174,11 @@ export function useSupabaseData() {
   };
 
   const deleteProject = async (id: string) => {
+    const project = projects.find(p => p.id === id);
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
     setProjects(prev => prev.filter(p => p.id !== id));
+    logAuditEvent({ action: 'project_deleted', entity_type: 'project', entity_id: id, entity_name: project?.name, level: 'warning', details: `Projeto "${project?.name || id}" excluído` });
   };
 
   // CRUD operations for Phases
@@ -190,6 +195,9 @@ export function useSupabaseData() {
     const newPhase = mapPhase(data);
     setPhases(prev => [...prev, newPhase]);
 
+    const project = projects.find(p => p.id === newPhase.projectId);
+    logAuditEvent({ action: 'phase_created', entity_type: 'phase', entity_id: newPhase.id, entity_name: newPhase.name, level: 'success', details: `Fase "${newPhase.name}" criada no projeto "${project?.name || ''}"` });
+
     return newPhase;
   };
 
@@ -203,9 +211,11 @@ export function useSupabaseData() {
   };
 
   const deletePhase = async (id: string) => {
+    const phase = phases.find(p => p.id === id);
     const { error } = await supabase.from('phases').delete().eq('id', id);
     if (error) throw error;
     setPhases(prev => prev.filter(p => p.id !== id));
+    logAuditEvent({ action: 'phase_deleted', entity_type: 'phase', entity_id: id, entity_name: phase?.name, level: 'warning', details: `Fase "${phase?.name || id}" excluída` });
   };
 
   // CRUD operations for Cells
@@ -253,6 +263,8 @@ export function useSupabaseData() {
     const newTask = mapTask(data);
     setTasks(prev => [newTask, ...prev]);
 
+    logAuditEvent({ action: 'task_created', entity_type: 'task', entity_id: newTask.id, entity_name: newTask.name, level: 'success', details: `Tarefa "${newTask.name}" criada` });
+
     return newTask;
   };
 
@@ -263,13 +275,19 @@ export function useSupabaseData() {
       .update(dbUpdates)
       .eq('id', id);
     if (error) throw error;
+    const task = tasks.find(t => t.id === id);
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t));
+    if (updates.completed === true && task) {
+      logAuditEvent({ action: 'task_completed', entity_type: 'task', entity_id: id, entity_name: task.name, level: 'success', details: `Tarefa "${task.name}" concluída` });
+    }
   };
 
   const deleteTask = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
     setTasks(prev => prev.filter(t => t.id !== id));
+    logAuditEvent({ action: 'task_deleted', entity_type: 'task', entity_id: id, entity_name: task?.name, level: 'warning', details: `Tarefa "${task?.name || id}" excluída` });
   };
 
   // CRUD operations for Custom Columns
@@ -317,6 +335,8 @@ export function useSupabaseData() {
     const newMilestone = mapMilestone(data);
     setMilestones(prev => [...prev, newMilestone]);
 
+    logAuditEvent({ action: 'milestone_created', entity_type: 'milestone', entity_id: newMilestone.id, entity_name: newMilestone.name, level: 'success', details: `Marco "${newMilestone.name}" criado` });
+
     return newMilestone;
   };
 
@@ -326,13 +346,19 @@ export function useSupabaseData() {
       .update(milestoneToDb(updates))
       .eq('id', id);
     if (error) throw error;
+    const milestone = milestones.find(m => m.id === id);
     setMilestones(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+    if (updates.completed === true && milestone) {
+      logAuditEvent({ action: 'milestone_completed', entity_type: 'milestone', entity_id: id, entity_name: milestone.name, level: 'success', details: `Marco "${milestone.name}" concluído` });
+    }
   };
 
   const deleteMilestone = async (id: string) => {
+    const milestone = milestones.find(m => m.id === id);
     const { error } = await supabase.from('milestones').delete().eq('id', id);
     if (error) throw error;
     setMilestones(prev => prev.filter(m => m.id !== id));
+    logAuditEvent({ action: 'milestone_deleted', entity_type: 'milestone', entity_id: id, entity_name: milestone?.name, level: 'warning', details: `Marco "${milestone?.name || id}" excluído` });
   };
 
   // CRUD operations for Meeting Notes

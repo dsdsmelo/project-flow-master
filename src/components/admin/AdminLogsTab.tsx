@@ -143,12 +143,29 @@ const actionLabels: Record<string, string> = {
   // Data
   data_exported: 'Dados exportados',
   data_imported: 'Dados importados',
+  // Projects / Tasks / Phases / Milestones
+  project_created: 'Projeto criado',
+  project_updated: 'Projeto atualizado',
+  project_deleted: 'Projeto excluído',
+  task_created: 'Tarefa criada',
+  task_updated: 'Tarefa atualizada',
+  task_completed: 'Tarefa concluída',
+  task_deleted: 'Tarefa excluída',
+  phase_created: 'Fase criada',
+  phase_deleted: 'Fase excluída',
+  milestone_created: 'Marco criado',
+  milestone_completed: 'Marco concluído',
+  milestone_deleted: 'Marco excluído',
 };
 
 const entityTypeLabels: Record<string, string> = {
   subscription: 'Assinatura',
   profile: 'Perfil',
   user: 'Usuário',
+  project: 'Projeto',
+  task: 'Tarefa',
+  phase: 'Fase',
+  milestone: 'Marco',
 };
 
 type DateFilter = 'all' | 'today' | 'week' | 'month';

@@ -583,16 +583,19 @@ export const ProjectGanttChart = ({
                                 <Popover key={m.id}>
                                   <PopoverTrigger asChild>
                                     <div
-                                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-10"
-                                      style={{ left: milestonePos }}
+                                      className="absolute top-1/2 -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform z-10 group flex items-center gap-1"
+                                      style={{ left: milestonePos, transform: 'translate(-50%, -50%)' }}
                                     >
-                                      <div className="relative">
-                                        <Diamond
-                                          className="w-4 h-4 drop-shadow-md"
-                                          style={{ fill: milestoneColor, color: milestoneColor }}
+                                      <div className="relative flex items-center justify-center w-5 h-5">
+                                        <div
+                                          className="w-3.5 h-3.5 rotate-45 rounded-sm shadow-md border border-white/50"
+                                          style={{ backgroundColor: milestoneColor }}
                                         />
-                                        {m.completed && <CheckCircle2 className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5 text-emerald-500 bg-white rounded-full" />}
+                                        {m.completed && <CheckCircle2 className="w-2.5 h-2.5 absolute -top-1 -right-1 text-emerald-500 bg-white rounded-full" />}
                                       </div>
+                                      <span className="hidden group-hover:inline-block text-[10px] font-medium text-muted-foreground whitespace-nowrap bg-background/90 px-1 rounded shadow-sm border">
+                                        {m.name}
+                                      </span>
                                     </div>
                                   </PopoverTrigger>
                                   <PopoverContent side="top" className="w-64 p-3">

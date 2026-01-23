@@ -67,6 +67,7 @@ export const MilestoneFormModal = ({
 }: MilestoneFormModalProps) => {
   const { addMilestone, updateMilestone } = useData();
   const [customColors, setCustomColors] = useState<string[]>([]);
+  const [dateOpen, setDateOpen] = useState(false);
 
   const form = useForm<MilestoneFormData>({
     resolver: zodResolver(milestoneSchema),
@@ -164,7 +165,7 @@ export const MilestoneFormModal = ({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Data</FormLabel>
-                  <Popover>
+                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
@@ -187,7 +188,7 @@ export const MilestoneFormModal = ({
                       <CalendarComponent
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                        onSelect={(date) => { field.onChange(date?.toISOString().split('T')[0]); setDateOpen(false); }}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />

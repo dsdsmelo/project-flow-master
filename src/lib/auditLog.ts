@@ -39,12 +39,29 @@ export type AuditLogAction =
   | 'admin_role_removed'
   // Data
   | 'data_exported'
-  | 'data_imported';
+  | 'data_imported'
+  // Projects / Tasks / Phases / Milestones
+  | 'project_created'
+  | 'project_updated'
+  | 'project_deleted'
+  | 'task_created'
+  | 'task_updated'
+  | 'task_completed'
+  | 'task_deleted'
+  | 'phase_created'
+  | 'phase_deleted'
+  | 'milestone_created'
+  | 'milestone_completed'
+  | 'milestone_deleted';
 
 export type EntityType =
   | 'subscription'
   | 'profile'
-  | 'user';
+  | 'user'
+  | 'project'
+  | 'task'
+  | 'phase'
+  | 'milestone';
 
 interface AuditLogEntry {
   user_id?: string;

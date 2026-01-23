@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import { logAuditEvent } from '@/lib/auditLog';
 import { z } from 'zod';
 import logoIcon from '@/assets/logo-icon.png';
 
@@ -77,6 +78,12 @@ const ResetPassword = () => {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) throw error;
+
+      await logAuditEvent({
+        action: 'password_changed',
+        level: 'success',
+        details: 'Senha alterada com sucesso',
+      });
 
       setViewMode('success');
       

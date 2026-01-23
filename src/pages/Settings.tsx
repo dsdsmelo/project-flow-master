@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { logAuditEvent } from '@/lib/auditLog';
 import {
   Sun,
   Moon,
@@ -271,6 +272,12 @@ const Settings = () => {
 
       if (error) throw error;
 
+      await logAuditEvent({
+        action: 'password_reset_request',
+        level: 'info',
+        details: 'Solicitação de redefinição de senha enviada',
+      });
+
       toast({
         title: 'Email enviado',
         description: 'Verifique seu email para redefinir sua senha.',
@@ -292,6 +299,13 @@ const Settings = () => {
       const { data, error } = await supabase.functions.invoke('cancel-subscription');
 
       if (error) throw error;
+
+      await logAuditEvent({
+        action: 'subscription_canceled',
+        entity_type: 'subscription',
+        level: 'warning',
+        details: data.message || 'Assinatura cancelada pelo usuário',
+      });
 
       toast({
         title: 'Assinatura cancelada',
@@ -317,6 +331,13 @@ const Settings = () => {
       const { data, error } = await supabase.functions.invoke('reactivate-subscription');
 
       if (error) throw error;
+
+      await logAuditEvent({
+        action: 'subscription_updated',
+        entity_type: 'subscription',
+        level: 'success',
+        details: 'Assinatura reativada pelo usuário',
+      });
 
       toast({
         title: 'Assinatura reativada',
