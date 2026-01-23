@@ -32,8 +32,8 @@ export const TaskProgressEditCell = ({ progress, onSave }: TaskProgressEditCellP
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
-          <ProgressBar value={progress} showLabel size="sm" className="min-w-[70px]" />
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[22px]">
+          <ProgressBar value={progress} showLabel size="sm" className="min-w-[60px]" />
           <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
       </PopoverTrigger>

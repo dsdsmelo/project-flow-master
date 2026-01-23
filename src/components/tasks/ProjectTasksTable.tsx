@@ -656,7 +656,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left py-2 px-3 w-10">
+                <th className="text-left py-1.5 px-2 w-8">
                   <Checkbox
                     checked={selectedTasks.length === paginatedTasks.length && paginatedTasks.length > 0}
                     onCheckedChange={toggleAllTasks}
@@ -667,10 +667,10 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   <th
                     key={col.id}
                     className={cn(
-                      "text-left py-2 px-3 text-xs font-medium text-muted-foreground whitespace-nowrap transition-all",
+                      "text-left py-1.5 px-2 text-[11px] font-medium text-muted-foreground whitespace-nowrap transition-all",
                       draggedColumnId === col.id && "opacity-50",
                       dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
-                      col.standardField === 'progress' && "w-36"
+                      col.standardField === 'progress' && "w-32"
                     )}
                     draggable
                     onDragStart={(e) => handleColumnDragStart(e, col.id)}
@@ -711,7 +711,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     </div>
                   </th>
                 ))}
-                <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground w-10"></th>
+                <th className="text-right py-1.5 px-2 text-[11px] font-medium text-muted-foreground w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -727,7 +727,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       selectedTasks.includes(task.id) && "bg-primary/5"
                     )}
                   >
-                    <td className="py-1.5 px-3">
+                    <td className="py-1 px-2">
                       <Checkbox
                         checked={selectedTasks.includes(task.id)}
                         onCheckedChange={() => toggleTaskSelection(task.id)}
@@ -738,14 +738,15 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       <td
                         key={col.id}
                         className={cn(
-                          "py-1.5 px-3 text-sm",
-                          col.standardField === 'description' && "max-w-[180px]"
+                          "py-1 px-2 text-xs whitespace-nowrap",
+                          col.standardField === 'name' && "max-w-[220px]",
+                          col.standardField === 'description' && "max-w-[160px]"
                         )}
                       >
                         {renderCellContent(task, col)}
                       </td>
                     ))}
-                    <td className="py-1.5 px-3 text-right">
+                    <td className="py-1 px-2 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">

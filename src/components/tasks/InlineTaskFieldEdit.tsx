@@ -126,7 +126,7 @@ export const ResponsibleEditCell = ({ responsibleId, people, onSave }: Responsib
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[22px]">
           {person ? (
             <div className="flex items-center gap-1.5">
               <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
@@ -189,8 +189,8 @@ export const PhaseEditCell = ({ phaseId, phases, projectId, onSave }: PhaseEditC
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
-          <span className="text-sm text-muted-foreground">{currentPhase?.name || '-'}</span>
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[22px]">
+          <span className="text-xs text-muted-foreground">{currentPhase?.name || '-'}</span>
           <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
       </PopoverTrigger>
@@ -269,7 +269,7 @@ export const TextEditCell = ({ value, placeholder, onSave, className, isOverdue 
           onChange={(e) => setLocalValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
-          className="h-7 text-sm min-w-[150px]"
+          className="h-6 text-xs min-w-[120px]"
         />
         <Button 
           variant="ghost" 
@@ -293,13 +293,13 @@ export const TextEditCell = ({ value, placeholder, onSave, className, isOverdue 
 
   return (
     <div 
-      className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]"
+      className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[22px]"
       onClick={() => {
         setLocalValue(value);
         setIsEditing(true);
       }}
     >
-      <span className={cn("text-sm", className, isOverdue && "text-status-blocked")}>
+      <span className={cn("text-xs", className, isOverdue && "text-status-blocked")}>
         {value || <span className="text-muted-foreground">{placeholder || '-'}</span>}
       </span>
       <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -335,7 +335,7 @@ export const DateEditCell = ({ value, placeholder, onSave }: DateEditCellProps) 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]">
+        <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[22px]">
           <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           <span className={cn(
             "text-xs",
