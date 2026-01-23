@@ -447,48 +447,54 @@ const ProjectDetail = () => {
 
             {/* Bottom Row - 3 colunas iguais */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Fases do Projeto */}
+              {/* Tarefas mais longas em execução */}
               <div className="bg-card rounded-xl border border-border p-6 shadow-soft">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Fases do Projeto</h3>
-                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setPhaseManagerOpen(true)}>
-                    <Layers className="w-3 h-3 mr-1" />
-                    Gerenciar
-                  </Button>
-                </div>
+                <h3 className="text-lg font-semibold mb-4">Mais tempo em execução</h3>
                 <div className="space-y-3">
-                  {projectPhases.length > 0 ? (
-                    projectPhases.slice(0, 5).map(phase => {
-                      const phaseTasks = projectTasks.filter(t => t.phaseId === phase.id);
-                      const completedInPhase = phaseTasks.filter(t => t.status === 'completed').length;
-                      const phaseProgress = phaseTasks.length > 0 
-                        ? Math.round((completedInPhase / phaseTasks.length) * 100) 
-                        : 0;
+                  {(() => {
+                    const now = new Date();
+                    const inProgressTasks = projectTasks
+                      .filter(t => t.status === 'in_progress' && t.startDate)
+                      .map(t => {
+                        const start = new Date(t.startDate! + 'T12:00:00');
+                        const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                        return { ...t, daysRunning: Math.max(days, 0) };
+                      })
+                      .sort((a, b) => b.daysRunning - a.daysRunning)
+                      .slice(0, 5);
+
+                    if (inProgressTasks.length === 0) {
                       return (
-                        <div key={phase.id} className="p-3 bg-muted/30 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="font-medium text-sm truncate flex-1 mr-2">{phase.name}</p>
-                            <span className="text-xs font-semibold text-primary">{phaseProgress}%</span>
-                          </div>
-                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-primary rounded-full transition-all"
-                              style={{ width: `${phaseProgress}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1.5">{completedInPhase}/{phaseTasks.length} tarefas</p>
+                        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                          <Clock className="w-8 h-8 mb-2 opacity-50" />
+                          <p className="text-sm">Nenhuma tarefa em execução</p>
                         </div>
                       );
-                    })
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                      <Layers className="w-8 h-8 mb-2 opacity-50" />
-                      <p className="text-sm">Nenhuma fase criada</p>
-                      <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => setPhaseModalOpen(true)}>
-                        Criar fase
-                      </Button>
-                    </div>
-                  )}
+                    }
+
+                    return inProgressTasks.map(task => {
+                      const person = people.find(p => p.id === task.responsibleId);
+                      return (
+                        <div key={task.id} className="p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-medium text-sm truncate flex-1 mr-2">{task.name}</p>
+                            <span className={cn(
+                              "text-xs font-bold px-1.5 py-0.5 rounded",
+                              task.daysRunning > 14 ? "text-red-600 bg-red-100 dark:bg-red-900/30" :
+                              task.daysRunning > 7 ? "text-amber-600 bg-amber-100 dark:bg-amber-900/30" :
+                              "text-blue-600 bg-blue-100 dark:bg-blue-900/30"
+                            )}>
+                              {task.daysRunning}d
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {person && <span>{person.name}</span>}
+                            {task.startDate && <span>· Início: {new Date(task.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
