@@ -47,8 +47,6 @@ const Settings = () => {
   const { user, profile, updateProfile, refreshProfile, subscription, refreshSubscription, isAdmin } = useAuth();
   const { projects, tasks, people, cells, phases, customColumns } = useData();
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -261,49 +259,26 @@ const Settings = () => {
     input.click();
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (newPassword.length < 6) {
-      toast({
-        title: 'Erro',
-        description: 'A nova senha deve ter pelo menos 6 caracteres.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Erro',
-        description: 'As senhas não coincidem.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const handleChangePassword = async () => {
+    if (!user?.email) return;
 
     setIsChangingPassword(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
-        title: 'Senha alterada',
-        description: 'Sua senha foi alterada com sucesso.',
+        title: 'Email enviado',
+        description: 'Verifique seu email para redefinir sua senha.',
       });
-      
-      setNewPassword('');
-      setConfirmPassword('');
     } catch (error: any) {
       toast({
-        title: 'Erro ao alterar senha',
-        description: error.message || 'Não foi possível alterar a senha.',
+        title: 'Erro ao enviar email',
+        description: error.message || 'Não foi possível enviar o email de recuperação.',
         variant: 'destructive',
       });
     } finally {
@@ -808,44 +783,24 @@ const Settings = () => {
                   <Lock className="w-5 h-5" />
                   Alterar Senha
                 </h3>
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">Nova Senha</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
-                      minLength={6}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirme a nova senha"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isChangingPassword}>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Para alterar sua senha, enviaremos um link de verificação para o seu email <span className="font-medium text-foreground">{user?.email}</span>.
+                  </p>
+                  <Button onClick={handleChangePassword} className="w-full" disabled={isChangingPassword}>
                     {isChangingPassword ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Alterando...
+                        Enviando...
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Salvar Nova Senha
+                        <Mail className="w-4 h-4 mr-2" />
+                        Enviar link de redefinição
                       </>
                     )}
                   </Button>
-                </form>
+                </div>
               </div>
             </div>
           </TabsContent>
