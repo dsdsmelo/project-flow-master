@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshSubscription = async () => {
     if (user) {
       setSubscriptionChecked(false);
-      await fetchSubscription();
+      await fetchSubscription(true);
     }
   };
 

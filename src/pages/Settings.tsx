@@ -54,6 +54,7 @@ const Settings = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -335,6 +336,30 @@ const Settings = () => {
     }
   };
 
+  const handleReactivateSubscription = async () => {
+    setIsReactivating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reactivate-subscription');
+
+      if (error) throw error;
+
+      toast({
+        title: 'Assinatura reativada',
+        description: data.message,
+      });
+
+      await refreshSubscription();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao reativar',
+        description: error.message || 'Não foi possível reativar a assinatura.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
   const handleOpenPortal = async () => {
     setIsLoadingPortal(true);
     try {
@@ -575,6 +600,22 @@ const Settings = () => {
                                 Sua assinatura será cancelada em {formatDate(subscription.current_period_end)}.
                                 Você pode continuar usando até essa data.
                               </p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="mt-2 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900"
+                                onClick={handleReactivateSubscription}
+                                disabled={isReactivating}
+                              >
+                                {isReactivating ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    Reativando...
+                                  </>
+                                ) : (
+                                  'Manter assinatura'
+                                )}
+                              </Button>
                             </div>
                           </div>
                         </div>

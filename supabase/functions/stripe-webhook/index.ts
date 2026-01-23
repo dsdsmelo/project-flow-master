@@ -142,7 +142,7 @@ serve(async (req) => {
               .update({
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscription.id,
-                                status: subscription.status,
+                status: subscription.status,
                 current_period_start: toISOString(subscription.current_period_start),
                 current_period_end: toISOString(subscription.current_period_end),
                 cancel_at_period_end: subscription.cancel_at_period_end,
@@ -162,7 +162,7 @@ serve(async (req) => {
                 user_id: userId,
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscription.id,
-                                status: subscription.status,
+                status: subscription.status,
                 current_period_start: toISOString(subscription.current_period_start),
                 current_period_end: toISOString(subscription.current_period_end),
                 cancel_at_period_end: subscription.cancel_at_period_end,
@@ -195,7 +195,7 @@ serve(async (req) => {
             .from("subscriptions")
             .update({
               stripe_subscription_id: subscription.id,
-                            status: subscription.status,
+              status: subscription.status,
               current_period_start: toISOString(subscription.current_period_start),
               current_period_end: toISOString(subscription.current_period_end),
               cancel_at_period_end: subscription.cancel_at_period_end,
