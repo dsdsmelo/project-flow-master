@@ -424,14 +424,16 @@ export const ProjectGanttChart = ({
                         );
                       })}
 
-                      {/* Milestones Label */}
-                      {projectMilestones.length > 0 && (
-                        <div className={cn(phaseRowHeight, "flex items-center px-3 pl-10 hover:bg-muted/20 transition-colors")}>
-                          <Diamond className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" style={{ fill: '#3b82f6' }} />
-                          <span className="text-xs text-muted-foreground ml-2">Marcos</span>
-                          <span className="text-[10px] text-muted-foreground ml-1">({projectMilestones.length})</span>
-                        </div>
-                      )}
+                      {/* Milestones Labels */}
+                      {projectMilestones.map((milestone) => {
+                        const mColor = milestone.color || '#3b82f6';
+                        return (
+                          <div key={milestone.id} className={cn(phaseRowHeight, "flex items-center px-3 pl-10 hover:bg-muted/20 transition-colors")}>
+                            <Diamond className="w-3.5 h-3.5 flex-shrink-0" style={{ fill: mColor, color: mColor }} />
+                            <span className="text-xs truncate flex-1 ml-2">{milestone.name}</span>
+                          </div>
+                        );
+                      })}
                     </>
                   )}
                 </div>
@@ -573,63 +575,61 @@ export const ProjectGanttChart = ({
                           );
                         })}
 
-                        {/* Milestones Row */}
-                        {projectMilestones.length > 0 && (
-                          <div className={cn(phaseRowHeight, "relative")}>
-                            <div
-                              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
-                              style={{ left: getTodayPosition() }}
-                            />
-                            <div className="absolute inset-0 flex pointer-events-none">
-                              {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/30", columnWidth)} />)}
+                        {/* Milestone Rows (one per milestone) */}
+                        {projectMilestones.map(m => {
+                          const milestoneColor = m.color || '#3b82f6';
+                          const milestonePos = getMilestonePosition(m.date);
+                          return (
+                            <div key={m.id} className={cn(phaseRowHeight, "relative")}>
+                              <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
+                                style={{ left: getTodayPosition() }}
+                              />
+                              <div className="absolute inset-0 flex pointer-events-none">
+                                {columns.map((_, i) => <div key={i} className={cn("flex-1 border-l border-border/30", columnWidth)} />)}
+                              </div>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <div
+                                    className="absolute top-1/2 cursor-pointer hover:scale-110 transition-transform z-10 group"
+                                    style={{ left: milestonePos, transform: 'translate(-50%, -50%)' }}
+                                  >
+                                    <div className="relative flex items-center justify-center w-5 h-5">
+                                      <div
+                                        className="w-3.5 h-3.5 rotate-45 rounded-sm shadow-md border border-white/50"
+                                        style={{ backgroundColor: milestoneColor }}
+                                      />
+                                      {m.completed && <CheckCircle2 className="w-2.5 h-2.5 absolute -top-1 -right-1 text-emerald-500 bg-white rounded-full" />}
+                                    </div>
+                                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 hidden group-hover:block pointer-events-none">
+                                      <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap bg-background/95 px-1.5 py-0.5 rounded shadow-sm border">
+                                        {m.name}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </PopoverTrigger>
+                                <PopoverContent side="top" className="w-64 p-3">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <Diamond className="w-4 h-4" style={{ fill: milestoneColor, color: milestoneColor }} />
+                                      <p className="font-semibold">{m.name}</p>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{new Date(m.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                    {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
+                                    <div className="flex items-center gap-2 pt-2 border-t">
+                                      <Checkbox id={`m-${m.id}`} checked={m.completed} onCheckedChange={(c) => onUpdateMilestone?.(m.id, { completed: !!c })} />
+                                      <label htmlFor={`m-${m.id}`} className="text-sm cursor-pointer">Marcar como concluído</label>
+                                    </div>
+                                    <div className="flex gap-1 pt-2">
+                                      {onEditMilestone && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onEditMilestone(m)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>}
+                                      {onDeleteMilestone && <Button variant="outline" size="sm" className="h-7 text-xs text-destructive" onClick={() => { if(confirm('Excluir marco?')) onDeleteMilestone(m.id); }}><Trash2 className="w-3 h-3 mr-1" />Excluir</Button>}
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             </div>
-                            {projectMilestones.map(m => {
-                              const milestoneColor = m.color || '#3b82f6';
-                              const milestonePos = getMilestonePosition(m.date);
-                              return (
-                                <Popover key={m.id}>
-                                  <PopoverTrigger asChild>
-                                    <div
-                                      className="absolute top-1/2 cursor-pointer hover:scale-110 transition-transform z-10 group"
-                                      style={{ left: milestonePos, transform: 'translate(-50%, -50%)' }}
-                                    >
-                                      <div className="relative flex items-center justify-center w-5 h-5">
-                                        <div
-                                          className="w-3.5 h-3.5 rotate-45 rounded-sm shadow-md border border-white/50"
-                                          style={{ backgroundColor: milestoneColor }}
-                                        />
-                                        {m.completed && <CheckCircle2 className="w-2.5 h-2.5 absolute -top-1 -right-1 text-emerald-500 bg-white rounded-full" />}
-                                      </div>
-                                      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 hidden group-hover:block pointer-events-none">
-                                        <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap bg-background/95 px-1.5 py-0.5 rounded shadow-sm border">
-                                          {m.name}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </PopoverTrigger>
-                                  <PopoverContent side="top" className="w-64 p-3">
-                                    <div className="space-y-2">
-                                      <div className="flex items-center gap-2">
-                                        <Diamond className="w-4 h-4" style={{ fill: milestoneColor, color: milestoneColor }} />
-                                        <p className="font-semibold">{m.name}</p>
-                                      </div>
-                                      <p className="text-sm text-muted-foreground">{new Date(m.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                                      {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
-                                      <div className="flex items-center gap-2 pt-2 border-t">
-                                        <Checkbox id={`m-${m.id}`} checked={m.completed} onCheckedChange={(c) => onUpdateMilestone?.(m.id, { completed: !!c })} />
-                                        <label htmlFor={`m-${m.id}`} className="text-sm cursor-pointer">Marcar como concluído</label>
-                                      </div>
-                                      <div className="flex gap-1 pt-2">
-                                        {onEditMilestone && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onEditMilestone(m)}><Pencil className="w-3 h-3 mr-1" />Editar</Button>}
-                                        {onDeleteMilestone && <Button variant="outline" size="sm" className="h-7 text-xs text-destructive" onClick={() => { if(confirm('Excluir marco?')) onDeleteMilestone(m.id); }}><Trash2 className="w-3 h-3 mr-1" />Excluir</Button>}
-                                      </div>
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
-                              );
-                            })}
-                          </div>
-                        )}
+                          );
+                        })}
                       </>
                     )}
                   </div>
