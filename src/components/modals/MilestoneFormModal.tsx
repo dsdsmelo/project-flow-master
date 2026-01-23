@@ -229,7 +229,10 @@ export const MilestoneFormModal = ({
                       <input
                         type="color"
                         className="sr-only"
-                        onChange={(e) => {
+                        onInput={(e) => {
+                          field.onChange((e.target as HTMLInputElement).value);
+                        }}
+                        onBlur={(e) => {
                           const newColor = e.target.value;
                           if (!colorOptions.some(c => c.value === newColor) && !customColors.includes(newColor)) {
                             setCustomColors(prev => [...prev, newColor]);
