@@ -57,63 +57,26 @@ const AdminPanel = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      // Fetch profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Use edge function to bypass RLS and fetch all users
+      const { data, error } = await supabase.functions.invoke('admin-get-users');
 
-      if (profilesError) throw profilesError;
+      if (error) throw error;
 
-      // Fetch subscriptions
-      const { data: subscriptions, error: subsError } = await supabase
-        .from('subscriptions')
-        .select('*');
-
-      if (subsError) throw subsError;
-
-      // Fetch admin roles
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('role', 'admin');
-
-      if (rolesError) throw rolesError;
-
-      const adminUserIds = new Set(roles?.map(r => r.user_id) || []);
-
-      const usersWithSubs: UserWithSubscription[] = (profiles || []).map(profile => {
-        const sub = subscriptions?.find(s => s.user_id === profile.id);
-        return {
-          id: profile.id,
-          email: profile.email,
-          full_name: profile.full_name,
-          created_at: profile.created_at,
-          last_sign_in_at: profile.last_sign_in_at,
-          subscription: sub ? {
-            status: sub.status,
-            current_period_end: sub.current_period_end,
-            stripe_customer_id: sub.stripe_customer_id,
-          } : null,
-          is_admin: adminUserIds.has(profile.id),
-          is_blocked: profile.is_blocked,
-        };
-      });
-
+      const usersWithSubs: UserWithSubscription[] = data.users || [];
       setUsers(usersWithSubs);
 
       // Calculate stats
       const activeCount = usersWithSubs.filter(u => u.subscription?.status === 'active').length;
       const trialCount = usersWithSubs.filter(u => u.subscription?.status === 'trialing').length;
       const canceledCount = usersWithSubs.filter(u => u.subscription?.status === 'canceled').length;
-      
+
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
       const newThisMonth = usersWithSubs.filter(u => new Date(u.created_at) >= startOfMonth).length;
 
-      const churnRate = activeCount + canceledCount > 0 
-        ? (canceledCount / (activeCount + canceledCount)) * 100 
+      const churnRate = activeCount + canceledCount > 0
+        ? (canceledCount / (activeCount + canceledCount)) * 100
         : 0;
 
       setStats({
