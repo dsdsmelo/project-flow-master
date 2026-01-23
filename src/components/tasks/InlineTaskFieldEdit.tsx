@@ -130,7 +130,7 @@ export const ResponsibleEditCell = ({ responsibleId, people, onSave }: Responsib
           {person ? (
             <div className="flex items-center gap-1.5">
               <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
-              <span className="text-xs truncate max-w-[90px]">{person.name}</span>
+              <span className="text-xs truncate max-w-[140px]">{person.name}</span>
             </div>
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
