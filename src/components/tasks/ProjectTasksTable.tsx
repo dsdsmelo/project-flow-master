@@ -5,6 +5,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
+  Copy,
   Columns3,
   GripVertical,
   X,
@@ -71,7 +72,7 @@ interface ProjectTasksTableProps {
 }
 
 export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
-  const { tasks, updateTask, deleteTask, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
+  const { tasks, addTask, updateTask, deleteTask, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
 
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -238,6 +239,22 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     } finally {
       setDeleteDialogOpen(false);
       setTaskToDelete(null);
+    }
+  };
+
+  const handleDuplicateTask = async (task: Task) => {
+    try {
+      const { id, updatedAt, ...taskData } = task;
+      await addTask({
+        ...taskData,
+        name: `${task.name} (cópia)`,
+        status: 'pending',
+        collected: 0,
+      });
+      toast.success('Tarefa duplicada com sucesso!');
+    } catch (err) {
+      console.error('Error duplicating task:', err);
+      toast.error('Erro ao duplicar tarefa');
     }
   };
 
@@ -740,6 +757,11 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                             <Edit className="w-3.5 h-3.5 mr-2" />
                             Editar
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateTask(task)}>
+                            <Copy className="w-3.5 h-3.5 mr-2" />
+                            Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(task.id)}>
                             <Trash2 className="w-3.5 h-3.5 mr-2" />
                             Excluir

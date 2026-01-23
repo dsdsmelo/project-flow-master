@@ -6,6 +6,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
+  Copy,
   Columns3,
   Eye,
   EyeOff
@@ -65,7 +66,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Tasks = () => {
-  const { tasks = [], updateTask, deleteTask, projects = [], phases = [], people = [], customColumns = [], loading, error } = useData();
+  const { tasks = [], addTask, updateTask, deleteTask, projects = [], phases = [], people = [], customColumns = [], loading, error } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -213,6 +214,22 @@ const Tasks = () => {
     } finally {
       setDeleteDialogOpen(false);
       setTaskToDelete(null);
+    }
+  };
+
+  const handleDuplicateTask = async (task: Task) => {
+    try {
+      const { id, updatedAt, ...taskData } = task;
+      await addTask({
+        ...taskData,
+        name: `${task.name} (cópia)`,
+        status: 'pending',
+        collected: 0,
+      });
+      toast.success('Tarefa duplicada com sucesso!');
+    } catch (err) {
+      console.error('Error duplicating task:', err);
+      toast.error('Erro ao duplicar tarefa');
     }
   };
 
@@ -518,6 +535,11 @@ const Tasks = () => {
                               <Edit className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicateTask(task)}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(task.id)}>
                               <Trash2 className="w-4 h-4 mr-2" />
                               Excluir
