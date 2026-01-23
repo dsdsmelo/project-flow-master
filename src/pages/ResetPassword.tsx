@@ -29,19 +29,26 @@ const ResetPassword = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Check if we have a valid session from the reset link
+  // Check if we have a valid session from the reset/invite link
   useEffect(() => {
+    const hash = window.location.hash;
+    const isInviteOrRecovery = hash && (hash.includes('type=recovery') || hash.includes('type=invite'));
+
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // No session means the reset link is invalid or expired
+      if (session) {
+        // Session exists (from recovery or invite link) - show the form
+        setViewMode('form');
+      } else if (!isInviteOrRecovery) {
+        // No session and no tokens means the link is invalid or expired
         setViewMode('error');
       }
+      // If no session but tokens are present, wait for onAuthStateChange
     };
-    
-    // Listen for auth state changes (when user clicks reset link)
+
+    // Listen for auth state changes (when user clicks reset/invite link)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && isInviteOrRecovery)) {
         setViewMode('form');
       }
     });

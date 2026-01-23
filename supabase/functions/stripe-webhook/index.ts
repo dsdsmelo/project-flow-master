@@ -12,14 +12,12 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
-// Generate a secure random password
-const generateSecurePassword = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
-  let password = '';
-  for (let i = 0; i < 16; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
+// Safe timestamp conversion (Stripe sends Unix seconds, may be undefined)
+const toISOString = (timestamp: number | undefined | null): string | null => {
+  if (!timestamp || isNaN(timestamp)) return null;
+  const date = new Date(timestamp * 1000);
+  if (isNaN(date.getTime())) return null;
+  return date.toISOString();
 };
 
 serve(async (req) => {
@@ -91,25 +89,25 @@ serve(async (req) => {
               userId = existingUser.id;
               logStep("User already exists", { userId });
             } else {
-              // Create new user in Supabase Auth
-              const tempPassword = generateSecurePassword();
-              const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-                email: customerEmail,
-                password: tempPassword,
-                email_confirm: true,
-                user_metadata: {
-                  full_name: customerName || '',
-                  stripe_customer_id: session.customer as string,
-                },
-              });
+              // Create new user via invite - this sends an email automatically
+              const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+                customerEmail,
+                {
+                  data: {
+                    full_name: customerName || '',
+                    stripe_customer_id: session.customer as string,
+                  },
+                  redirectTo: "https://tarefaa.com.br/reset-password",
+                }
+              );
 
               if (createError) {
-                logStep("Error creating user", { error: createError.message });
+                logStep("Error creating/inviting user", { error: createError.message });
                 throw createError;
               }
 
               userId = newUser.user.id;
-              logStep("User created", { userId, email: customerEmail });
+              logStep("User invited", { userId, email: customerEmail });
 
               // Create profile for the user
               const { error: profileError } = await supabaseAdmin
@@ -117,26 +115,10 @@ serve(async (req) => {
                 .insert({
                   id: userId,
                   full_name: customerName || '',
-                  email: customerEmail,
                 });
 
               if (profileError) {
                 logStep("Error creating profile (may already exist)", { error: profileError.message });
-              }
-
-              // Send password reset email so user can set their own password
-              const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-                type: "recovery",
-                email: customerEmail,
-                options: {
-                  redirectTo: "https://tarefaa.com.br/reset-password",
-                },
-              });
-
-              if (resetError) {
-                logStep("Error sending reset email", { error: resetError.message });
-              } else {
-                logStep("Password reset email sent", { email: customerEmail });
               }
             }
           }
@@ -160,10 +142,9 @@ serve(async (req) => {
               .update({
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscription.id,
-                stripe_price_id: subscription.items.data[0]?.price.id,
-                status: subscription.status,
-                current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                                status: subscription.status,
+                current_period_start: toISOString(subscription.current_period_start),
+                current_period_end: toISOString(subscription.current_period_end),
                 cancel_at_period_end: subscription.cancel_at_period_end,
               })
               .eq("user_id", userId);
@@ -181,10 +162,9 @@ serve(async (req) => {
                 user_id: userId,
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscription.id,
-                stripe_price_id: subscription.items.data[0]?.price.id,
-                status: subscription.status,
-                current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                                status: subscription.status,
+                current_period_start: toISOString(subscription.current_period_start),
+                current_period_end: toISOString(subscription.current_period_end),
                 cancel_at_period_end: subscription.cancel_at_period_end,
               });
 
@@ -215,10 +195,9 @@ serve(async (req) => {
             .from("subscriptions")
             .update({
               stripe_subscription_id: subscription.id,
-              stripe_price_id: subscription.items.data[0]?.price.id,
-              status: subscription.status,
-              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                            status: subscription.status,
+              current_period_start: toISOString(subscription.current_period_start),
+              current_period_end: toISOString(subscription.current_period_end),
               cancel_at_period_end: subscription.cancel_at_period_end,
             })
             .eq("user_id", subData.user_id);

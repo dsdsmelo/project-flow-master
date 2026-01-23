@@ -84,6 +84,14 @@ const Landing = () => {
 
   const subscriptionRequired = searchParams.get('subscription') === 'required';
 
+  // Detect recovery/invite tokens in URL hash and redirect to /reset-password
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('type=invite'))) {
+      navigate('/reset-password' + hash, { replace: true });
+    }
+  }, [navigate]);
+
   // Fetch price from Stripe on mount
   useEffect(() => {
     const fetchPrice = async () => {
