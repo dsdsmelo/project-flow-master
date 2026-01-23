@@ -7,14 +7,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[REACTIVATE-SUBSCRIPTION] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    logStep("Function started");
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      logStep("No auth header");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
@@ -27,17 +35,18 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-    if (claimsError || !claimsData?.claims) {
+    if (userError || !user) {
+      logStep("Auth failed", { error: userError?.message });
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
+    logStep("User authenticated", { userId });
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -50,7 +59,14 @@ serve(async (req) => {
       .eq("user_id", userId)
       .maybeSingle();
 
+    logStep("Subscription fetched", {
+      found: !!subscription,
+      cancel_at_period_end: subscription?.cancel_at_period_end,
+      status: subscription?.status
+    });
+
     if (subError || !subscription?.stripe_subscription_id) {
+      logStep("No subscription found");
       return new Response(
         JSON.stringify({ error: "Nenhuma assinatura encontrada." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
@@ -58,6 +74,7 @@ serve(async (req) => {
     }
 
     if (!subscription.cancel_at_period_end) {
+      logStep("Subscription not scheduled for cancellation");
       return new Response(
         JSON.stringify({ error: "Sua assinatura não está agendada para cancelamento." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
@@ -90,6 +107,8 @@ serve(async (req) => {
       })
       .eq("user_id", userId);
 
+    logStep("Subscription reactivated successfully");
+
     return new Response(JSON.stringify({
       success: true,
       message: "Sua assinatura foi reativada com sucesso!",
@@ -99,6 +118,7 @@ serve(async (req) => {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    logStep("ERROR", { message });
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
