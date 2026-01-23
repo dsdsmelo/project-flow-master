@@ -663,14 +663,27 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   />
                 </th>
                 {/* All columns - unified */}
-                {projectColumns.map(col => (
+                {projectColumns.map(col => {
+                  // Columns with short content should shrink to fit
+                  const isCompactCol = col.standardField === 'status' ||
+                    col.standardField === 'priority' ||
+                    col.standardField === 'startDate' ||
+                    col.standardField === 'endDate' ||
+                    col.standardField === 'progress' ||
+                    col.standardField === 'responsible' ||
+                    col.type === 'number' ||
+                    col.type === 'percentage' ||
+                    col.type === 'date' ||
+                    col.type === 'user';
+
+                  return (
                   <th
                     key={col.id}
                     className={cn(
                       "text-left py-1.5 px-2 text-[11px] font-medium text-muted-foreground whitespace-nowrap transition-all",
                       draggedColumnId === col.id && "opacity-50",
                       dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
-                      col.standardField === 'progress' && "w-32"
+                      isCompactCol && "w-[1%]"
                     )}
                     draggable
                     onDragStart={(e) => handleColumnDragStart(e, col.id)}
@@ -710,7 +723,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       )}
                     </div>
                   </th>
-                ))}
+                  );
+                })}
                 <th className="text-right py-1.5 px-2 text-[11px] font-medium text-muted-foreground w-8"></th>
               </tr>
             </thead>
@@ -737,11 +751,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     {projectColumns.map(col => (
                       <td
                         key={col.id}
-                        className={cn(
-                          "py-1 px-2 text-xs whitespace-nowrap",
-                          col.standardField === 'name' && "max-w-[220px]",
-                          col.standardField === 'description' && "max-w-[160px]"
-                        )}
+                        className="py-1 px-2 text-xs whitespace-nowrap"
                       >
                         {renderCellContent(task, col)}
                       </td>

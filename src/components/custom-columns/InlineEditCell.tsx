@@ -283,7 +283,7 @@ const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
 
   switch (column.type) {
     case 'text':
-      return <span className="text-xs truncate max-w-[150px]">{value as string}</span>;
+      return <span className="text-xs">{value as string}</span>;
 
     case 'number':
       return <span className="text-xs font-mono">{value}</span>;
@@ -307,7 +307,7 @@ const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
       return (
         <div className="flex items-center gap-1.5">
           <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
-          <span className="text-xs truncate max-w-[80px]">{person.name}</span>
+          <span className="text-xs">{person.name}</span>
         </div>
       );
 
