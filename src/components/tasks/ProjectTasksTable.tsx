@@ -656,34 +656,20 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left py-1.5 px-2 w-8">
+                <th className="text-left py-1.5 px-1.5 w-7">
                   <Checkbox
                     checked={selectedTasks.length === paginatedTasks.length && paginatedTasks.length > 0}
                     onCheckedChange={toggleAllTasks}
                   />
                 </th>
                 {/* All columns - unified */}
-                {projectColumns.map(col => {
-                  // Columns with short content should shrink to fit
-                  const isCompactCol = col.standardField === 'status' ||
-                    col.standardField === 'priority' ||
-                    col.standardField === 'startDate' ||
-                    col.standardField === 'endDate' ||
-                    col.standardField === 'progress' ||
-                    col.standardField === 'responsible' ||
-                    col.type === 'number' ||
-                    col.type === 'percentage' ||
-                    col.type === 'date' ||
-                    col.type === 'user';
-
-                  return (
+                {projectColumns.map(col => (
                   <th
                     key={col.id}
                     className={cn(
-                      "text-left py-1.5 px-2 text-[11px] font-medium text-muted-foreground whitespace-nowrap transition-all",
+                      "text-left py-1.5 px-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap transition-all",
                       draggedColumnId === col.id && "opacity-50",
-                      dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
-                      isCompactCol && "w-[1%]"
+                      dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary"
                     )}
                     draggable
                     onDragStart={(e) => handleColumnDragStart(e, col.id)}
@@ -723,9 +709,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       )}
                     </div>
                   </th>
-                  );
-                })}
-                <th className="text-right py-1.5 px-2 text-[11px] font-medium text-muted-foreground w-8"></th>
+                ))}
+                <th className="text-right py-1.5 px-1 text-[11px] font-medium text-muted-foreground w-7"></th>
               </tr>
             </thead>
             <tbody>
@@ -741,7 +726,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                       selectedTasks.includes(task.id) && "bg-primary/5"
                     )}
                   >
-                    <td className="py-1 px-2">
+                    <td className="py-1 px-1.5">
                       <Checkbox
                         checked={selectedTasks.includes(task.id)}
                         onCheckedChange={() => toggleTaskSelection(task.id)}
@@ -751,12 +736,17 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     {projectColumns.map(col => (
                       <td
                         key={col.id}
-                        className="py-1 px-2 text-xs whitespace-nowrap"
+                        className={cn(
+                          "py-1 px-1.5 text-xs whitespace-nowrap",
+                          col.standardField === 'name' && "max-w-[280px] overflow-hidden text-ellipsis",
+                          col.standardField === 'description' && "max-w-[200px] overflow-hidden text-ellipsis",
+                          (col.type === 'text' || col.type === 'list') && !col.standardField && "max-w-[180px] overflow-hidden text-ellipsis"
+                        )}
                       >
                         {renderCellContent(task, col)}
                       </td>
                     ))}
-                    <td className="py-1 px-2 text-right">
+                    <td className="py-1 px-1 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
