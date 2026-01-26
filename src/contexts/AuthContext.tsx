@@ -89,6 +89,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
+      // Ensure we have a valid session before calling the function
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.access_token) {
+        console.log('No valid session for subscription check');
+        setSubscriptionChecked(true);
+        return;
+      }
+
       // Add timeout to prevent infinite blocking
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
