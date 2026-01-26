@@ -290,3 +290,161 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
 }
+
+/* ===== Spreadsheet Editor Styles ===== */
+.spreadsheet-editor {
+  background: hsl(var(--card));
+}
+
+/* Override react-datasheet-grid styles */
+.spreadsheet-editor .dsg-container {
+  --dsg-border-color: hsl(var(--border));
+  --dsg-selection-border-color: hsl(var(--primary));
+  --dsg-header-text-color: hsl(var(--foreground));
+  --dsg-header-active-text-color: hsl(var(--foreground));
+  --dsg-cell-background-color: hsl(var(--card));
+  --dsg-cell-disabled-background-color: hsl(var(--muted));
+  font-family: 'Inter', sans-serif;
+}
+
+.spreadsheet-editor .dsg-cell {
+  transition: background-color 0.1s ease;
+}
+
+.spreadsheet-editor .dsg-cell:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Active cell styling */
+.spreadsheet-editor .dsg-cell.dsg-cell-active {
+  background-color: hsl(var(--primary) / 0.08);
+  box-shadow: inset 0 0 0 2px hsl(var(--primary));
+}
+
+/* Selection styling */
+.spreadsheet-editor .dsg-selection-rect {
+  background-color: hsl(var(--primary) / 0.1);
+  border: 2px solid hsl(var(--primary));
+}
+
+/* Header styling */
+.spreadsheet-editor .dsg-header-cell {
+  background: hsl(var(--muted) / 0.5);
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.spreadsheet-editor .dsg-header-cell:hover {
+  background: hsl(var(--muted));
+}
+
+/* Input styling when editing */
+.spreadsheet-editor .dsg-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  padding: 4px 8px;
+  border: none;
+  outline: none;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Row highlight on hover */
+.spreadsheet-editor .dsg-row:hover .dsg-cell {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+.spreadsheet-editor .dsg-row:hover .dsg-cell.dsg-cell-active {
+  background-color: hsl(var(--primary) / 0.12);
+}
+
+/* Add row button area */
+.spreadsheet-editor .dsg-add-row {
+  background: transparent;
+  border-top: 1px dashed hsl(var(--border));
+  transition: background-color 0.15s ease;
+}
+
+.spreadsheet-editor .dsg-add-row:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+/* Gutter column (row numbers) */
+.spreadsheet-editor .dsg-cell-gutter {
+  background: hsl(var(--muted) / 0.3);
+  border-right: 1px solid hsl(var(--border));
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+}
+
+/* Column resize handle */
+.spreadsheet-editor .dsg-resize-handle {
+  background: hsl(var(--primary));
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.spreadsheet-editor .dsg-header-cell:hover .dsg-resize-handle {
+  opacity: 0.5;
+}
+
+.spreadsheet-editor .dsg-resize-handle:hover,
+.spreadsheet-editor .dsg-resize-handle:active {
+  opacity: 1;
+}
+
+/* Selection corner handle */
+.spreadsheet-editor .dsg-expand-btn {
+  background: hsl(var(--primary));
+  border: 2px solid hsl(var(--background));
+  border-radius: 2px;
+}
+
+/* Alternating row colors (optional - subtle) */
+.spreadsheet-editor .dsg-row:nth-child(even) .dsg-cell {
+  background-color: hsl(var(--muted) / 0.15);
+}
+
+.spreadsheet-editor .dsg-row:nth-child(even):hover .dsg-cell {
+  background-color: hsl(var(--muted) / 0.4);
+}
+
+/* Context menu styling (if using native) */
+.spreadsheet-editor .dsg-context-menu {
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Cell focus ring animation */
+@keyframes cellFocusPulse {
+  0%, 100% {
+    box-shadow: inset 0 0 0 2px hsl(var(--primary));
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px hsl(var(--primary) / 0.6);
+  }
+}
+
+.spreadsheet-editor .dsg-cell.dsg-cell-active.dsg-cell-focus {
+  animation: cellFocusPulse 1.5s ease-in-out infinite;
+}
+
+/* Dark mode adjustments */
+.dark .spreadsheet-editor .dsg-container {
+  --dsg-cell-background-color: hsl(var(--card));
+  --dsg-cell-disabled-background-color: hsl(var(--muted));
+}
+
+.dark .spreadsheet-editor .dsg-header-cell {
+  background: hsl(var(--muted) / 0.3);
+}
+
+.dark .spreadsheet-editor .dsg-cell-gutter {
+  background: hsl(var(--muted) / 0.2);
+}

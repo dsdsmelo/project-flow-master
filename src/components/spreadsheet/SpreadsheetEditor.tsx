@@ -22,6 +22,9 @@ import {
   ArrowUpDown,
   Loader2,
   Save,
+  Copy,
+  GripVertical,
+  Check,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -214,6 +217,23 @@ const checkConditionalFormat = (
   return null;
 };
 
+// Debounce hook for auto-save
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const { fetchSpreadsheetData, saveSpreadsheetData } = useData();
 
@@ -221,11 +241,17 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Local state for spreadsheet data
   const [columns, setColumns] = useState<SpreadsheetColumn[]>([]);
   const [rows, setRows] = useState<GridRow[]>([]);
   const [dbCells, setDbCells] = useState<SpreadsheetCell[]>([]);
+
+  // Track row hover for actions
+  const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
   const [formulaInput, setFormulaInput] = useState('');
   const [columnModalOpen, setColumnModalOpen] = useState(false);
@@ -301,7 +327,9 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   }, [spreadsheet.id, fetchSpreadsheetData]);
 
   // Save data to Supabase
-  const handleSave = async () => {
+  const handleSave = useCallback(async (showToast = true) => {
+    if (saving) return; // Prevent multiple saves
+
     setSaving(true);
     try {
       // Convert columns to DB format
@@ -336,14 +364,38 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
       await saveSpreadsheetData(spreadsheet.id, dbColumns, dbRows, cells);
       setHasChanges(false);
-      toast.success('Tabela salva!');
+      setLastSaved(new Date());
+      if (showToast) {
+        toast.success('Tabela salva!');
+      }
     } catch (error: any) {
       console.error('Error saving spreadsheet:', error);
       toast.error(error.message || 'Erro ao salvar tabela');
     } finally {
       setSaving(false);
     }
-  };
+  }, [columns, rows, spreadsheet.id, saveSpreadsheetData, saving]);
+
+  // Auto-save effect with debounce
+  useEffect(() => {
+    if (!hasChanges || !autoSaveEnabled) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (2 seconds after last change)
+    saveTimeoutRef.current = setTimeout(() => {
+      handleSave(false); // Silent save (no toast)
+    }, 2000);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [hasChanges, autoSaveEnabled, handleSave]);
 
   // Convert data to grid format
   const gridData = useMemo(() => {
@@ -361,9 +413,145 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     });
   }, [rows, columns]);
 
+  // Handle data changes
+  const handleChange = useCallback((newData: Record<string, string>[]) => {
+    const newRows = newData.map(row => ({
+      id: row._id,
+      cells: Object.fromEntries(
+        Object.entries(row).filter(([key]) => key !== '_id')
+      ),
+    }));
+    setRows(newRows);
+    setHasChanges(true);
+  }, []);
+
+  // Add row
+  const handleAddRow = useCallback(() => {
+    const newRow: GridRow = {
+      id: crypto.randomUUID(),
+      cells: {},
+    };
+    setRows(prev => [...prev, newRow]);
+    setHasChanges(true);
+  }, []);
+
+  // Delete row
+  const handleDeleteRow = useCallback((rowIndex: number) => {
+    if (rows.length <= 1) {
+      toast.error('A tabela precisa ter pelo menos uma linha');
+      return;
+    }
+    setRows(prev => prev.filter((_, idx) => idx !== rowIndex));
+    setHasChanges(true);
+    toast.success('Linha excluída!');
+  }, [rows.length]);
+
+  // Duplicate row
+  const handleDuplicateRow = useCallback((rowIndex: number) => {
+    const rowToDuplicate = rows[rowIndex];
+    const newRow: GridRow = {
+      id: crypto.randomUUID(),
+      cells: { ...rowToDuplicate.cells },
+    };
+    setRows(prev => {
+      const newRows = [...prev];
+      newRows.splice(rowIndex + 1, 0, newRow);
+      return newRows;
+    });
+    setHasChanges(true);
+    toast.success('Linha duplicada!');
+  }, [rows]);
+
+  // Insert row at position
+  const handleInsertRowAt = useCallback((rowIndex: number, position: 'above' | 'below') => {
+    const newRow: GridRow = {
+      id: crypto.randomUUID(),
+      cells: {},
+    };
+    setRows(prev => {
+      const newRows = [...prev];
+      const insertIndex = position === 'above' ? rowIndex : rowIndex + 1;
+      newRows.splice(insertIndex, 0, newRow);
+      return newRows;
+    });
+    setHasChanges(true);
+  }, []);
+
+  // Add column
+  const handleAddColumn = useCallback(() => {
+    setEditingColumn(null);
+    setNewColumnName('');
+    setNewColumnType('text');
+    setColumnModalOpen(true);
+  }, []);
+
+  // Edit column
+  const handleEditColumn = useCallback((col: SpreadsheetColumn) => {
+    setEditingColumn(col);
+    setNewColumnName(col.name);
+    setNewColumnType(col.type);
+    setColumnModalOpen(true);
+  }, []);
+
+  // Delete column
+  const handleDeleteColumn = useCallback((colId: string) => {
+    if (columns.length <= 1) {
+      toast.error('A tabela precisa ter pelo menos uma coluna');
+      return;
+    }
+
+    setColumns(prev => prev.filter(c => c.id !== colId));
+    setRows(prev => prev.map(row => ({
+      ...row,
+      cells: Object.fromEntries(
+        Object.entries(row.cells).filter(([key]) => key !== colId)
+      ),
+    })));
+    setHasChanges(true);
+    toast.success('Coluna excluida!');
+  }, [columns.length]);
+
+  // Sort column
+  const handleSortColumn = useCallback((colIndex: number, direction: 'asc' | 'desc') => {
+    const colId = columns[colIndex]?.id;
+    if (!colId) return;
+
+    setRows(prev => {
+      const sortedRows = [...prev].sort((a, b) => {
+        const aVal = a.cells[colId] || '';
+        const bVal = b.cells[colId] || '';
+        const aNum = parseFloat(aVal);
+        const bNum = parseFloat(bVal);
+
+        // Numeric comparison if both are numbers
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return direction === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+
+        // String comparison
+        return direction === 'asc'
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      });
+      return sortedRows;
+    });
+    setHasChanges(true);
+  }, [columns]);
+
+  // Conditional formatting
+  const openFormatModal = useCallback((col: SpreadsheetColumn) => {
+    setFormatColumn(col);
+    setFormatCondition('greaterThan');
+    setFormatValue('');
+    setFormatValue2('');
+    setFormatBgColor('#fef2f2');
+    setFormatTextColor('#991b1b');
+    setFormatModalOpen(true);
+  }, []);
+
   // Build columns for DataSheetGrid
   const gridColumns: Column<Record<string, string>>[] = useMemo(() => {
-    return columns.map((col, index) => ({
+    const dataColumns = columns.map((col, index) => ({
       ...keyColumn(col.id, textColumn),
       title: (
         <div className="flex items-center gap-1 group">
@@ -405,7 +593,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         </div>
       ),
       minWidth: col.width,
-      cellClassName: ({ rowData }) => {
+      cellClassName: ({ rowData }: { rowData: Record<string, string> }) => {
         const value = rowData[col.id] || '';
         const format = checkConditionalFormat(value, col.format);
         if (format) {
@@ -414,44 +602,9 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         return '';
       },
     }));
-  }, [columns]);
 
-  // Handle data changes
-  const handleChange = useCallback((newData: Record<string, string>[]) => {
-    const newRows = newData.map(row => ({
-      id: row._id,
-      cells: Object.fromEntries(
-        Object.entries(row).filter(([key]) => key !== '_id')
-      ),
-    }));
-    setRows(newRows);
-    setHasChanges(true);
-  }, []);
-
-  // Add row
-  const handleAddRow = () => {
-    const newRow: GridRow = {
-      id: crypto.randomUUID(),
-      cells: {},
-    };
-    setRows(prev => [...prev, newRow]);
-    setHasChanges(true);
-  };
-
-  // Add column
-  const handleAddColumn = () => {
-    setEditingColumn(null);
-    setNewColumnName('');
-    setNewColumnType('text');
-    setColumnModalOpen(true);
-  };
-
-  const handleEditColumn = (col: SpreadsheetColumn) => {
-    setEditingColumn(col);
-    setNewColumnName(col.name);
-    setNewColumnType(col.type);
-    setColumnModalOpen(true);
-  };
+    return dataColumns;
+  }, [columns, handleEditColumn, handleSortColumn, openFormatModal, handleDeleteColumn]);
 
   const handleSaveColumn = () => {
     if (!newColumnName.trim()) {
@@ -484,58 +637,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
     setHasChanges(true);
     setColumnModalOpen(false);
-  };
-
-  const handleDeleteColumn = (colId: string) => {
-    if (columns.length <= 1) {
-      toast.error('A tabela precisa ter pelo menos uma coluna');
-      return;
-    }
-
-    setColumns(prev => prev.filter(c => c.id !== colId));
-    setRows(prev => prev.map(row => ({
-      ...row,
-      cells: Object.fromEntries(
-        Object.entries(row.cells).filter(([key]) => key !== colId)
-      ),
-    })));
-    setHasChanges(true);
-    toast.success('Coluna excluida!');
-  };
-
-  // Sort column
-  const handleSortColumn = (colIndex: number, direction: 'asc' | 'desc') => {
-    const colId = columns[colIndex].id;
-    const sortedRows = [...rows].sort((a, b) => {
-      const aVal = a.cells[colId] || '';
-      const bVal = b.cells[colId] || '';
-      const aNum = parseFloat(aVal);
-      const bNum = parseFloat(bVal);
-
-      // Numeric comparison if both are numbers
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return direction === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-
-      // String comparison
-      return direction === 'asc'
-        ? aVal.localeCompare(bVal)
-        : bVal.localeCompare(aVal);
-    });
-
-    setRows(sortedRows);
-    setHasChanges(true);
-  };
-
-  // Conditional formatting
-  const openFormatModal = (col: SpreadsheetColumn) => {
-    setFormatColumn(col);
-    setFormatCondition('greaterThan');
-    setFormatValue('');
-    setFormatValue2('');
-    setFormatBgColor('#fef2f2');
-    setFormatTextColor('#991b1b');
-    setFormatModalOpen(true);
   };
 
   const handleSaveFormat = () => {
@@ -636,21 +737,54 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="flex-1" />
 
-        {hasChanges && (
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Salvar
-          </Button>
-        )}
+        {/* Save status indicator */}
+        <div className="flex items-center gap-3">
+          {/* Auto-save toggle */}
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoSaveEnabled}
+              onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+              className="rounded border-border"
+            />
+            Auto-salvar
+          </label>
+
+          {/* Status */}
+          {saving ? (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Salvando...
+            </span>
+          ) : hasChanges ? (
+            <span className="flex items-center gap-1.5 text-xs text-amber-600">
+              <div className="h-2 w-2 rounded-full bg-amber-500" />
+              Alterações não salvas
+            </span>
+          ) : lastSaved ? (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+              <Check className="h-3 w-3" />
+              Salvo
+            </span>
+          ) : null}
+
+          {/* Manual save button */}
+          {hasChanges && !autoSaveEnabled && (
+            <Button
+              size="sm"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Salvar
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Formula bar */}
@@ -670,18 +804,104 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       )}
 
       {/* Grid */}
-      <div className="border rounded-lg overflow-hidden">
-        <DataSheetGrid
-          ref={gridRef}
-          value={gridData}
-          onChange={handleChange}
-          columns={gridColumns}
-          height={500}
-          rowHeight={32}
-          headerRowHeight={36}
-          addRowsComponent={false}
-          className="text-sm"
-        />
+      <div className="border rounded-lg overflow-hidden spreadsheet-editor">
+        <div className="flex">
+          {/* Row numbers column */}
+          <div className="flex-shrink-0 border-r border-border bg-muted/30">
+            {/* Header cell */}
+            <div
+              className="h-9 flex items-center justify-center border-b border-border text-xs font-medium text-muted-foreground"
+              style={{ width: 40 }}
+            >
+              #
+            </div>
+            {/* Row number cells */}
+            {rows.map((row, rowIndex) => (
+              <div
+                key={row.id}
+                className="flex items-center justify-center border-b border-border/50 group/rownum"
+                style={{ height: 32, width: 40 }}
+                onMouseEnter={() => setHoveredRowIndex(rowIndex)}
+                onMouseLeave={() => setHoveredRowIndex(null)}
+              >
+                {hoveredRowIndex === rowIndex ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                        <GripVertical className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="right">
+                      <DropdownMenuItem onClick={() => handleInsertRowAt(rowIndex, 'above')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Inserir linha acima
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleInsertRowAt(rowIndex, 'below')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Inserir linha abaixo
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleDuplicateRow(rowIndex)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Duplicar linha
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteRow(rowIndex)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir linha
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <span className="text-xs text-muted-foreground">{rowIndex + 1}</span>
+                )}
+              </div>
+            ))}
+            {/* Add row button */}
+            <div
+              className="h-8 flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+              style={{ width: 40 }}
+              onClick={handleAddRow}
+              title="Adicionar linha"
+            >
+              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+          </div>
+
+          {/* Main grid */}
+          <div className="flex-1 overflow-auto">
+            <DataSheetGrid
+              ref={gridRef}
+              value={gridData}
+              onChange={handleChange}
+              columns={gridColumns}
+              height={500}
+              rowHeight={32}
+              headerRowHeight={36}
+              addRowsComponent={({ addRows }) => (
+                <button
+                  className="w-full h-8 flex items-center justify-center text-xs text-muted-foreground hover:bg-muted/50 transition-colors border-t border-dashed border-border"
+                  onClick={() => addRows(1)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Adicionar linha
+                </button>
+              )}
+              className="text-sm"
+              lockRows={false}
+              disableExpandSelection={false}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Info footer */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <span>{rows.length} {rows.length === 1 ? 'linha' : 'linhas'} × {columns.length} {columns.length === 1 ? 'coluna' : 'colunas'}</span>
+        <span>Dica: Clique duas vezes para editar • Tab para navegar • Enter para confirmar</span>
       </div>
 
       {/* Column Modal */}
