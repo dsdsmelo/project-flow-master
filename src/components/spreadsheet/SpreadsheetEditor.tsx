@@ -5,6 +5,7 @@ import {
   keyColumn,
   Column,
   DataSheetGridRef,
+  CellProps,
 } from 'react-datasheet-grid';
 import 'react-datasheet-grid/dist/style.css';
 import { Button } from '@/components/ui/button';
@@ -19,8 +20,15 @@ import {
   GripVertical,
   MoreHorizontal,
   ArrowUpDown,
-  X,
+  Palette,
   Check,
+  Cloud,
+  CloudOff,
+  Type,
+  Hash,
+  Calendar,
+  Percent,
+  DollarSign,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,7 +36,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
@@ -43,7 +59,36 @@ interface SpreadsheetEditorProps {
 interface GridRow {
   id: string;
   cells: Record<string, string>;
+  styles?: Record<string, CellStyle>;
 }
+
+interface CellStyle {
+  backgroundColor?: string;
+  textColor?: string;
+}
+
+// Color palette for cells
+const CELL_COLORS = [
+  { name: 'Nenhum', value: '' },
+  { name: 'Vermelho claro', value: '#fee2e2' },
+  { name: 'Laranja claro', value: '#ffedd5' },
+  { name: 'Amarelo claro', value: '#fef9c3' },
+  { name: 'Verde claro', value: '#dcfce7' },
+  { name: 'Azul claro', value: '#dbeafe' },
+  { name: 'Roxo claro', value: '#f3e8ff' },
+  { name: 'Rosa claro', value: '#fce7f3' },
+  { name: 'Cinza claro', value: '#f3f4f6' },
+];
+
+const TEXT_COLORS = [
+  { name: 'Padrão', value: '' },
+  { name: 'Vermelho', value: '#dc2626' },
+  { name: 'Laranja', value: '#ea580c' },
+  { name: 'Verde', value: '#16a34a' },
+  { name: 'Azul', value: '#2563eb' },
+  { name: 'Roxo', value: '#9333ea' },
+  { name: 'Cinza', value: '#6b7280' },
+];
 
 // Formula parser (simple implementation)
 const parseFormula = (formula: string, rows: GridRow[], columns: SpreadsheetColumn[]): string => {
@@ -159,6 +204,7 @@ function ColumnHeader({
   onRename,
   onSort,
   onDelete,
+  onChangeType,
   canDelete
 }: {
   column: SpreadsheetColumn;
@@ -166,6 +212,7 @@ function ColumnHeader({
   onRename: (newName: string) => void;
   onSort: (direction: 'asc' | 'desc') => void;
   onDelete: () => void;
+  onChangeType: (type: string) => void;
   canDelete: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -206,6 +253,16 @@ function ColumnHeader({
     }
   };
 
+  const getTypeIcon = () => {
+    switch (column.type) {
+      case 'number': return <Hash className="h-3 w-3" />;
+      case 'date': return <Calendar className="h-3 w-3" />;
+      case 'currency': return <DollarSign className="h-3 w-3" />;
+      case 'percentage': return <Percent className="h-3 w-3" />;
+      default: return <Type className="h-3 w-3" />;
+    }
+  };
+
   if (isEditing) {
     return (
       <div className="flex items-center gap-1 w-full" onClick={e => e.stopPropagation()}>
@@ -224,13 +281,16 @@ function ColumnHeader({
 
   return (
     <div className="flex items-center justify-between w-full group">
-      <span
-        className="font-medium text-xs cursor-text truncate flex-1"
-        onDoubleClick={handleDoubleClick}
-        title="Clique duas vezes para editar"
-      >
-        {column.name}
-      </span>
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <span className="text-muted-foreground">{getTypeIcon()}</span>
+        <span
+          className="font-medium text-xs cursor-text truncate"
+          onDoubleClick={handleDoubleClick}
+          title="Clique duas vezes para editar"
+        >
+          {column.name}
+        </span>
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -240,10 +300,44 @@ function ColumnHeader({
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-40">
+        <DropdownMenuContent align="start" className="w-44">
           <DropdownMenuItem onClick={() => { setEditValue(column.name); setIsEditing(true); }}>
             Renomear
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Type className="h-4 w-4 mr-2" />
+              Tipo de coluna
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => onChangeType('text')}>
+                <Type className="h-4 w-4 mr-2" />
+                Texto
+                {column.type === 'text' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onChangeType('number')}>
+                <Hash className="h-4 w-4 mr-2" />
+                Número
+                {column.type === 'number' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onChangeType('date')}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Data
+                {column.type === 'date' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onChangeType('currency')}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                Moeda
+                {column.type === 'currency' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onChangeType('percentage')}>
+                <Percent className="h-4 w-4 mr-2" />
+                Percentual
+                {column.type === 'percentage' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onSort('asc')}>
             <ArrowUpDown className="h-4 w-4 mr-2" />
@@ -268,20 +362,47 @@ function ColumnHeader({
   );
 }
 
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const { fetchSpreadsheetData, saveSpreadsheetData } = useData();
 
   const gridRef = useRef<DataSheetGridRef>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Local state for spreadsheet data
   const [columns, setColumns] = useState<SpreadsheetColumn[]>([]);
   const [rows, setRows] = useState<GridRow[]>([]);
 
+  // Selected cell for formula bar
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: string } | null>(null);
+  const [formulaBarValue, setFormulaBarValue] = useState('');
+
   // Track row hover for actions
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
+
+  // Track data version for auto-save
+  const [dataVersion, setDataVersion] = useState(0);
+  const debouncedVersion = useDebounce(dataVersion, 2000); // 2 second debounce
 
   // Load data from Supabase
   useEffect(() => {
@@ -303,6 +424,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           const defaultRows: GridRow[] = Array.from({ length: 10 }, () => ({
             id: crypto.randomUUID(),
             cells: {},
+            styles: {},
           }));
           setRows(defaultRows);
           setHasChanges(true);
@@ -315,7 +437,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
             data.cells.filter(c => c.rowId === row.id).forEach(cell => {
               cells[cell.columnId] = cell.value || '';
             });
-            return { id: row.id, cells };
+            return { id: row.id, cells, styles: {} };
           });
 
           // If no rows, create some defaults
@@ -323,6 +445,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
             const defaultRows: GridRow[] = Array.from({ length: 10 }, () => ({
               id: crypto.randomUUID(),
               cells: {},
+              styles: {},
             }));
             setRows(defaultRows);
             setHasChanges(true);
@@ -341,11 +464,19 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     loadData();
   }, [spreadsheet.id, fetchSpreadsheetData]);
 
-  // Save data to Supabase - ONLY manual save
-  const handleSave = useCallback(async () => {
+  // Auto-save when debounced version changes
+  useEffect(() => {
+    if (debouncedVersion > 0 && hasChanges && !loading) {
+      performSave();
+    }
+  }, [debouncedVersion]);
+
+  // Save data to Supabase
+  const performSave = useCallback(async () => {
     if (saving) return;
 
     setSaving(true);
+    setSaveError(false);
     try {
       // Convert columns to DB format
       const dbColumns: SpreadsheetColumn[] = columns.map((col, index) => ({
@@ -379,14 +510,29 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
       await saveSpreadsheetData(spreadsheet.id, dbColumns, dbRows, cells);
       setHasChanges(false);
-      toast.success('Tabela salva com sucesso!');
+      setLastSaved(new Date());
     } catch (error: any) {
       console.error('Error saving spreadsheet:', error);
-      toast.error(error.message || 'Erro ao salvar tabela');
+      setSaveError(true);
+      toast.error('Erro ao salvar. Clique em "Salvar" para tentar novamente.');
     } finally {
       setSaving(false);
     }
   }, [columns, rows, spreadsheet.id, saveSpreadsheetData, saving]);
+
+  // Manual save
+  const handleManualSave = useCallback(async () => {
+    await performSave();
+    if (!saveError) {
+      toast.success('Tabela salva com sucesso!');
+    }
+  }, [performSave, saveError]);
+
+  // Mark as changed and trigger auto-save
+  const markChanged = useCallback(() => {
+    setHasChanges(true);
+    setDataVersion(v => v + 1);
+  }, []);
 
   // Convert data to grid format
   const gridData = useMemo(() => {
@@ -406,25 +552,59 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
   // Handle data changes
   const handleChange = useCallback((newData: Record<string, string>[]) => {
-    const newRows = newData.map(row => ({
+    const newRows = newData.map((row, index) => ({
       id: row._id,
       cells: Object.fromEntries(
         Object.entries(row).filter(([key]) => key !== '_id')
       ),
+      styles: rows[index]?.styles || {},
     }));
     setRows(newRows);
-    setHasChanges(true);
-  }, []);
+    markChanged();
+  }, [markChanged, rows]);
+
+  // Handle cell selection
+  const handleActiveChange = useCallback((cell: { col: number; row: number } | null) => {
+    if (cell && cell.row >= 0 && cell.col >= 0) {
+      const colId = columns[cell.col]?.id;
+      if (colId) {
+        setSelectedCell({ row: cell.row, col: colId });
+        const rawValue = rows[cell.row]?.cells[colId] || '';
+        setFormulaBarValue(rawValue);
+      }
+    } else {
+      setSelectedCell(null);
+      setFormulaBarValue('');
+    }
+  }, [columns, rows]);
+
+  // Handle formula bar change
+  const handleFormulaBarChange = useCallback((value: string) => {
+    setFormulaBarValue(value);
+    if (selectedCell) {
+      setRows(prev => prev.map((row, idx) => {
+        if (idx === selectedCell.row) {
+          return {
+            ...row,
+            cells: { ...row.cells, [selectedCell.col]: value }
+          };
+        }
+        return row;
+      }));
+      markChanged();
+    }
+  }, [selectedCell, markChanged]);
 
   // Add row
   const handleAddRow = useCallback(() => {
     const newRow: GridRow = {
       id: crypto.randomUUID(),
       cells: {},
+      styles: {},
     };
     setRows(prev => [...prev, newRow]);
-    setHasChanges(true);
-  }, []);
+    markChanged();
+  }, [markChanged]);
 
   // Delete row
   const handleDeleteRow = useCallback((rowIndex: number) => {
@@ -433,8 +613,8 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       return;
     }
     setRows(prev => prev.filter((_, idx) => idx !== rowIndex));
-    setHasChanges(true);
-  }, [rows.length]);
+    markChanged();
+  }, [rows.length, markChanged]);
 
   // Duplicate row
   const handleDuplicateRow = useCallback((rowIndex: number) => {
@@ -442,20 +622,22 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     const newRow: GridRow = {
       id: crypto.randomUUID(),
       cells: { ...rowToDuplicate.cells },
+      styles: { ...rowToDuplicate.styles },
     };
     setRows(prev => {
       const newRows = [...prev];
       newRows.splice(rowIndex + 1, 0, newRow);
       return newRows;
     });
-    setHasChanges(true);
-  }, [rows]);
+    markChanged();
+  }, [rows, markChanged]);
 
   // Insert row at position
   const handleInsertRowAt = useCallback((rowIndex: number, position: 'above' | 'below') => {
     const newRow: GridRow = {
       id: crypto.randomUUID(),
       cells: {},
+      styles: {},
     };
     setRows(prev => {
       const newRows = [...prev];
@@ -463,8 +645,8 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       newRows.splice(insertIndex, 0, newRow);
       return newRows;
     });
-    setHasChanges(true);
-  }, []);
+    markChanged();
+  }, [markChanged]);
 
   // Add column
   const handleAddColumn = useCallback(() => {
@@ -479,16 +661,24 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       createdAt: new Date().toISOString(),
     };
     setColumns(prev => [...prev, newCol]);
-    setHasChanges(true);
-  }, [columns.length, spreadsheet.id]);
+    markChanged();
+  }, [columns.length, spreadsheet.id, markChanged]);
 
   // Rename column
   const handleRenameColumn = useCallback((colId: string, newName: string) => {
     setColumns(prev => prev.map(col =>
       col.id === colId ? { ...col, name: newName } : col
     ));
-    setHasChanges(true);
-  }, []);
+    markChanged();
+  }, [markChanged]);
+
+  // Change column type
+  const handleChangeColumnType = useCallback((colId: string, newType: string) => {
+    setColumns(prev => prev.map(col =>
+      col.id === colId ? { ...col, type: newType } : col
+    ));
+    markChanged();
+  }, [markChanged]);
 
   // Delete column
   const handleDeleteColumn = useCallback((colId: string) => {
@@ -504,8 +694,8 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         Object.entries(row.cells).filter(([key]) => key !== colId)
       ),
     })));
-    setHasChanges(true);
-  }, [columns.length]);
+    markChanged();
+  }, [columns.length, markChanged]);
 
   // Sort column
   const handleSortColumn = useCallback((colId: string, direction: 'asc' | 'desc') => {
@@ -528,8 +718,25 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       });
       return sortedRows;
     });
-    setHasChanges(true);
-  }, []);
+    markChanged();
+  }, [markChanged]);
+
+  // Set cell background color
+  const handleSetCellColor = useCallback((rowIndex: number, colId: string, color: string) => {
+    setRows(prev => prev.map((row, idx) => {
+      if (idx === rowIndex) {
+        return {
+          ...row,
+          styles: {
+            ...row.styles,
+            [colId]: { ...(row.styles?.[colId] || {}), backgroundColor: color }
+          }
+        };
+      }
+      return row;
+    }));
+    markChanged();
+  }, [markChanged]);
 
   // Build columns for DataSheetGrid
   const gridColumns: Column<Record<string, string>>[] = useMemo(() => {
@@ -542,12 +749,13 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           onRename={(newName) => handleRenameColumn(col.id, newName)}
           onSort={(direction) => handleSortColumn(col.id, direction)}
           onDelete={() => handleDeleteColumn(col.id)}
+          onChangeType={(type) => handleChangeColumnType(col.id, type)}
           canDelete={columns.length > 1}
         />
       ),
       minWidth: col.width,
     }));
-  }, [columns, handleRenameColumn, handleSortColumn, handleDeleteColumn]);
+  }, [columns, handleRenameColumn, handleSortColumn, handleDeleteColumn, handleChangeColumnType]);
 
   // Export to Excel
   const handleExport = () => {
@@ -562,6 +770,15 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     toast.success('Tabela exportada!');
   };
 
+  // Get selected cell label
+  const getSelectedCellLabel = () => {
+    if (!selectedCell) return '';
+    const colIndex = columns.findIndex(c => c.id === selectedCell.col);
+    if (colIndex === -1) return '';
+    const colLetter = String.fromCharCode(65 + colIndex);
+    return `${colLetter}${selectedCell.row + 1}`;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -572,6 +789,22 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
   return (
     <div className="space-y-3">
+      {/* Formula Bar */}
+      <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg">
+        <div className="flex items-center gap-2 min-w-[60px]">
+          <span className="text-xs font-mono font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+            {getSelectedCellLabel() || 'A1'}
+          </span>
+        </div>
+        <div className="h-6 w-px bg-border" />
+        <Input
+          value={formulaBarValue}
+          onChange={(e) => handleFormulaBarChange(e.target.value)}
+          placeholder="Clique em uma célula para editar ou digite uma fórmula (ex: =SUM(A1:A10))"
+          className="flex-1 h-8 text-sm font-mono"
+        />
+      </div>
+
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap bg-muted/30 p-2 rounded-lg">
         <Button variant="outline" size="sm" onClick={handleAddRow}>
@@ -585,6 +818,41 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="h-6 w-px bg-border mx-1" />
 
+        {/* Color picker for selected cell */}
+        {selectedCell && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Palette className="h-4 w-4 mr-1" />
+                Cor
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="start">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Cor de fundo</p>
+                <div className="grid grid-cols-3 gap-1">
+                  {CELL_COLORS.map(color => (
+                    <button
+                      key={color.value || 'none'}
+                      className={cn(
+                        "h-6 rounded border border-border hover:border-primary transition-colors",
+                        !color.value && "bg-white dark:bg-gray-900"
+                      )}
+                      style={{ backgroundColor: color.value || undefined }}
+                      onClick={() => handleSetCellColor(selectedCell.row, selectedCell.col, color.value)}
+                      title={color.name}
+                    >
+                      {!color.value && <span className="text-xs text-muted-foreground">✕</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        <div className="h-6 w-px bg-border mx-1" />
+
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-4 w-4 mr-1" />
           Exportar
@@ -592,31 +860,54 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="flex-1" />
 
-        {/* Save button - always visible when there are changes */}
-        {hasChanges && (
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-1" />
-                Salvar alterações
-              </>
-            )}
-          </Button>
-        )}
+        {/* Save status indicator */}
+        <div className="flex items-center gap-2">
+          {saving ? (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Salvando...</span>
+            </div>
+          ) : saveError ? (
+            <div className="flex items-center gap-1.5 text-xs text-destructive">
+              <CloudOff className="h-3.5 w-3.5" />
+              <span>Erro ao salvar</span>
+            </div>
+          ) : lastSaved ? (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+              <Cloud className="h-3.5 w-3.5" />
+              <span>Salvo</span>
+            </div>
+          ) : hasChanges ? (
+            <div className="flex items-center gap-1.5 text-xs text-amber-600">
+              <Cloud className="h-3.5 w-3.5" />
+              <span>Alterações pendentes</span>
+            </div>
+          ) : null}
+
+          {/* Manual save button - shows when there's error or changes */}
+          {(saveError || hasChanges) && (
+            <Button
+              size="sm"
+              onClick={handleManualSave}
+              disabled={saving}
+              variant={saveError ? "destructive" : "default"}
+              className={cn(!saveError && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-1" />
+                  Salvar
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Grid */}
-      <div className="border rounded-lg overflow-hidden bg-card">
+      <div className="border rounded-lg overflow-hidden bg-card spreadsheet-editor">
         <div className="flex">
           {/* Row numbers column */}
           <div className="flex-shrink-0 border-r border-border bg-muted/50">
@@ -697,6 +988,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
               addRowsComponent={false}
               className="text-sm"
               lockRows={false}
+              onActiveCellChange={handleActiveChange}
             />
           </div>
         </div>
@@ -705,7 +997,10 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       {/* Info footer */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>{rows.length} {rows.length === 1 ? 'linha' : 'linhas'} × {columns.length} {columns.length === 1 ? 'coluna' : 'colunas'}</span>
-        <span>Clique duas vezes no nome da coluna para editar</span>
+        <div className="flex items-center gap-4">
+          <span>Fórmulas: =SUM(), =AVG(), =COUNT(), =MIN(), =MAX()</span>
+          <span>Clique duas vezes no nome da coluna para editar</span>
+        </div>
       </div>
     </div>
   );
