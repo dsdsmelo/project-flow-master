@@ -1,42 +1,32 @@
 -- ============================================
 -- MIGRAÇÃO: ANOTAÇÕES APRIMORADAS E PLANILHAS
--- Execute este SQL no SQL Editor do Supabase
+-- VERSÃO SEGURA PARA PRODUÇÃO
+-- ============================================
+--
+-- IMPORTANTE: Execute cada seção separadamente para identificar
+-- problemas mais facilmente. Aguarde cada seção completar antes
+-- de executar a próxima.
+--
 -- ============================================
 
 -- ============================================
--- 1. ATUALIZAR TABELA MEETING_NOTES
--- Adicionar campos para categorias e templates
+-- PARTE 1: ADICIONAR COLUNAS NA MEETING_NOTES
+-- (Seguro - apenas adiciona, não modifica dados)
 -- ============================================
 
--- Adicionar coluna category se não existir
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-    AND table_name = 'meeting_notes'
-    AND column_name = 'category'
-  ) THEN
-    ALTER TABLE public.meeting_notes
-    ADD COLUMN category TEXT NOT NULL DEFAULT 'general';
-  END IF;
-END $$;
+-- Adicionar coluna category (com DEFAULT para não quebrar dados existentes)
+ALTER TABLE public.meeting_notes
+ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
 
--- Adicionar coluna template_data se não existir
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-    AND table_name = 'meeting_notes'
-    AND column_name = 'template_data'
-  ) THEN
-    ALTER TABLE public.meeting_notes
-    ADD COLUMN template_data JSONB DEFAULT '{}';
-  END IF;
-END $$;
+-- Adicionar coluna template_data para dados estruturados
+ALTER TABLE public.meeting_notes
+ADD COLUMN IF NOT EXISTS template_data JSONB DEFAULT NULL;
 
--- Índice para filtro por categoria
+-- ============================================
+-- PARTE 2: CRIAR ÍNDICES PARA MEETING_NOTES
+-- (Seguro - apenas melhora performance)
+-- ============================================
+
 CREATE INDEX IF NOT EXISTS idx_meeting_notes_category
 ON public.meeting_notes(category);
 
@@ -44,22 +34,30 @@ CREATE INDEX IF NOT EXISTS idx_meeting_notes_project_category
 ON public.meeting_notes(project_id, category);
 
 -- ============================================
--- 2. MIGRAÇÃO DE DADOS EXISTENTES
--- Extrair categoria do array participants
+-- PARTE 3: MIGRAR CATEGORIAS EXISTENTES
+-- (Atualiza dados - execute com cuidado)
+--
+-- Nota: Isso extrai a categoria do array participants
+-- onde está salvo como 'cat:meeting', 'cat:decision', etc.
 -- ============================================
+
 UPDATE public.meeting_notes
-SET category = CASE
-  WHEN participants::text LIKE '%cat:meeting%' THEN 'meeting'
-  WHEN participants::text LIKE '%cat:decision%' THEN 'decision'
-  WHEN participants::text LIKE '%cat:idea%' THEN 'idea'
-  WHEN participants::text LIKE '%cat:reminder%' THEN 'reminder'
-  ELSE 'general'
-END
+SET category =
+  CASE
+    WHEN array_to_string(participants, ',') LIKE '%cat:meeting%' THEN 'meeting'
+    WHEN array_to_string(participants, ',') LIKE '%cat:decision%' THEN 'decision'
+    WHEN array_to_string(participants, ',') LIKE '%cat:idea%' THEN 'idea'
+    WHEN array_to_string(participants, ',') LIKE '%cat:reminder%' THEN 'reminder'
+    ELSE 'general'
+  END
 WHERE category = 'general' OR category IS NULL;
 
 -- ============================================
--- 3. TABELA: PROJECT_SPREADSHEETS (Planilhas)
+-- PARTE 4: CRIAR TABELAS DE PLANILHAS
+-- (Seguro - cria novas tabelas)
 -- ============================================
+
+-- Tabela principal de planilhas
 CREATE TABLE IF NOT EXISTS public.project_spreadsheets (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -70,11 +68,7 @@ CREATE TABLE IF NOT EXISTS public.project_spreadsheets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE public.project_spreadsheets IS 'Planilhas do projeto estilo Excel';
-
--- ============================================
--- 4. TABELA: SPREADSHEET_COLUMNS (Colunas)
--- ============================================
+-- Colunas das planilhas
 CREATE TABLE IF NOT EXISTS public.spreadsheet_columns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   spreadsheet_id UUID NOT NULL REFERENCES public.project_spreadsheets(id) ON DELETE CASCADE,
@@ -87,11 +81,7 @@ CREATE TABLE IF NOT EXISTS public.spreadsheet_columns (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE public.spreadsheet_columns IS 'Definições de colunas das planilhas';
-
--- ============================================
--- 5. TABELA: SPREADSHEET_ROWS (Linhas)
--- ============================================
+-- Linhas das planilhas
 CREATE TABLE IF NOT EXISTS public.spreadsheet_rows (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   spreadsheet_id UUID NOT NULL REFERENCES public.project_spreadsheets(id) ON DELETE CASCADE,
@@ -99,11 +89,7 @@ CREATE TABLE IF NOT EXISTS public.spreadsheet_rows (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE public.spreadsheet_rows IS 'Linhas das planilhas';
-
--- ============================================
--- 6. TABELA: SPREADSHEET_CELLS (Células)
--- ============================================
+-- Células das planilhas
 CREATE TABLE IF NOT EXISTS public.spreadsheet_cells (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   row_id UUID NOT NULL REFERENCES public.spreadsheet_rows(id) ON DELETE CASCADE,
@@ -113,11 +99,7 @@ CREATE TABLE IF NOT EXISTS public.spreadsheet_cells (
   UNIQUE(row_id, column_id)
 );
 
-COMMENT ON TABLE public.spreadsheet_cells IS 'Valores das células das planilhas';
-
--- ============================================
--- 7. TABELA: SPREADSHEET_MERGES (Células mescladas)
--- ============================================
+-- Células mescladas
 CREATE TABLE IF NOT EXISTS public.spreadsheet_merges (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   spreadsheet_id UUID NOT NULL REFERENCES public.project_spreadsheets(id) ON DELETE CASCADE,
@@ -127,11 +109,11 @@ CREATE TABLE IF NOT EXISTS public.spreadsheet_merges (
   end_col INTEGER NOT NULL
 );
 
-COMMENT ON TABLE public.spreadsheet_merges IS 'Regiões de células mescladas';
+-- ============================================
+-- PARTE 5: CRIAR ÍNDICES PARA PLANILHAS
+-- (Seguro - apenas melhora performance)
+-- ============================================
 
--- ============================================
--- 8. ÍNDICES PARA PERFORMANCE
--- ============================================
 CREATE INDEX IF NOT EXISTS idx_spreadsheets_project
 ON public.project_spreadsheets(project_id);
 
@@ -157,16 +139,20 @@ CREATE INDEX IF NOT EXISTS idx_spreadsheet_merges_spreadsheet
 ON public.spreadsheet_merges(spreadsheet_id);
 
 -- ============================================
--- 9. TRIGGERS PARA UPDATED_AT
+-- PARTE 6: TRIGGER PARA UPDATED_AT
+-- (Seguro - usa função existente)
 -- ============================================
+
 DROP TRIGGER IF EXISTS update_spreadsheets_updated_at ON public.project_spreadsheets;
 CREATE TRIGGER update_spreadsheets_updated_at
   BEFORE UPDATE ON public.project_spreadsheets
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================
--- 10. HABILITAR RLS (Row Level Security)
+-- PARTE 7: HABILITAR RLS
+-- (Seguro - habilita segurança)
 -- ============================================
+
 ALTER TABLE public.project_spreadsheets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.spreadsheet_columns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.spreadsheet_rows ENABLE ROW LEVEL SECURITY;
@@ -174,7 +160,8 @@ ALTER TABLE public.spreadsheet_cells ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.spreadsheet_merges ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- 11. POLÍTICAS RLS: SPREADSHEETS
+-- PARTE 8: POLÍTICAS RLS
+-- (Seguro - define permissões)
 -- ============================================
 
 -- Project Spreadsheets
