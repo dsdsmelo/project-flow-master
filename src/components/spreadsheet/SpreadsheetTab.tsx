@@ -10,6 +10,7 @@ import {
   Trash2,
   Calendar,
   ArrowLeft,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -33,35 +34,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { useData } from '@/contexts/DataContext';
+import { Spreadsheet } from '@/lib/types';
 import { SpreadsheetEditor } from './SpreadsheetEditor';
-
-// Local spreadsheet type (will be moved to context later)
-interface LocalSpreadsheet {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-  data: {
-    columns: { id: string; name: string; type: string; width: number }[];
-    rows: { id: string; cells: Record<string, string> }[];
-  };
-}
 
 interface SpreadsheetTabProps {
   projectId: string;
 }
 
 export function SpreadsheetTab({ projectId }: SpreadsheetTabProps) {
-  // Local state for spreadsheets (will be connected to Supabase later)
-  const [spreadsheets, setSpreadsheets] = useState<LocalSpreadsheet[]>([]);
+  const {
+    spreadsheets: allSpreadsheets,
+    addSpreadsheet,
+    updateSpreadsheet,
+    deleteSpreadsheet,
+  } = useData();
+
+  // Filter spreadsheets for current project
+  const spreadsheets = useMemo(() =>
+    allSpreadsheets.filter(s => s.projectId === projectId),
+    [allSpreadsheets, projectId]
+  );
+
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSpreadsheet, setEditingSpreadsheet] = useState<LocalSpreadsheet | null>(null);
+  const [editingSpreadsheet, setEditingSpreadsheet] = useState<Spreadsheet | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [spreadsheetToDelete, setSpreadsheetToDelete] = useState<LocalSpreadsheet | null>(null);
-  const [activeSpreadsheet, setActiveSpreadsheet] = useState<LocalSpreadsheet | null>(null);
+  const [spreadsheetToDelete, setSpreadsheetToDelete] = useState<Spreadsheet | null>(null);
+  const [activeSpreadsheet, setActiveSpreadsheet] = useState<Spreadsheet | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -83,7 +84,7 @@ export function SpreadsheetTab({ projectId }: SpreadsheetTabProps) {
     setEditingSpreadsheet(null);
   };
 
-  const handleOpenModal = (spreadsheet?: LocalSpreadsheet) => {
+  const handleOpenModal = (spreadsheet?: Spreadsheet) => {
     if (spreadsheet) {
       setEditingSpreadsheet(spreadsheet);
       setName(spreadsheet.name);
@@ -94,81 +95,61 @@ export function SpreadsheetTab({ projectId }: SpreadsheetTabProps) {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       toast.error('Nome é obrigatório');
       return;
     }
 
-    const now = new Date().toISOString();
-
-    if (editingSpreadsheet) {
-      // Update existing
-      setSpreadsheets(prev =>
-        prev.map(s =>
-          s.id === editingSpreadsheet.id
-            ? { ...s, name: name.trim(), description: description.trim() || undefined, updatedAt: now }
-            : s
-        )
-      );
-      toast.success('Tabela atualizada!');
-    } else {
-      // Create new
-      const newSpreadsheet: LocalSpreadsheet = {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        description: description.trim() || undefined,
-        createdAt: now,
-        updatedAt: now,
-        data: {
-          columns: [
-            { id: 'col-1', name: 'Coluna A', type: 'text', width: 150 },
-            { id: 'col-2', name: 'Coluna B', type: 'text', width: 150 },
-            { id: 'col-3', name: 'Coluna C', type: 'text', width: 150 },
-          ],
-          rows: [
-            { id: 'row-1', cells: {} },
-            { id: 'row-2', cells: {} },
-            { id: 'row-3', cells: {} },
-            { id: 'row-4', cells: {} },
-            { id: 'row-5', cells: {} },
-          ],
-        },
-      };
-      setSpreadsheets(prev => [...prev, newSpreadsheet]);
-      toast.success('Tabela criada!');
+    setSaving(true);
+    try {
+      if (editingSpreadsheet) {
+        await updateSpreadsheet(editingSpreadsheet.id, {
+          name: name.trim(),
+          description: description.trim() || undefined,
+        });
+        toast.success('Tabela atualizada!');
+      } else {
+        await addSpreadsheet({
+          projectId,
+          name: name.trim(),
+          description: description.trim() || undefined,
+        });
+        toast.success('Tabela criada!');
+      }
+      setIsModalOpen(false);
+      resetForm();
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao salvar tabela');
+    } finally {
+      setSaving(false);
     }
-
-    setIsModalOpen(false);
-    resetForm();
   };
 
-  const handleDeleteClick = (spreadsheet: LocalSpreadsheet) => {
+  const handleDeleteClick = (spreadsheet: Spreadsheet) => {
     setSpreadsheetToDelete(spreadsheet);
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!spreadsheetToDelete) return;
-    setSpreadsheets(prev => prev.filter(s => s.id !== spreadsheetToDelete.id));
-    toast.success('Tabela excluída!');
-    setDeleteDialogOpen(false);
-    setSpreadsheetToDelete(null);
+
+    try {
+      await deleteSpreadsheet(spreadsheetToDelete.id);
+      toast.success('Tabela excluída!');
+      setDeleteDialogOpen(false);
+      setSpreadsheetToDelete(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao excluir tabela');
+    }
   };
 
-  const handleOpenSpreadsheet = (spreadsheet: LocalSpreadsheet) => {
+  const handleOpenSpreadsheet = (spreadsheet: Spreadsheet) => {
     setActiveSpreadsheet(spreadsheet);
   };
 
   const handleBackToList = () => {
     setActiveSpreadsheet(null);
-  };
-
-  const handleSpreadsheetUpdate = (updated: LocalSpreadsheet) => {
-    setSpreadsheets(prev =>
-      prev.map(s => s.id === updated.id ? updated : s)
-    );
-    setActiveSpreadsheet(updated);
   };
 
   // Show spreadsheet editor if one is active
@@ -187,10 +168,7 @@ export function SpreadsheetTab({ projectId }: SpreadsheetTabProps) {
             )}
           </div>
         </div>
-        <SpreadsheetEditor
-          spreadsheet={activeSpreadsheet}
-          onUpdate={handleSpreadsheetUpdate}
-        />
+        <SpreadsheetEditor spreadsheet={activeSpreadsheet} />
       </div>
     );
   }
@@ -281,7 +259,7 @@ export function SpreadsheetTab({ projectId }: SpreadsheetTabProps) {
                     <div>
                       <h4 className="font-semibold text-sm">{spreadsheet.name}</h4>
                       <p className="text-xs text-muted-foreground">
-                        {spreadsheet.data.columns.length} colunas • {spreadsheet.data.rows.length} linhas
+                        Tabela
                       </p>
                     </div>
                   </div>
@@ -359,10 +337,11 @@ export function SpreadsheetTab({ projectId }: SpreadsheetTabProps) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingSpreadsheet ? 'Salvar' : 'Criar Tabela'}
             </Button>
           </DialogFooter>

@@ -1,10 +1,9 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   DataSheetGrid,
   textColumn,
   keyColumn,
   Column,
-  CellProps,
   DataSheetGridRef,
 } from 'react-datasheet-grid';
 import 'react-datasheet-grid/dist/style.css';
@@ -20,10 +19,9 @@ import {
   Palette,
   Settings,
   ChevronDown,
-  Bold,
   ArrowUpDown,
-  Filter,
-  Merge,
+  Loader2,
+  Save,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -31,9 +29,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -53,49 +48,22 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { useData } from '@/contexts/DataContext';
+import { Spreadsheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell } from '@/lib/types';
+import { ConditionalFormat } from '@/lib/spreadsheet-types';
 
-// Types
-interface SpreadsheetColumn {
-  id: string;
-  name: string;
-  type: 'text' | 'number' | 'date' | 'currency' | 'percentage' | 'formula';
-  width: number;
-  format?: ConditionalFormat[];
+interface SpreadsheetEditorProps {
+  spreadsheet: Spreadsheet;
 }
 
-interface ConditionalFormat {
-  condition: 'greaterThan' | 'lessThan' | 'equals' | 'between' | 'contains' | 'isEmpty';
-  value: string | number;
-  value2?: string | number;
-  backgroundColor?: string;
-  textColor?: string;
-  bold?: boolean;
-}
-
-interface SpreadsheetRow {
+// Internal row type for the grid
+interface GridRow {
   id: string;
   cells: Record<string, string>;
 }
 
-interface LocalSpreadsheet {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-  data: {
-    columns: SpreadsheetColumn[];
-    rows: SpreadsheetRow[];
-  };
-}
-
-interface SpreadsheetEditorProps {
-  spreadsheet: LocalSpreadsheet;
-  onUpdate: (spreadsheet: LocalSpreadsheet) => void;
-}
-
 // Formula parser (simple implementation)
-const parseFormula = (formula: string, rows: SpreadsheetRow[], columns: SpreadsheetColumn[]): string => {
+const parseFormula = (formula: string, rows: GridRow[], columns: SpreadsheetColumn[]): string => {
   if (!formula.startsWith('=')) return formula;
 
   const formulaUpper = formula.toUpperCase();
@@ -103,7 +71,7 @@ const parseFormula = (formula: string, rows: SpreadsheetRow[], columns: Spreadsh
   // SUM function
   const sumMatch = formulaUpper.match(/=SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)/);
   if (sumMatch) {
-    const [, startCol, startRowStr, endCol, endRowStr] = sumMatch;
+    const [, startCol, startRowStr, , endRowStr] = sumMatch;
     const startColIndex = startCol.charCodeAt(0) - 65;
     const startRow = parseInt(startRowStr) - 1;
     const endRow = parseInt(endRowStr) - 1;
@@ -246,9 +214,19 @@ const checkConditionalFormat = (
   return null;
 };
 
-export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorProps) {
+export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
+  const { fetchSpreadsheetData, saveSpreadsheetData } = useData();
+
   const gridRef = useRef<DataSheetGridRef>(null);
-  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Local state for spreadsheet data
+  const [columns, setColumns] = useState<SpreadsheetColumn[]>([]);
+  const [rows, setRows] = useState<GridRow[]>([]);
+  const [dbCells, setDbCells] = useState<SpreadsheetCell[]>([]);
+
   const [formulaInput, setFormulaInput] = useState('');
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<SpreadsheetColumn | null>(null);
@@ -262,7 +240,110 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
   const [formatBgColor, setFormatBgColor] = useState('#fef2f2');
   const [formatTextColor, setFormatTextColor] = useState('#991b1b');
 
-  const { columns, rows } = spreadsheet.data;
+  // Load data from Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchSpreadsheetData(spreadsheet.id);
+
+        // If no columns exist, create default ones
+        if (data.columns.length === 0) {
+          const defaultColumns: SpreadsheetColumn[] = [
+            { id: crypto.randomUUID(), spreadsheetId: spreadsheet.id, name: 'Coluna A', type: 'text', width: 150, orderIndex: 0, createdAt: new Date().toISOString() },
+            { id: crypto.randomUUID(), spreadsheetId: spreadsheet.id, name: 'Coluna B', type: 'text', width: 150, orderIndex: 1, createdAt: new Date().toISOString() },
+            { id: crypto.randomUUID(), spreadsheetId: spreadsheet.id, name: 'Coluna C', type: 'text', width: 150, orderIndex: 2, createdAt: new Date().toISOString() },
+          ];
+          setColumns(defaultColumns);
+
+          // Create default rows
+          const defaultRows: GridRow[] = Array.from({ length: 5 }, (_, i) => ({
+            id: crypto.randomUUID(),
+            cells: {},
+          }));
+          setRows(defaultRows);
+          setHasChanges(true);
+        } else {
+          setColumns(data.columns);
+
+          // Convert DB rows and cells to grid format
+          const gridRows: GridRow[] = data.rows.map(row => {
+            const cells: Record<string, string> = {};
+            data.cells.filter(c => c.rowId === row.id).forEach(cell => {
+              cells[cell.columnId] = cell.value || '';
+            });
+            return { id: row.id, cells };
+          });
+
+          // If no rows, create some defaults
+          if (gridRows.length === 0) {
+            const defaultRows: GridRow[] = Array.from({ length: 5 }, () => ({
+              id: crypto.randomUUID(),
+              cells: {},
+            }));
+            setRows(defaultRows);
+            setHasChanges(true);
+          } else {
+            setRows(gridRows);
+          }
+
+          setDbCells(data.cells);
+        }
+      } catch (error: any) {
+        console.error('Error loading spreadsheet data:', error);
+        toast.error('Erro ao carregar dados da tabela');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [spreadsheet.id, fetchSpreadsheetData]);
+
+  // Save data to Supabase
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Convert columns to DB format
+      const dbColumns: SpreadsheetColumn[] = columns.map((col, index) => ({
+        ...col,
+        spreadsheetId: spreadsheet.id,
+        orderIndex: index,
+      }));
+
+      // Convert rows to DB format
+      const dbRows: SpreadsheetRow[] = rows.map((row, index) => ({
+        id: row.id,
+        spreadsheetId: spreadsheet.id,
+        orderIndex: index,
+        createdAt: new Date().toISOString(),
+      }));
+
+      // Convert cells to DB format
+      const cells: SpreadsheetCell[] = [];
+      rows.forEach(row => {
+        Object.entries(row.cells).forEach(([colId, value]) => {
+          if (value) {
+            cells.push({
+              id: crypto.randomUUID(),
+              rowId: row.id,
+              columnId: colId,
+              value: value,
+            });
+          }
+        });
+      });
+
+      await saveSpreadsheetData(spreadsheet.id, dbColumns, dbRows, cells);
+      setHasChanges(false);
+      toast.success('Tabela salva!');
+    } catch (error: any) {
+      console.error('Error saving spreadsheet:', error);
+      toast.error(error.message || 'Erro ao salvar tabela');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Convert data to grid format
   const gridData = useMemo(() => {
@@ -309,7 +390,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => openFormatModal(col)}>
                 <Palette className="h-4 w-4 mr-2" />
-                Formatação condicional
+                Formatacao condicional
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -328,9 +409,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
         const value = rowData[col.id] || '';
         const format = checkConditionalFormat(value, col.format);
         if (format) {
-          return cn(
-            format.bold && 'font-bold',
-          );
+          return cn(format.bold && 'font-bold');
         }
         return '';
       },
@@ -345,31 +424,18 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
         Object.entries(row).filter(([key]) => key !== '_id')
       ),
     }));
-
-    onUpdate({
-      ...spreadsheet,
-      updatedAt: new Date().toISOString(),
-      data: {
-        ...spreadsheet.data,
-        rows: newRows,
-      },
-    });
-  }, [spreadsheet, onUpdate]);
+    setRows(newRows);
+    setHasChanges(true);
+  }, []);
 
   // Add row
   const handleAddRow = () => {
-    const newRow: SpreadsheetRow = {
-      id: `row-${Date.now()}`,
+    const newRow: GridRow = {
+      id: crypto.randomUUID(),
       cells: {},
     };
-    onUpdate({
-      ...spreadsheet,
-      updatedAt: new Date().toISOString(),
-      data: {
-        ...spreadsheet.data,
-        rows: [...rows, newRow],
-      },
-    });
+    setRows(prev => [...prev, newRow]);
+    setHasChanges(true);
   };
 
   // Add column
@@ -389,44 +455,34 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
 
   const handleSaveColumn = () => {
     if (!newColumnName.trim()) {
-      toast.error('Nome da coluna é obrigatório');
+      toast.error('Nome da coluna e obrigatorio');
       return;
     }
 
     if (editingColumn) {
       // Update existing column
-      onUpdate({
-        ...spreadsheet,
-        updatedAt: new Date().toISOString(),
-        data: {
-          ...spreadsheet.data,
-          columns: columns.map(col =>
-            col.id === editingColumn.id
-              ? { ...col, name: newColumnName.trim(), type: newColumnType }
-              : col
-          ),
-        },
-      });
+      setColumns(prev => prev.map(col =>
+        col.id === editingColumn.id
+          ? { ...col, name: newColumnName.trim(), type: newColumnType }
+          : col
+      ));
       toast.success('Coluna atualizada!');
     } else {
       // Add new column
       const newCol: SpreadsheetColumn = {
-        id: `col-${Date.now()}`,
+        id: crypto.randomUUID(),
+        spreadsheetId: spreadsheet.id,
         name: newColumnName.trim(),
         type: newColumnType,
         width: 150,
+        orderIndex: columns.length,
+        createdAt: new Date().toISOString(),
       };
-      onUpdate({
-        ...spreadsheet,
-        updatedAt: new Date().toISOString(),
-        data: {
-          ...spreadsheet.data,
-          columns: [...columns, newCol],
-        },
-      });
+      setColumns(prev => [...prev, newCol]);
       toast.success('Coluna adicionada!');
     }
 
+    setHasChanges(true);
     setColumnModalOpen(false);
   };
 
@@ -435,20 +491,16 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
       toast.error('A tabela precisa ter pelo menos uma coluna');
       return;
     }
-    onUpdate({
-      ...spreadsheet,
-      updatedAt: new Date().toISOString(),
-      data: {
-        columns: columns.filter(c => c.id !== colId),
-        rows: rows.map(row => ({
-          ...row,
-          cells: Object.fromEntries(
-            Object.entries(row.cells).filter(([key]) => key !== colId)
-          ),
-        })),
-      },
-    });
-    toast.success('Coluna excluída!');
+
+    setColumns(prev => prev.filter(c => c.id !== colId));
+    setRows(prev => prev.map(row => ({
+      ...row,
+      cells: Object.fromEntries(
+        Object.entries(row.cells).filter(([key]) => key !== colId)
+      ),
+    })));
+    setHasChanges(true);
+    toast.success('Coluna excluida!');
   };
 
   // Sort column
@@ -471,14 +523,8 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
         : bVal.localeCompare(aVal);
     });
 
-    onUpdate({
-      ...spreadsheet,
-      updatedAt: new Date().toISOString(),
-      data: {
-        ...spreadsheet.data,
-        rows: sortedRows,
-      },
-    });
+    setRows(sortedRows);
+    setHasChanges(true);
   };
 
   // Conditional formatting
@@ -495,7 +541,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
   const handleSaveFormat = () => {
     if (!formatColumn) return;
     if (!formatValue && formatCondition !== 'isEmpty') {
-      toast.error('Valor é obrigatório');
+      toast.error('Valor e obrigatorio');
       return;
     }
 
@@ -507,20 +553,14 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
       textColor: formatTextColor,
     };
 
-    onUpdate({
-      ...spreadsheet,
-      updatedAt: new Date().toISOString(),
-      data: {
-        ...spreadsheet.data,
-        columns: columns.map(col =>
-          col.id === formatColumn.id
-            ? { ...col, format: [...(col.format || []), newFormat] }
-            : col
-        ),
-      },
-    });
+    setColumns(prev => prev.map(col =>
+      col.id === formatColumn.id
+        ? { ...col, format: [...(col.format || []), newFormat] }
+        : col
+    ));
 
-    toast.success('Formatação adicionada!');
+    setHasChanges(true);
+    toast.success('Formatacao adicionada!');
     setFormatModalOpen(false);
   };
 
@@ -536,6 +576,14 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
     XLSX.writeFile(wb, `${spreadsheet.name}.xlsx`);
     toast.success('Tabela exportada!');
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -556,7 +604,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
               <Calculator className="h-4 w-4 mr-2" />
-              Fórmulas
+              Formulas
               <ChevronDown className="h-3 w-3 ml-1" />
             </Button>
           </DropdownMenuTrigger>
@@ -568,13 +616,13 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
               =COUNT(A1:A10) - Contagem
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setFormulaInput('=AVG(A1:A10)')}>
-              =AVG(A1:A10) - Média
+              =AVG(A1:A10) - Media
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setFormulaInput('=MIN(A1:A10)')}>
-              =MIN(A1:A10) - Mínimo
+              =MIN(A1:A10) - Minimo
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setFormulaInput('=MAX(A1:A10)')}>
-              =MAX(A1:A10) - Máximo
+              =MAX(A1:A10) - Maximo
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -585,6 +633,24 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
           <Download className="h-4 w-4 mr-2" />
           Exportar Excel
         </Button>
+
+        <div className="flex-1" />
+
+        {hasChanges && (
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Salvar
+          </Button>
+        )}
       </div>
 
       {/* Formula bar */}
@@ -595,7 +661,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
             value={formulaInput}
             onChange={(e) => setFormulaInput(e.target.value)}
             className="flex-1 h-8"
-            placeholder="Digite uma fórmula..."
+            placeholder="Digite uma formula..."
           />
           <Button size="sm" variant="ghost" onClick={() => setFormulaInput('')}>
             Fechar
@@ -645,11 +711,11 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="text">Texto</SelectItem>
-                  <SelectItem value="number">Número</SelectItem>
+                  <SelectItem value="number">Numero</SelectItem>
                   <SelectItem value="date">Data</SelectItem>
                   <SelectItem value="currency">Moeda (R$)</SelectItem>
                   <SelectItem value="percentage">Porcentagem (%)</SelectItem>
-                  <SelectItem value="formula">Fórmula</SelectItem>
+                  <SelectItem value="formula">Formula</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -668,12 +734,12 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
       <Dialog open={formatModalOpen} onOpenChange={setFormatModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Formatação Condicional</DialogTitle>
+            <DialogTitle>Formatacao Condicional</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Condição</Label>
+              <Label>Condicao</Label>
               <Select value={formatCondition} onValueChange={(v: any) => setFormatCondition(v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -683,8 +749,8 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
                   <SelectItem value="lessThan">Menor que</SelectItem>
                   <SelectItem value="equals">Igual a</SelectItem>
                   <SelectItem value="between">Entre</SelectItem>
-                  <SelectItem value="contains">Contém</SelectItem>
-                  <SelectItem value="isEmpty">Está vazio</SelectItem>
+                  <SelectItem value="contains">Contem</SelectItem>
+                  <SelectItem value="isEmpty">Esta vazio</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -695,7 +761,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
                 <Input
                   value={formatValue}
                   onChange={(e) => setFormatValue(e.target.value)}
-                  placeholder="Valor de comparação"
+                  placeholder="Valor de comparacao"
                 />
               </div>
             )}
@@ -740,7 +806,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
 
             {/* Preview */}
             <div className="p-3 rounded-lg border">
-              <Label className="text-xs text-muted-foreground">Prévia</Label>
+              <Label className="text-xs text-muted-foreground">Previa</Label>
               <div
                 className="mt-2 p-2 rounded text-sm"
                 style={{
@@ -748,7 +814,7 @@ export function SpreadsheetEditor({ spreadsheet, onUpdate }: SpreadsheetEditorPr
                   color: formatTextColor,
                 }}
               >
-                Exemplo de célula formatada
+                Exemplo de celula formatada
               </div>
             </div>
           </div>

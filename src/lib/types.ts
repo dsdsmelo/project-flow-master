@@ -1,6 +1,44 @@
 // Core entity types
 
-import type { NoteTemplateData } from './spreadsheet-types';
+import type { NoteTemplateData, ConditionalFormat } from './spreadsheet-types';
+
+// Spreadsheet types for Supabase
+export interface Spreadsheet {
+  id: string;
+  projectId: string;
+  userId: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SpreadsheetColumn {
+  id: string;
+  spreadsheetId: string;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'currency' | 'percentage' | 'formula';
+  width: number;
+  orderIndex: number;
+  formula?: string;
+  format?: ConditionalFormat[];
+  createdAt: string;
+}
+
+export interface SpreadsheetRow {
+  id: string;
+  spreadsheetId: string;
+  orderIndex: number;
+  createdAt: string;
+}
+
+export interface SpreadsheetCell {
+  id: string;
+  rowId: string;
+  columnId: string;
+  value: string | null;
+  computedValue?: string;
+}
 
 export interface Person {
   id: string;

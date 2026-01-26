@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { logAuditEvent } from '@/lib/auditLog';
-import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
+import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote, Spreadsheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell } from '@/lib/types';
 
 // Helper to get current user ID
 async function getCurrentUserId(): Promise<string | null> {
@@ -18,6 +18,7 @@ export function useSupabaseData() {
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
+  const [spreadsheets, setSpreadsheets] = useState<Spreadsheet[]>([]);
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function useSupabaseData() {
         { data: columnsData, error: columnsError },
         { data: milestonesData, error: milestonesError },
         { data: meetingNotesData, error: meetingNotesError },
+        { data: spreadsheetsData, error: spreadsheetsError },
       ] = await Promise.all([
         supabase.from('people').select('*').order('name'),
         supabase.from('projects').select('*').order('name'),
@@ -57,6 +59,7 @@ export function useSupabaseData() {
         supabase.from('custom_columns').select('*').order('order'),
         supabase.from('milestones').select('*').order('name'),
         supabase.from('meeting_notes').select('*').order('meeting_date', { ascending: false }),
+        supabase.from('project_spreadsheets').select('*').order('created_at', { ascending: false }),
       ]);
 
       if (peopleError) throw peopleError;
@@ -67,6 +70,7 @@ export function useSupabaseData() {
       if (columnsError) throw columnsError;
       if (milestonesError) throw milestonesError;
       if (meetingNotesError) throw meetingNotesError;
+      if (spreadsheetsError) throw spreadsheetsError;
 
       // Map snake_case to camelCase - ensure arrays are never undefined
       setPeople(Array.isArray(peopleData) ? peopleData.map(mapPerson) : []);
@@ -77,6 +81,7 @@ export function useSupabaseData() {
       setCustomColumns(Array.isArray(columnsData) ? columnsData.map(mapCustomColumn) : []);
       setMilestones(Array.isArray(milestonesData) ? milestonesData.map(mapMilestone) : []);
       setMeetingNotes(Array.isArray(meetingNotesData) ? meetingNotesData.map(mapMeetingNote) : []);
+      setSpreadsheets(Array.isArray(spreadsheetsData) ? spreadsheetsData.map(mapSpreadsheet) : []);
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setError(err.message);
@@ -103,6 +108,7 @@ export function useSupabaseData() {
         setCustomColumns([]);
         setMilestones([]);
         setMeetingNotes([]);
+        setSpreadsheets([]);
         setLoading(false);
         initialLoadDone.current = false;
       }
@@ -392,12 +398,176 @@ export function useSupabaseData() {
     setMeetingNotes(prev => prev.filter(n => n.id !== id));
   };
 
+  // CRUD operations for Spreadsheets
+  const addSpreadsheet = async (spreadsheet: Omit<Spreadsheet, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('project_spreadsheets')
+      .insert([{ ...spreadsheetToDb(spreadsheet), user_id: userId }])
+      .select()
+      .single();
+    if (error) throw error;
+    const newSpreadsheet = mapSpreadsheet(data);
+    setSpreadsheets(prev => [newSpreadsheet, ...prev]);
+    return newSpreadsheet;
+  };
+
+  const updateSpreadsheet = async (id: string, updates: Partial<Spreadsheet>) => {
+    const { error } = await supabase
+      .from('project_spreadsheets')
+      .update(spreadsheetToDb(updates))
+      .eq('id', id);
+    if (error) throw error;
+    setSpreadsheets(prev => prev.map(s => s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s));
+  };
+
+  const deleteSpreadsheet = async (id: string) => {
+    const { error } = await supabase.from('project_spreadsheets').delete().eq('id', id);
+    if (error) throw error;
+    setSpreadsheets(prev => prev.filter(s => s.id !== id));
+  };
+
+  // Fetch full spreadsheet data (columns, rows, cells) for editor
+  const fetchSpreadsheetData = async (spreadsheetId: string) => {
+    const [
+      { data: columnsData, error: columnsError },
+      { data: rowsData, error: rowsError },
+    ] = await Promise.all([
+      supabase.from('spreadsheet_columns').select('*').eq('spreadsheet_id', spreadsheetId).order('order_index'),
+      supabase.from('spreadsheet_rows').select('*').eq('spreadsheet_id', spreadsheetId).order('order_index'),
+    ]);
+
+    if (columnsError) throw columnsError;
+    if (rowsError) throw rowsError;
+
+    // Fetch cells for all rows
+    const rowIds = rowsData?.map(r => r.id) || [];
+    let cellsData: any[] = [];
+    if (rowIds.length > 0) {
+      const { data, error: cellsError } = await supabase
+        .from('spreadsheet_cells')
+        .select('*')
+        .in('row_id', rowIds);
+      if (cellsError) throw cellsError;
+      cellsData = data || [];
+    }
+
+    return {
+      columns: (columnsData || []).map(mapSpreadsheetColumn),
+      rows: (rowsData || []).map(mapSpreadsheetRow),
+      cells: cellsData.map(mapSpreadsheetCell),
+    };
+  };
+
+  // Spreadsheet columns CRUD
+  const addSpreadsheetColumn = async (column: Omit<SpreadsheetColumn, 'id' | 'createdAt'>) => {
+    const { data, error } = await supabase
+      .from('spreadsheet_columns')
+      .insert([spreadsheetColumnToDb(column)])
+      .select()
+      .single();
+    if (error) throw error;
+    return mapSpreadsheetColumn(data);
+  };
+
+  const updateSpreadsheetColumn = async (id: string, updates: Partial<SpreadsheetColumn>) => {
+    const { error } = await supabase
+      .from('spreadsheet_columns')
+      .update(spreadsheetColumnToDb(updates))
+      .eq('id', id);
+    if (error) throw error;
+  };
+
+  const deleteSpreadsheetColumn = async (id: string) => {
+    const { error } = await supabase.from('spreadsheet_columns').delete().eq('id', id);
+    if (error) throw error;
+  };
+
+  // Spreadsheet rows CRUD
+  const addSpreadsheetRow = async (row: Omit<SpreadsheetRow, 'id' | 'createdAt'>) => {
+    const { data, error } = await supabase
+      .from('spreadsheet_rows')
+      .insert([spreadsheetRowToDb(row)])
+      .select()
+      .single();
+    if (error) throw error;
+    return mapSpreadsheetRow(data);
+  };
+
+  const deleteSpreadsheetRow = async (id: string) => {
+    const { error } = await supabase.from('spreadsheet_rows').delete().eq('id', id);
+    if (error) throw error;
+  };
+
+  // Spreadsheet cells CRUD
+  const upsertSpreadsheetCell = async (cell: Omit<SpreadsheetCell, 'id'> & { id?: string }) => {
+    const dbCell = spreadsheetCellToDb(cell);
+    const { data, error } = await supabase
+      .from('spreadsheet_cells')
+      .upsert([dbCell], { onConflict: 'row_id,column_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return mapSpreadsheetCell(data);
+  };
+
+  // Batch operations for spreadsheet data
+  const saveSpreadsheetData = async (
+    spreadsheetId: string,
+    columns: SpreadsheetColumn[],
+    rows: SpreadsheetRow[],
+    cells: SpreadsheetCell[]
+  ) => {
+    // Update spreadsheet timestamp
+    await supabase
+      .from('project_spreadsheets')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', spreadsheetId);
+
+    // Delete existing data
+    await supabase.from('spreadsheet_columns').delete().eq('spreadsheet_id', spreadsheetId);
+
+    // Insert new columns
+    if (columns.length > 0) {
+      const { error: colError } = await supabase
+        .from('spreadsheet_columns')
+        .insert(columns.map(spreadsheetColumnToDb));
+      if (colError) throw colError;
+    }
+
+    // Delete existing rows (cascade deletes cells)
+    await supabase.from('spreadsheet_rows').delete().eq('spreadsheet_id', spreadsheetId);
+
+    // Insert new rows
+    if (rows.length > 0) {
+      const { error: rowError } = await supabase
+        .from('spreadsheet_rows')
+        .insert(rows.map(spreadsheetRowToDb));
+      if (rowError) throw rowError;
+    }
+
+    // Insert new cells
+    if (cells.length > 0) {
+      const { error: cellError } = await supabase
+        .from('spreadsheet_cells')
+        .insert(cells.map(spreadsheetCellToDb));
+      if (cellError) throw cellError;
+    }
+
+    // Update local state
+    setSpreadsheets(prev => prev.map(s =>
+      s.id === spreadsheetId ? { ...s, updatedAt: new Date().toISOString() } : s
+    ));
+  };
+
   return {
     // Data
-    people, projects, phases, cells, tasks, customColumns, milestones, meetingNotes,
+    people, projects, phases, cells, tasks, customColumns, milestones, meetingNotes, spreadsheets,
     loading, error,
     // State setters for local updates
-    setPeople, setProjects, setPhases, setCells, setTasks, setCustomColumns, setMilestones, setMeetingNotes,
+    setPeople, setProjects, setPhases, setCells, setTasks, setCustomColumns, setMilestones, setMeetingNotes, setSpreadsheets,
     // Refresh
     refetch: fetchData,
     // People CRUD
@@ -416,6 +586,12 @@ export function useSupabaseData() {
     addMilestone, updateMilestone, deleteMilestone,
     // Meeting Notes CRUD
     addMeetingNote, updateMeetingNote, deleteMeetingNote,
+    // Spreadsheets CRUD
+    addSpreadsheet, updateSpreadsheet, deleteSpreadsheet,
+    fetchSpreadsheetData, saveSpreadsheetData,
+    addSpreadsheetColumn, updateSpreadsheetColumn, deleteSpreadsheetColumn,
+    addSpreadsheetRow, deleteSpreadsheetRow,
+    upsertSpreadsheetCell,
   };
 }
 
@@ -639,5 +815,90 @@ function meetingNoteToDb(note: Partial<MeetingNote>): any {
   if (note.participants !== undefined) result.participants = note.participants;
   if (note.category !== undefined) result.category = note.category;
   if (note.templateData !== undefined) result.template_data = note.templateData;
+  return result;
+}
+
+// Spreadsheet mapping functions
+function mapSpreadsheet(data: any): Spreadsheet {
+  return {
+    id: data.id,
+    projectId: data.project_id,
+    userId: data.user_id,
+    name: data.name,
+    description: data.description,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+function spreadsheetToDb(spreadsheet: Partial<Spreadsheet>): any {
+  const result: any = {};
+  if (spreadsheet.projectId !== undefined) result.project_id = spreadsheet.projectId;
+  if (spreadsheet.name !== undefined) result.name = spreadsheet.name;
+  if (spreadsheet.description !== undefined) result.description = spreadsheet.description;
+  return result;
+}
+
+function mapSpreadsheetColumn(data: any): SpreadsheetColumn {
+  return {
+    id: data.id,
+    spreadsheetId: data.spreadsheet_id,
+    name: data.name,
+    type: data.type,
+    width: data.width,
+    orderIndex: data.order_index,
+    formula: data.formula,
+    format: data.format,
+    createdAt: data.created_at,
+  };
+}
+
+function spreadsheetColumnToDb(column: Partial<SpreadsheetColumn>): any {
+  const result: any = {};
+  if (column.id !== undefined) result.id = column.id;
+  if (column.spreadsheetId !== undefined) result.spreadsheet_id = column.spreadsheetId;
+  if (column.name !== undefined) result.name = column.name;
+  if (column.type !== undefined) result.type = column.type;
+  if (column.width !== undefined) result.width = column.width;
+  if (column.orderIndex !== undefined) result.order_index = column.orderIndex;
+  if (column.formula !== undefined) result.formula = column.formula;
+  if (column.format !== undefined) result.format = column.format;
+  return result;
+}
+
+function mapSpreadsheetRow(data: any): SpreadsheetRow {
+  return {
+    id: data.id,
+    spreadsheetId: data.spreadsheet_id,
+    orderIndex: data.order_index,
+    createdAt: data.created_at,
+  };
+}
+
+function spreadsheetRowToDb(row: Partial<SpreadsheetRow>): any {
+  const result: any = {};
+  if (row.id !== undefined) result.id = row.id;
+  if (row.spreadsheetId !== undefined) result.spreadsheet_id = row.spreadsheetId;
+  if (row.orderIndex !== undefined) result.order_index = row.orderIndex;
+  return result;
+}
+
+function mapSpreadsheetCell(data: any): SpreadsheetCell {
+  return {
+    id: data.id,
+    rowId: data.row_id,
+    columnId: data.column_id,
+    value: data.value,
+    computedValue: data.computed_value,
+  };
+}
+
+function spreadsheetCellToDb(cell: Partial<SpreadsheetCell>): any {
+  const result: any = {};
+  if (cell.id !== undefined) result.id = cell.id;
+  if (cell.rowId !== undefined) result.row_id = cell.rowId;
+  if (cell.columnId !== undefined) result.column_id = cell.columnId;
+  if (cell.value !== undefined) result.value = cell.value;
+  if (cell.computedValue !== undefined) result.computed_value = cell.computedValue;
   return result;
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote } from '@/lib/types';
+import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote, Spreadsheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell } from '@/lib/types';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 interface DataContextType {
@@ -19,6 +19,8 @@ interface DataContextType {
   setMilestones: React.Dispatch<React.SetStateAction<Milestone[]>>;
   meetingNotes: MeetingNote[];
   setMeetingNotes: React.Dispatch<React.SetStateAction<MeetingNote[]>>;
+  spreadsheets: Spreadsheet[];
+  setSpreadsheets: React.Dispatch<React.SetStateAction<Spreadsheet[]>>;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -47,6 +49,27 @@ interface DataContextType {
   addMeetingNote: (note: Omit<MeetingNote, 'id' | 'createdAt' | 'updatedAt'>) => Promise<MeetingNote>;
   updateMeetingNote: (id: string, updates: Partial<MeetingNote>) => Promise<void>;
   deleteMeetingNote: (id: string) => Promise<void>;
+  // Spreadsheets CRUD
+  addSpreadsheet: (spreadsheet: Omit<Spreadsheet, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<Spreadsheet>;
+  updateSpreadsheet: (id: string, updates: Partial<Spreadsheet>) => Promise<void>;
+  deleteSpreadsheet: (id: string) => Promise<void>;
+  fetchSpreadsheetData: (spreadsheetId: string) => Promise<{
+    columns: SpreadsheetColumn[];
+    rows: SpreadsheetRow[];
+    cells: SpreadsheetCell[];
+  }>;
+  saveSpreadsheetData: (
+    spreadsheetId: string,
+    columns: SpreadsheetColumn[],
+    rows: SpreadsheetRow[],
+    cells: SpreadsheetCell[]
+  ) => Promise<void>;
+  addSpreadsheetColumn: (column: Omit<SpreadsheetColumn, 'id' | 'createdAt'>) => Promise<SpreadsheetColumn>;
+  updateSpreadsheetColumn: (id: string, updates: Partial<SpreadsheetColumn>) => Promise<void>;
+  deleteSpreadsheetColumn: (id: string) => Promise<void>;
+  addSpreadsheetRow: (row: Omit<SpreadsheetRow, 'id' | 'createdAt'>) => Promise<SpreadsheetRow>;
+  deleteSpreadsheetRow: (id: string) => Promise<void>;
+  upsertSpreadsheetCell: (cell: Omit<SpreadsheetCell, 'id'> & { id?: string }) => Promise<SpreadsheetCell>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
