@@ -607,13 +607,24 @@ function milestoneToDb(milestone: Partial<Milestone>): any {
 }
 
 function mapMeetingNote(data: any): MeetingNote {
+  // Extract category from participants array if not in separate field (backward compat)
+  let category = data.category || 'general';
+  if (!data.category && data.participants && Array.isArray(data.participants)) {
+    const catEntry = data.participants.find((p: string) => p?.startsWith?.('cat:'));
+    if (catEntry) {
+      category = catEntry.replace('cat:', '');
+    }
+  }
+
   return {
     id: data.id,
     projectId: data.project_id,
     title: data.title,
-    content: data.content,
+    content: data.content || '',
     meetingDate: data.meeting_date,
     participants: data.participants,
+    category: category,
+    templateData: data.template_data,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -626,5 +637,7 @@ function meetingNoteToDb(note: Partial<MeetingNote>): any {
   if (note.content !== undefined) result.content = note.content;
   if (note.meetingDate !== undefined) result.meeting_date = note.meetingDate;
   if (note.participants !== undefined) result.participants = note.participants;
+  if (note.category !== undefined) result.category = note.category;
+  if (note.templateData !== undefined) result.template_data = note.templateData;
   return result;
 }

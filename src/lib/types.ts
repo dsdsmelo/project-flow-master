@@ -1,5 +1,7 @@
 // Core entity types
 
+import type { NoteTemplateData } from './spreadsheet-types';
+
 export interface Person {
   id: string;
   name: string;
@@ -89,6 +91,17 @@ export interface Milestone {
   completed?: boolean;
 }
 
+// Note categories
+export type NoteCategory = 'meeting' | 'decision' | 'idea' | 'reminder' | 'general';
+
+export const noteCategoryLabels: Record<NoteCategory, string> = {
+  meeting: 'Reunião',
+  decision: 'Decisão',
+  idea: 'Ideia',
+  reminder: 'Lembrete',
+  general: 'Geral',
+};
+
 export interface MeetingNote {
   id: string;
   projectId: string;
@@ -96,6 +109,8 @@ export interface MeetingNote {
   content: string;
   meetingDate: string;
   participants?: string[]; // Array of person IDs
+  category: NoteCategory;  // Note category type
+  templateData?: NoteTemplateData; // Category-specific structured data
   createdAt: string;
   updatedAt: string;
 }

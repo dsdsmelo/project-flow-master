@@ -33,7 +33,7 @@ import { MilestoneFormModal } from '@/components/modals/MilestoneFormModal';
 import { PhaseFormModal } from '@/components/modals/PhaseFormModal';
 import { ProjectTasksTable } from '@/components/tasks/ProjectTasksTable';
 import { PhaseManagerSheet } from '@/components/phases/PhaseManagerSheet';
-import { MeetingNotesTab } from '@/components/meetings/MeetingNotesTab';
+import { AnnotationsTab } from '@/components/annotations/AnnotationsTab';
 import { Phase } from '@/lib/types';
 import { 
   BarChart, 
@@ -681,9 +681,9 @@ const ProjectDetail = () => {
             />
           </TabsContent>
 
-          {/* Meetings Tab */}
+          {/* Annotations Tab */}
           <TabsContent value="meetings" className="mt-4">
-            <MeetingNotesTab projectId={projectId || ''} />
+            <AnnotationsTab projectId={projectId || ''} />
           </TabsContent>
         </Tabs>
       </div>
