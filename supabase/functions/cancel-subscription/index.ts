@@ -35,19 +35,18 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Validate JWT using getClaims
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    // Validate JWT using getUser
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-    if (claimsError || !claimsData?.claims) {
-      logStep("JWT validation failed", { error: claimsError?.message });
+    if (userError || !user) {
+      logStep("JWT validation failed", { error: userError?.message });
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
     logStep("User authenticated", { userId });
 
     // Create admin client for DB queries

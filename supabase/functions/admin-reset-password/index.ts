@@ -42,11 +42,10 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Validate JWT
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    // Validate JWT using getUser
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-    if (claimsError || !claimsData?.claims) {
+    if (userError || !user) {
       logStep("JWT validation failed");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -54,7 +53,7 @@ serve(async (req) => {
       );
     }
 
-    const requesterId = claimsData.claims.sub as string;
+    const requesterId = user.id;
     logStep("Requester authenticated", { requesterId });
 
     // Check if requester is admin
