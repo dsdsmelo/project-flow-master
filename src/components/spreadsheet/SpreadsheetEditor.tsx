@@ -5,7 +5,6 @@ import {
   keyColumn,
   Column,
   DataSheetGridRef,
-  CellProps,
 } from 'react-datasheet-grid';
 import 'react-datasheet-grid/dist/style.css';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ import {
   Trash2,
   Download,
   Loader2,
-  Save,
   Copy,
   GripVertical,
   MoreHorizontal,
@@ -59,12 +57,6 @@ interface SpreadsheetEditorProps {
 interface GridRow {
   id: string;
   cells: Record<string, string>;
-  styles?: Record<string, CellStyle>;
-}
-
-interface CellStyle {
-  backgroundColor?: string;
-  textColor?: string;
 }
 
 // Color palette for cells
@@ -78,16 +70,6 @@ const CELL_COLORS = [
   { name: 'Roxo claro', value: '#f3e8ff' },
   { name: 'Rosa claro', value: '#fce7f3' },
   { name: 'Cinza claro', value: '#f3f4f6' },
-];
-
-const TEXT_COLORS = [
-  { name: 'Padrão', value: '' },
-  { name: 'Vermelho', value: '#dc2626' },
-  { name: 'Laranja', value: '#ea580c' },
-  { name: 'Verde', value: '#16a34a' },
-  { name: 'Azul', value: '#2563eb' },
-  { name: 'Roxo', value: '#9333ea' },
-  { name: 'Cinza', value: '#6b7280' },
 ];
 
 // Formula parser (simple implementation)
@@ -197,7 +179,7 @@ const parseFormula = (formula: string, rows: GridRow[], columns: SpreadsheetColu
   return formula;
 };
 
-// Column Header component with inline editing
+// Inline Editable Column Header
 function ColumnHeader({
   column,
   columnIndex,
@@ -226,30 +208,36 @@ function ColumnHeader({
     }
   }, [isEditing]);
 
+  // Sync edit value when column name changes externally
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(column.name);
+    }
+  }, [column.name, isEditing]);
+
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setEditValue(column.name);
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    if (editValue.trim() && editValue.trim() !== column.name) {
-      onRename(editValue.trim());
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== column.name) {
+      onRename(trimmed);
+    } else {
+      setEditValue(column.name);
     }
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditValue(column.name);
     setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleSave();
     } else if (e.key === 'Escape') {
-      handleCancel();
+      setEditValue(column.name);
+      setIsEditing(false);
     }
   };
 
@@ -265,7 +253,7 @@ function ColumnHeader({
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-1 w-full" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center w-full px-1" onClick={e => e.stopPropagation()}>
         <input
           ref={inputRef}
           type="text"
@@ -273,35 +261,34 @@ function ColumnHeader({
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
-          className="flex-1 px-1 py-0.5 text-xs font-medium bg-background border border-primary rounded outline-none min-w-0"
+          className="w-full px-1.5 py-0.5 text-xs font-medium bg-white dark:bg-gray-800 border-2 border-primary rounded outline-none"
+          style={{ minWidth: 60 }}
         />
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-between w-full group">
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <span className="text-muted-foreground">{getTypeIcon()}</span>
-        <span
-          className="font-medium text-xs cursor-text truncate"
-          onDoubleClick={handleDoubleClick}
-          title="Clique duas vezes para editar"
-        >
-          {column.name}
-        </span>
+    <div className="flex items-center justify-between w-full group px-1">
+      <div
+        className="flex items-center gap-1.5 flex-1 min-w-0 cursor-text"
+        onDoubleClick={handleDoubleClick}
+        title="Clique duas vezes para editar"
+      >
+        <span className="text-muted-foreground flex-shrink-0">{getTypeIcon()}</span>
+        <span className="font-medium text-xs truncate">{column.name}</span>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-muted/80 transition-opacity"
+            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-muted/80 transition-opacity flex-shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44">
-          <DropdownMenuItem onClick={() => { setEditValue(column.name); setIsEditing(true); }}>
+          <DropdownMenuItem onClick={() => setIsEditing(true)}>
             Renomear
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -362,32 +349,16 @@ function ColumnHeader({
   );
 }
 
-// Debounce hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
 export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const { fetchSpreadsheetData, saveSpreadsheetData } = useData();
 
   const gridRef = useRef<DataSheetGridRef>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [saveError, setSaveError] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+
+  // Save state - completely in background
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSavingRef = useRef(false);
 
   // Local state for spreadsheet data
   const [columns, setColumns] = useState<SpreadsheetColumn[]>([]);
@@ -400,10 +371,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   // Track row hover for actions
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
-  // Track data version for auto-save
-  const [dataVersion, setDataVersion] = useState(0);
-  const debouncedVersion = useDebounce(dataVersion, 2000); // 2 second debounce
-
   // Load data from Supabase
   useEffect(() => {
     const loadData = async () => {
@@ -411,7 +378,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       try {
         const data = await fetchSpreadsheetData(spreadsheet.id);
 
-        // If no columns exist, create default ones
         if (data.columns.length === 0) {
           const defaultColumns: SpreadsheetColumn[] = [
             { id: crypto.randomUUID(), spreadsheetId: spreadsheet.id, name: 'Coluna A', type: 'text', width: 150, orderIndex: 0, createdAt: new Date().toISOString() },
@@ -420,35 +386,32 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           ];
           setColumns(defaultColumns);
 
-          // Create default rows
           const defaultRows: GridRow[] = Array.from({ length: 10 }, () => ({
             id: crypto.randomUUID(),
             cells: {},
-            styles: {},
           }));
           setRows(defaultRows);
-          setHasChanges(true);
+
+          // Save defaults silently
+          setTimeout(() => triggerSave(defaultColumns, defaultRows), 500);
         } else {
           setColumns(data.columns);
 
-          // Convert DB rows and cells to grid format
           const gridRows: GridRow[] = data.rows.map(row => {
             const cells: Record<string, string> = {};
             data.cells.filter(c => c.rowId === row.id).forEach(cell => {
               cells[cell.columnId] = cell.value || '';
             });
-            return { id: row.id, cells, styles: {} };
+            return { id: row.id, cells };
           });
 
-          // If no rows, create some defaults
           if (gridRows.length === 0) {
             const defaultRows: GridRow[] = Array.from({ length: 10 }, () => ({
               id: crypto.randomUUID(),
               cells: {},
-              styles: {},
             }));
             setRows(defaultRows);
-            setHasChanges(true);
+            setTimeout(() => triggerSave(data.columns, defaultRows), 500);
           } else {
             setRows(gridRows);
           }
@@ -462,40 +425,37 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     };
 
     loadData();
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [spreadsheet.id, fetchSpreadsheetData]);
 
-  // Auto-save when debounced version changes
-  useEffect(() => {
-    if (debouncedVersion > 0 && hasChanges && !loading) {
-      performSave();
-    }
-  }, [debouncedVersion]);
+  // Silent background save function
+  const performSave = useCallback(async (colsToSave: SpreadsheetColumn[], rowsToSave: GridRow[]) => {
+    if (isSavingRef.current) return;
 
-  // Save data to Supabase
-  const performSave = useCallback(async () => {
-    if (saving) return;
+    isSavingRef.current = true;
+    setSaveStatus('saving');
 
-    setSaving(true);
-    setSaveError(false);
     try {
-      // Convert columns to DB format
-      const dbColumns: SpreadsheetColumn[] = columns.map((col, index) => ({
+      const dbColumns: SpreadsheetColumn[] = colsToSave.map((col, index) => ({
         ...col,
         spreadsheetId: spreadsheet.id,
         orderIndex: index,
       }));
 
-      // Convert rows to DB format
-      const dbRows: SpreadsheetRow[] = rows.map((row, index) => ({
+      const dbRows: SpreadsheetRow[] = rowsToSave.map((row, index) => ({
         id: row.id,
         spreadsheetId: spreadsheet.id,
         orderIndex: index,
         createdAt: new Date().toISOString(),
       }));
 
-      // Convert cells to DB format
       const cells: SpreadsheetCell[] = [];
-      rows.forEach(row => {
+      rowsToSave.forEach(row => {
         Object.entries(row.cells).forEach(([colId, value]) => {
           if (value) {
             cells.push({
@@ -509,30 +469,28 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       });
 
       await saveSpreadsheetData(spreadsheet.id, dbColumns, dbRows, cells);
-      setHasChanges(false);
-      setLastSaved(new Date());
+      setSaveStatus('saved');
+
+      // Reset to idle after 2 seconds
+      setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error: any) {
       console.error('Error saving spreadsheet:', error);
-      setSaveError(true);
-      toast.error('Erro ao salvar. Clique em "Salvar" para tentar novamente.');
+      setSaveStatus('error');
     } finally {
-      setSaving(false);
+      isSavingRef.current = false;
     }
-  }, [columns, rows, spreadsheet.id, saveSpreadsheetData, saving]);
+  }, [spreadsheet.id, saveSpreadsheetData]);
 
-  // Manual save
-  const handleManualSave = useCallback(async () => {
-    await performSave();
-    if (!saveError) {
-      toast.success('Tabela salva com sucesso!');
+  // Trigger save with debounce (completely silent, no UI blocking)
+  const triggerSave = useCallback((colsToSave: SpreadsheetColumn[], rowsToSave: GridRow[]) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  }, [performSave, saveError]);
 
-  // Mark as changed and trigger auto-save
-  const markChanged = useCallback(() => {
-    setHasChanges(true);
-    setDataVersion(v => v + 1);
-  }, []);
+    saveTimeoutRef.current = setTimeout(() => {
+      performSave(colsToSave, rowsToSave);
+    }, 1500); // 1.5 second debounce
+  }, [performSave]);
 
   // Convert data to grid format
   const gridData = useMemo(() => {
@@ -540,7 +498,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       const rowData: Record<string, string> = { _id: row.id };
       columns.forEach(col => {
         let value = row.cells[col.id] || '';
-        // Parse formulas
         if (value.startsWith('=')) {
           value = parseFormula(value, rows, columns);
         }
@@ -557,11 +514,10 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       cells: Object.fromEntries(
         Object.entries(row).filter(([key]) => key !== '_id')
       ),
-      styles: rows[index]?.styles || {},
     }));
     setRows(newRows);
-    markChanged();
-  }, [markChanged, rows]);
+    triggerSave(columns, newRows);
+  }, [columns, triggerSave]);
 
   // Handle cell selection
   const handleActiveChange = useCallback((cell: { col: number; row: number } | null) => {
@@ -582,7 +538,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const handleFormulaBarChange = useCallback((value: string) => {
     setFormulaBarValue(value);
     if (selectedCell) {
-      setRows(prev => prev.map((row, idx) => {
+      const newRows = rows.map((row, idx) => {
         if (idx === selectedCell.row) {
           return {
             ...row,
@@ -590,21 +546,22 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           };
         }
         return row;
-      }));
-      markChanged();
+      });
+      setRows(newRows);
+      triggerSave(columns, newRows);
     }
-  }, [selectedCell, markChanged]);
+  }, [selectedCell, rows, columns, triggerSave]);
 
   // Add row
   const handleAddRow = useCallback(() => {
     const newRow: GridRow = {
       id: crypto.randomUUID(),
       cells: {},
-      styles: {},
     };
-    setRows(prev => [...prev, newRow]);
-    markChanged();
-  }, [markChanged]);
+    const newRows = [...rows, newRow];
+    setRows(newRows);
+    triggerSave(columns, newRows);
+  }, [rows, columns, triggerSave]);
 
   // Delete row
   const handleDeleteRow = useCallback((rowIndex: number) => {
@@ -612,9 +569,10 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       toast.error('A tabela precisa ter pelo menos uma linha');
       return;
     }
-    setRows(prev => prev.filter((_, idx) => idx !== rowIndex));
-    markChanged();
-  }, [rows.length, markChanged]);
+    const newRows = rows.filter((_, idx) => idx !== rowIndex);
+    setRows(newRows);
+    triggerSave(columns, newRows);
+  }, [rows, columns, triggerSave]);
 
   // Duplicate row
   const handleDuplicateRow = useCallback((rowIndex: number) => {
@@ -622,35 +580,29 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     const newRow: GridRow = {
       id: crypto.randomUUID(),
       cells: { ...rowToDuplicate.cells },
-      styles: { ...rowToDuplicate.styles },
     };
-    setRows(prev => {
-      const newRows = [...prev];
-      newRows.splice(rowIndex + 1, 0, newRow);
-      return newRows;
-    });
-    markChanged();
-  }, [rows, markChanged]);
+    const newRows = [...rows];
+    newRows.splice(rowIndex + 1, 0, newRow);
+    setRows(newRows);
+    triggerSave(columns, newRows);
+  }, [rows, columns, triggerSave]);
 
   // Insert row at position
   const handleInsertRowAt = useCallback((rowIndex: number, position: 'above' | 'below') => {
     const newRow: GridRow = {
       id: crypto.randomUUID(),
       cells: {},
-      styles: {},
     };
-    setRows(prev => {
-      const newRows = [...prev];
-      const insertIndex = position === 'above' ? rowIndex : rowIndex + 1;
-      newRows.splice(insertIndex, 0, newRow);
-      return newRows;
-    });
-    markChanged();
-  }, [markChanged]);
+    const newRows = [...rows];
+    const insertIndex = position === 'above' ? rowIndex : rowIndex + 1;
+    newRows.splice(insertIndex, 0, newRow);
+    setRows(newRows);
+    triggerSave(columns, newRows);
+  }, [rows, columns, triggerSave]);
 
   // Add column
   const handleAddColumn = useCallback(() => {
-    const newColLetter = String.fromCharCode(65 + columns.length); // A, B, C, etc.
+    const newColLetter = String.fromCharCode(65 + columns.length);
     const newCol: SpreadsheetColumn = {
       id: crypto.randomUUID(),
       spreadsheetId: spreadsheet.id,
@@ -660,25 +612,28 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       orderIndex: columns.length,
       createdAt: new Date().toISOString(),
     };
-    setColumns(prev => [...prev, newCol]);
-    markChanged();
-  }, [columns.length, spreadsheet.id, markChanged]);
+    const newColumns = [...columns, newCol];
+    setColumns(newColumns);
+    triggerSave(newColumns, rows);
+  }, [columns, rows, spreadsheet.id, triggerSave]);
 
-  // Rename column
+  // Rename column - auto-save immediately
   const handleRenameColumn = useCallback((colId: string, newName: string) => {
-    setColumns(prev => prev.map(col =>
+    const newColumns = columns.map(col =>
       col.id === colId ? { ...col, name: newName } : col
-    ));
-    markChanged();
-  }, [markChanged]);
+    );
+    setColumns(newColumns);
+    triggerSave(newColumns, rows);
+  }, [columns, rows, triggerSave]);
 
   // Change column type
   const handleChangeColumnType = useCallback((colId: string, newType: string) => {
-    setColumns(prev => prev.map(col =>
+    const newColumns = columns.map(col =>
       col.id === colId ? { ...col, type: newType } : col
-    ));
-    markChanged();
-  }, [markChanged]);
+    );
+    setColumns(newColumns);
+    triggerSave(newColumns, rows);
+  }, [columns, rows, triggerSave]);
 
   // Delete column
   const handleDeleteColumn = useCallback((colId: string) => {
@@ -687,56 +642,37 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       return;
     }
 
-    setColumns(prev => prev.filter(c => c.id !== colId));
-    setRows(prev => prev.map(row => ({
+    const newColumns = columns.filter(c => c.id !== colId);
+    const newRows = rows.map(row => ({
       ...row,
       cells: Object.fromEntries(
         Object.entries(row.cells).filter(([key]) => key !== colId)
       ),
-    })));
-    markChanged();
-  }, [columns.length, markChanged]);
+    }));
+    setColumns(newColumns);
+    setRows(newRows);
+    triggerSave(newColumns, newRows);
+  }, [columns, rows, triggerSave]);
 
   // Sort column
   const handleSortColumn = useCallback((colId: string, direction: 'asc' | 'desc') => {
-    setRows(prev => {
-      const sortedRows = [...prev].sort((a, b) => {
-        const aVal = a.cells[colId] || '';
-        const bVal = b.cells[colId] || '';
-        const aNum = parseFloat(aVal);
-        const bNum = parseFloat(bVal);
+    const sortedRows = [...rows].sort((a, b) => {
+      const aVal = a.cells[colId] || '';
+      const bVal = b.cells[colId] || '';
+      const aNum = parseFloat(aVal);
+      const bNum = parseFloat(bVal);
 
-        // Numeric comparison if both are numbers
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return direction === 'asc' ? aNum - bNum : bNum - aNum;
-        }
-
-        // String comparison
-        return direction === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      });
-      return sortedRows;
-    });
-    markChanged();
-  }, [markChanged]);
-
-  // Set cell background color
-  const handleSetCellColor = useCallback((rowIndex: number, colId: string, color: string) => {
-    setRows(prev => prev.map((row, idx) => {
-      if (idx === rowIndex) {
-        return {
-          ...row,
-          styles: {
-            ...row.styles,
-            [colId]: { ...(row.styles?.[colId] || {}), backgroundColor: color }
-          }
-        };
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return direction === 'asc' ? aNum - bNum : bNum - aNum;
       }
-      return row;
-    }));
-    markChanged();
-  }, [markChanged]);
+
+      return direction === 'asc'
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    });
+    setRows(sortedRows);
+    triggerSave(columns, sortedRows);
+  }, [rows, columns, triggerSave]);
 
   // Build columns for DataSheetGrid
   const gridColumns: Column<Record<string, string>>[] = useMemo(() => {
@@ -803,6 +739,28 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           placeholder="Clique em uma célula para editar ou digite uma fórmula (ex: =SUM(A1:A10))"
           className="flex-1 h-8 text-sm font-mono"
         />
+
+        {/* Status indicator - small and non-intrusive */}
+        <div className="flex items-center gap-1.5 min-w-[80px] justify-end">
+          {saveStatus === 'saving' && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Salvando</span>
+            </div>
+          )}
+          {saveStatus === 'saved' && (
+            <div className="flex items-center gap-1 text-xs text-emerald-600">
+              <Cloud className="h-3 w-3" />
+              <span>Salvo</span>
+            </div>
+          )}
+          {saveStatus === 'error' && (
+            <div className="flex items-center gap-1 text-xs text-destructive">
+              <CloudOff className="h-3 w-3" />
+              <span>Erro</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -818,41 +776,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="h-6 w-px bg-border mx-1" />
 
-        {/* Color picker for selected cell */}
-        {selectedCell && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Palette className="h-4 w-4 mr-1" />
-                Cor
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" align="start">
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Cor de fundo</p>
-                <div className="grid grid-cols-3 gap-1">
-                  {CELL_COLORS.map(color => (
-                    <button
-                      key={color.value || 'none'}
-                      className={cn(
-                        "h-6 rounded border border-border hover:border-primary transition-colors",
-                        !color.value && "bg-white dark:bg-gray-900"
-                      )}
-                      style={{ backgroundColor: color.value || undefined }}
-                      onClick={() => handleSetCellColor(selectedCell.row, selectedCell.col, color.value)}
-                      title={color.name}
-                    >
-                      {!color.value && <span className="text-xs text-muted-foreground">✕</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
-
-        <div className="h-6 w-px bg-border mx-1" />
-
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-4 w-4 mr-1" />
           Exportar
@@ -860,50 +783,9 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="flex-1" />
 
-        {/* Save status indicator */}
-        <div className="flex items-center gap-2">
-          {saving ? (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>Salvando...</span>
-            </div>
-          ) : saveError ? (
-            <div className="flex items-center gap-1.5 text-xs text-destructive">
-              <CloudOff className="h-3.5 w-3.5" />
-              <span>Erro ao salvar</span>
-            </div>
-          ) : lastSaved ? (
-            <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-              <Cloud className="h-3.5 w-3.5" />
-              <span>Salvo</span>
-            </div>
-          ) : hasChanges ? (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600">
-              <Cloud className="h-3.5 w-3.5" />
-              <span>Alterações pendentes</span>
-            </div>
-          ) : null}
-
-          {/* Manual save button - shows when there's error or changes */}
-          {(saveError || hasChanges) && (
-            <Button
-              size="sm"
-              onClick={handleManualSave}
-              disabled={saving}
-              variant={saveError ? "destructive" : "default"}
-              className={cn(!saveError && "bg-emerald-600 hover:bg-emerald-700 text-white")}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-1" />
-                  Salvar
-                </>
-              )}
-            </Button>
-          )}
-        </div>
+        <span className="text-xs text-muted-foreground">
+          Fórmulas: =SUM(), =AVG(), =COUNT(), =MIN(), =MAX()
+        </span>
       </div>
 
       {/* Grid */}
@@ -911,14 +793,12 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         <div className="flex">
           {/* Row numbers column */}
           <div className="flex-shrink-0 border-r border-border bg-muted/50">
-            {/* Header cell */}
             <div
               className="h-[36px] flex items-center justify-center border-b border-border text-xs font-medium text-muted-foreground"
               style={{ width: 40 }}
             >
               #
             </div>
-            {/* Row number cells */}
             {rows.map((row, rowIndex) => (
               <div
                 key={row.id}
@@ -964,7 +844,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                 )}
               </div>
             ))}
-            {/* Add row button */}
             <div
               className="h-8 flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/50"
               style={{ width: 40 }}
@@ -997,10 +876,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       {/* Info footer */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>{rows.length} {rows.length === 1 ? 'linha' : 'linhas'} × {columns.length} {columns.length === 1 ? 'coluna' : 'colunas'}</span>
-        <div className="flex items-center gap-4">
-          <span>Fórmulas: =SUM(), =AVG(), =COUNT(), =MIN(), =MAX()</span>
-          <span>Clique duas vezes no nome da coluna para editar</span>
-        </div>
+        <span>Clique duas vezes no nome da coluna para editar</span>
       </div>
     </div>
   );
