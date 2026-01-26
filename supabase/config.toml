@@ -1,4 +1,4 @@
-project_id = "pbuqmiulfwxclzgbhurc"
+project_id = "khnsqupkdnouimonughn"
 
 [functions.stripe-webhook]
 verify_jwt = false
@@ -7,4 +7,25 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.get-stripe-price]
+verify_jwt = false
+
+[functions.get-subscription]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.create-portal-session]
+verify_jwt = false
+
+[functions.cancel-subscription]
+verify_jwt = false
+
+[functions.reactivate-subscription]
+verify_jwt = false
+
+[functions.admin-get-users]
+verify_jwt = false
+
+[functions.admin-reset-password]
 verify_jwt = false
