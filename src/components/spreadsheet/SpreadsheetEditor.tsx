@@ -1,6 +1,5 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Plus,
   Trash2,
@@ -12,6 +11,11 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
+  WrapText,
+  Columns,
+  Rows,
+  Merge,
+  ChevronDown,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -19,7 +23,16 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useData } from '@/contexts/DataContext';
@@ -36,6 +49,11 @@ interface CellData {
 interface RowData {
   id: string;
   cells: CellData;
+  height: number;
+}
+
+interface ColData extends SpreadsheetColumn {
+  width: number;
 }
 
 export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
@@ -46,13 +64,22 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
 
-  const [columns, setColumns] = useState<SpreadsheetColumn[]>([]);
+  const [columns, setColumns] = useState<ColData[]>([]);
   const [rows, setRows] = useState<RowData[]>([]);
+  const [wrapText, setWrapText] = useState(false);
 
   // Editing states
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string } | null>(null);
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+
+  // Resize states
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+  const [resizingRow, setResizingRow] = useState<string | null>(null);
+  const resizeStartRef = useRef<{ pos: number; size: number }>({ pos: 0, size: 0 });
+
+  // Selection for merge
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
 
   // Load data
   useEffect(() => {
@@ -63,8 +90,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         if (!mounted) return;
 
         if (data.columns.length === 0) {
-          // Create default structure
-          const defaultCols: SpreadsheetColumn[] = ['A', 'B', 'C', 'D'].map((letter, i) => ({
+          const defaultCols: ColData[] = ['A', 'B', 'C', 'D', 'E'].map((letter, i) => ({
             id: crypto.randomUUID(),
             spreadsheetId: spreadsheet.id,
             name: letter,
@@ -76,21 +102,22 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           const defaultRows: RowData[] = Array.from({ length: 10 }, () => ({
             id: crypto.randomUUID(),
             cells: {},
+            height: 36,
           }));
           setColumns(defaultCols);
           setRows(defaultRows);
-          // Auto-save defaults
           queueSave(defaultCols, defaultRows);
         } else {
-          setColumns(data.columns);
+          const cols: ColData[] = data.columns.map(c => ({ ...c, width: c.width || 150 }));
+          setColumns(cols);
           const loadedRows: RowData[] = data.rows.map(r => {
             const cells: CellData = {};
             data.cells.filter(c => c.rowId === r.id).forEach(c => {
               cells[c.columnId] = c.value || '';
             });
-            return { id: r.id, cells };
+            return { id: r.id, cells, height: 36 };
           });
-          setRows(loadedRows.length > 0 ? loadedRows : Array.from({ length: 10 }, () => ({ id: crypto.randomUUID(), cells: {} })));
+          setRows(loadedRows.length > 0 ? loadedRows : Array.from({ length: 10 }, () => ({ id: crypto.randomUUID(), cells: {}, height: 36 })));
         }
       } catch (err) {
         console.error('Load error:', err);
@@ -104,7 +131,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   }, [spreadsheet.id]);
 
   // Save function
-  const doSave = useCallback(async (cols: SpreadsheetColumn[], rws: RowData[]) => {
+  const doSave = useCallback(async (cols: ColData[], rws: RowData[]) => {
     if (savingRef.current) return;
     savingRef.current = true;
     setSaveStatus('saving');
@@ -132,13 +159,12 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     } catch (err) {
       console.error('Save error:', err);
       setSaveStatus('error');
-      toast.error('Erro ao salvar. Verifique se as tabelas existem no Supabase.');
     } finally {
       savingRef.current = false;
     }
   }, [spreadsheet.id, saveSpreadsheetData]);
 
-  const queueSave = useCallback((cols: SpreadsheetColumn[], rws: RowData[]) => {
+  const queueSave = useCallback((cols: ColData[], rws: RowData[]) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => doSave(cols, rws), 1500);
   }, [doSave]);
@@ -183,10 +209,74 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     queueSave(newCols, rows);
   };
 
+  // Column resize
+  const startColResize = (e: React.MouseEvent, colId: string) => {
+    e.preventDefault();
+    const col = columns.find(c => c.id === colId);
+    if (!col) return;
+    setResizingCol(colId);
+    resizeStartRef.current = { pos: e.clientX, size: col.width };
+
+    const handleMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartRef.current.pos;
+      const newWidth = Math.max(60, resizeStartRef.current.size + delta);
+      setColumns(prev => prev.map(c => c.id === colId ? { ...c, width: newWidth } : c));
+    };
+
+    const handleUp = () => {
+      setResizingCol(null);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+      queueSave(columns, rows);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+  };
+
+  // Row resize
+  const startRowResize = (e: React.MouseEvent, rowId: string) => {
+    e.preventDefault();
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+    setResizingRow(rowId);
+    resizeStartRef.current = { pos: e.clientY, size: row.height };
+
+    const handleMove = (e: MouseEvent) => {
+      const delta = e.clientY - resizeStartRef.current.pos;
+      const newHeight = Math.max(24, resizeStartRef.current.size + delta);
+      setRows(prev => prev.map(r => r.id === rowId ? { ...r, height: newHeight } : r));
+    };
+
+    const handleUp = () => {
+      setResizingRow(null);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+      queueSave(columns, rows);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+  };
+
+  // Set all columns width
+  const setAllColumnsWidth = (width: number) => {
+    const newCols = columns.map(c => ({ ...c, width }));
+    setColumns(newCols);
+    queueSave(newCols, rows);
+  };
+
+  // Set all rows height
+  const setAllRowsHeight = (height: number) => {
+    const newRows = rows.map(r => ({ ...r, height }));
+    setRows(newRows);
+    queueSave(columns, newRows);
+  };
+
   // Add column
   const addColumn = () => {
     const letter = String.fromCharCode(65 + columns.length);
-    const newCol: SpreadsheetColumn = {
+    const newCol: ColData = {
       id: crypto.randomUUID(),
       spreadsheetId: spreadsheet.id,
       name: letter,
@@ -215,12 +305,11 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     setColumns(newCols);
     setRows(newRows);
     queueSave(newCols, newRows);
-    toast.success('Coluna removida');
   };
 
   // Add row
   const addRow = () => {
-    const newRow: RowData = { id: crypto.randomUUID(), cells: {} };
+    const newRow: RowData = { id: crypto.randomUUID(), cells: {}, height: 36 };
     const newRows = [...rows, newRow];
     setRows(newRows);
     queueSave(columns, newRows);
@@ -260,15 +349,12 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       ...rows.map(r => columns.map(c => r.cells[c.id] || '')),
     ];
     const ws = XLSX.utils.aoa_to_sheet(data);
+    // Set column widths
+    ws['!cols'] = columns.map(c => ({ wch: Math.round(c.width / 8) }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, spreadsheet.name);
     XLSX.writeFile(wb, `${spreadsheet.name}.xlsx`);
-    toast.success('Exportado com sucesso!');
-  };
-
-  // Manual save
-  const manualSave = () => {
-    doSave(columns, rows);
+    toast.success('Exportado!');
   };
 
   // Calculate formula
@@ -276,7 +362,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     if (!value.startsWith('=')) return value;
     const formula = value.toUpperCase();
 
-    // =SUM(A1:A10)
     const sumMatch = formula.match(/=SUM\(([A-Z])(\d+):([A-Z])(\d+)\)/);
     if (sumMatch) {
       const [, colLetter, startRow, , endRow] = sumMatch;
@@ -291,7 +376,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       return sum.toString();
     }
 
-    // =AVG(A1:A10)
     const avgMatch = formula.match(/=AVG\(([A-Z])(\d+):([A-Z])(\d+)\)/);
     if (avgMatch) {
       const [, colLetter, startRow, , endRow] = avgMatch;
@@ -318,23 +402,88 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg flex-wrap">
+      <div className="flex items-center gap-1 p-2 bg-muted/30 rounded-lg flex-wrap">
+        {/* Add */}
         <Button variant="outline" size="sm" onClick={addRow}>
-          <Plus className="h-4 w-4 mr-1" />
-          Linha
+          <Plus className="h-4 w-4 mr-1" />Linha
         </Button>
         <Button variant="outline" size="sm" onClick={addColumn}>
-          <Plus className="h-4 w-4 mr-1" />
-          Coluna
+          <Plus className="h-4 w-4 mr-1" />Coluna
         </Button>
 
         <div className="h-5 w-px bg-border mx-1" />
 
+        {/* Column Width */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Columns className="h-4 w-4 mr-1" />Largura
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3">
+            <p className="text-xs font-medium mb-3">Largura de todas as colunas</p>
+            <div className="space-y-3">
+              <Slider
+                defaultValue={[150]}
+                min={60}
+                max={400}
+                step={10}
+                onValueCommit={(v) => setAllColumnsWidth(v[0])}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllColumnsWidth(100)}>Estreita</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllColumnsWidth(150)}>Normal</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllColumnsWidth(250)}>Larga</Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Row Height */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Rows className="h-4 w-4 mr-1" />Altura
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3">
+            <p className="text-xs font-medium mb-3">Altura de todas as linhas</p>
+            <div className="space-y-3">
+              <Slider
+                defaultValue={[36]}
+                min={24}
+                max={100}
+                step={4}
+                onValueCommit={(v) => setAllRowsHeight(v[0])}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllRowsHeight(28)}>Compacta</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllRowsHeight(36)}>Normal</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllRowsHeight(60)}>Alta</Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Wrap Text */}
+        <Button
+          variant={wrapText ? "default" : "outline"}
+          size="sm"
+          onClick={() => setWrapText(!wrapText)}
+          title="Quebra de texto"
+        >
+          <WrapText className="h-4 w-4" />
+        </Button>
+
+        <div className="h-5 w-px bg-border mx-1" />
+
+        {/* Export */}
         <Button variant="outline" size="sm" onClick={exportExcel}>
-          <Download className="h-4 w-4 mr-1" />
-          Excel
+          <Download className="h-4 w-4 mr-1" />Excel
         </Button>
 
         <div className="flex-1" />
@@ -352,7 +501,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
             </span>
           )}
           {saveStatus === 'error' && (
-            <Button variant="destructive" size="sm" onClick={manualSave}>
+            <Button variant="destructive" size="sm" onClick={() => doSave(columns, rows)}>
               <RefreshCw className="h-4 w-4 mr-1" /> Tentar novamente
             </Button>
           )}
@@ -360,20 +509,20 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-auto bg-card">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-muted/50">
-              {/* Row number header */}
-              <th className="w-10 min-w-10 border-r border-b text-center text-xs font-medium text-muted-foreground p-2">
+      <div className="border rounded-lg overflow-auto bg-card" style={{ maxHeight: '60vh' }}>
+        <table className="border-collapse" style={{ minWidth: '100%' }}>
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/80 backdrop-blur">
+              {/* Corner */}
+              <th className="w-12 min-w-12 border-r border-b text-center text-xs font-medium text-muted-foreground p-2 bg-muted/80">
                 #
               </th>
               {/* Column headers */}
               {columns.map((col) => (
                 <th
                   key={col.id}
-                  className="min-w-[120px] border-r border-b text-left p-0 group"
-                  style={{ width: col.width }}
+                  className="border-r border-b text-left p-0 group relative bg-muted/80"
+                  style={{ width: col.width, minWidth: col.width }}
                 >
                   {editingColId === col.id ? (
                     <input
@@ -386,14 +535,13 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                         if (e.key === 'Escape') setEditingColId(null);
                       }}
                       autoFocus
-                      className="w-full px-2 py-1.5 text-xs font-semibold bg-white dark:bg-gray-800 border-2 border-primary outline-none"
+                      className="w-full px-2 py-2 text-xs font-semibold bg-white dark:bg-gray-800 border-2 border-primary outline-none"
                     />
                   ) : (
-                    <div className="flex items-center justify-between px-2 py-1.5">
+                    <div className="flex items-center justify-between px-2 py-2">
                       <span
-                        className="text-xs font-semibold cursor-text flex-1"
+                        className="text-xs font-semibold cursor-text flex-1 truncate"
                         onClick={() => startEditColumn(col.id)}
-                        title="Clique para editar"
                       >
                         {col.name}
                       </span>
@@ -404,9 +552,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => startEditColumn(col.id)}>
-                            Renomear
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => startEditColumn(col.id)}>Renomear</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => sortColumn(col.id, 'asc')}>
                             <ArrowUp className="h-4 w-4 mr-2" /> Ordenar A-Z
@@ -415,26 +561,59 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                             <ArrowDown className="h-4 w-4 mr-2" /> Ordenar Z-A
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => deleteColumn(col.id)}
-                            className="text-destructive"
-                          >
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <Columns className="h-4 w-4 mr-2" /> Largura
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem onClick={() => {
+                                const newCols = columns.map(c => c.id === col.id ? { ...c, width: 80 } : c);
+                                setColumns(newCols);
+                                queueSave(newCols, rows);
+                              }}>Estreita (80px)</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const newCols = columns.map(c => c.id === col.id ? { ...c, width: 150 } : c);
+                                setColumns(newCols);
+                                queueSave(newCols, rows);
+                              }}>Normal (150px)</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const newCols = columns.map(c => c.id === col.id ? { ...c, width: 250 } : c);
+                                setColumns(newCols);
+                                queueSave(newCols, rows);
+                              }}>Larga (250px)</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const newCols = columns.map(c => c.id === col.id ? { ...c, width: 400 } : c);
+                                setColumns(newCols);
+                                queueSave(newCols, rows);
+                              }}>Extra larga (400px)</DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => deleteColumn(col.id)} className="text-destructive">
                             <Trash2 className="h-4 w-4 mr-2" /> Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                   )}
+                  {/* Resize handle */}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 active:bg-primary"
+                    onMouseDown={(e) => startColResize(e, col.id)}
+                  />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-              <tr key={row.id} className="group/row hover:bg-muted/30">
+              <tr key={row.id} className="group/row hover:bg-muted/20 relative">
                 {/* Row number */}
-                <td className="border-r border-b text-center text-xs text-muted-foreground p-2 bg-muted/20">
-                  <div className="flex items-center justify-center">
+                <td
+                  className="border-r border-b text-center text-xs text-muted-foreground bg-muted/30 relative"
+                  style={{ height: row.height }}
+                >
+                  <div className="flex items-center justify-center h-full">
                     <span className="group-hover/row:hidden">{rowIndex + 1}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -447,29 +626,62 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                           <Plus className="h-4 w-4 mr-2" /> Adicionar linha
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => deleteRow(row.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Excluir linha
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger>
+                            <Rows className="h-4 w-4 mr-2" /> Altura
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            <DropdownMenuItem onClick={() => {
+                              const newRows = rows.map(r => r.id === row.id ? { ...r, height: 28 } : r);
+                              setRows(newRows);
+                              queueSave(columns, newRows);
+                            }}>Compacta (28px)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              const newRows = rows.map(r => r.id === row.id ? { ...r, height: 36 } : r);
+                              setRows(newRows);
+                              queueSave(columns, newRows);
+                            }}>Normal (36px)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              const newRows = rows.map(r => r.id === row.id ? { ...r, height: 60 } : r);
+                              setRows(newRows);
+                              queueSave(columns, newRows);
+                            }}>Alta (60px)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              const newRows = rows.map(r => r.id === row.id ? { ...r, height: 100 } : r);
+                              setRows(newRows);
+                              queueSave(columns, newRows);
+                            }}>Extra alta (100px)</DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => deleteRow(row.id)} className="text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" /> Excluir
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+                  {/* Row resize handle */}
+                  <div
+                    className="absolute left-0 right-0 bottom-0 h-1 cursor-row-resize hover:bg-primary/50 active:bg-primary"
+                    onMouseDown={(e) => startRowResize(e, row.id)}
+                  />
                 </td>
                 {/* Cells */}
                 {columns.map((col) => (
-                  <td key={col.id} className="border-r border-b p-0">
+                  <td
+                    key={col.id}
+                    className="border-r border-b p-0"
+                    style={{ width: col.width, minWidth: col.width, height: row.height }}
+                  >
                     {editingCell?.rowId === row.id && editingCell?.colId === col.id ? (
-                      <input
-                        type="text"
+                      <textarea
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         onBlur={saveCell}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
                             saveCell();
-                            // Move to next row
                             const nextRowIndex = rowIndex + 1;
                             if (nextRowIndex < rows.length) {
                               setTimeout(() => startEditCell(rows[nextRowIndex].id, col.id), 50);
@@ -479,7 +691,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                           if (e.key === 'Tab') {
                             e.preventDefault();
                             saveCell();
-                            // Move to next column
                             const colIndex = columns.findIndex(c => c.id === col.id);
                             const nextColIndex = colIndex + 1;
                             if (nextColIndex < columns.length) {
@@ -488,11 +699,19 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                           }
                         }}
                         autoFocus
-                        className="w-full h-full px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border-2 border-primary outline-none"
+                        className="w-full h-full px-2 py-1 text-sm bg-white dark:bg-gray-800 border-2 border-primary outline-none resize-none"
+                        style={{ minHeight: row.height }}
                       />
                     ) : (
                       <div
-                        className="w-full h-full px-2 py-1.5 text-sm cursor-cell min-h-[32px] hover:bg-primary/5"
+                        className="w-full h-full px-2 py-1 text-sm cursor-cell hover:bg-primary/5 overflow-hidden"
+                        style={{
+                          whiteSpace: wrapText ? 'pre-wrap' : 'nowrap',
+                          wordBreak: wrapText ? 'break-word' : 'normal',
+                          minHeight: row.height,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
                         onClick={() => startEditCell(row.id, col.id)}
                       >
                         {calculateValue(row.cells[col.id] || '')}
@@ -509,7 +728,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>{rows.length} linhas × {columns.length} colunas</span>
-        <span>Clique para editar • Enter para próxima linha • Tab para próxima coluna • Fórmulas: =SUM(A1:A10), =AVG(A1:A10)</span>
+        <span>Arraste bordas para redimensionar • Enter: próxima linha • Tab: próxima coluna • Shift+Enter: quebra de linha</span>
       </div>
     </div>
   );
