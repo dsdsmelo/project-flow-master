@@ -23,7 +23,9 @@ import {
   Paintbrush,
   Type,
   Merge,
+  Clipboard,
 } from 'lucide-react';
+import { useSpreadsheetClipboard, ClipboardData } from '@/hooks/useSpreadsheetClipboard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -245,6 +247,120 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => doSave(cols, rws), 1500);
   }, [doSave]);
+
+  // Clipboard hook
+  const { handleCopy, handlePaste } = useSpreadsheetClipboard({
+    rows,
+    columns,
+    selectedCell,
+    editingCell,
+    editingColId,
+  });
+
+  // Handle paste data with auto-expand
+  const handlePasteData = useCallback(async () => {
+    const data = await handlePaste();
+    if (!data || !selectedCell) return;
+
+    const { cells: pasteData, rowCount, colCount } = data;
+
+    // Find starting position
+    const startRowIndex = rows.findIndex(r => r.id === selectedCell.rowId);
+    const startColIndex = columns.findIndex(c => c.id === selectedCell.colId);
+
+    if (startRowIndex < 0 || startColIndex < 0) return;
+
+    // Calculate how many rows/columns we need
+    const requiredRows = startRowIndex + rowCount;
+    const requiredCols = startColIndex + colCount;
+
+    let newColumns = [...columns];
+    let newRows = [...rows];
+
+    // Auto-expand columns if needed (limit to 100 new columns)
+    const maxNewCols = Math.min(requiredCols, columns.length + 100);
+    while (newColumns.length < maxNewCols) {
+      const letter = String.fromCharCode(65 + (newColumns.length % 26));
+      const prefix = newColumns.length >= 26 ? String.fromCharCode(64 + Math.floor(newColumns.length / 26)) : '';
+      newColumns.push({
+        id: crypto.randomUUID(),
+        spreadsheetId: spreadsheet.id,
+        name: prefix + letter,
+        type: 'text',
+        width: 150,
+        orderIndex: newColumns.length,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // Auto-expand rows if needed (limit to 100 new rows)
+    const maxNewRows = Math.min(requiredRows, rows.length + 100);
+    while (newRows.length < maxNewRows) {
+      newRows.push({
+        id: crypto.randomUUID(),
+        cells: {},
+        height: 36,
+      });
+    }
+
+    // Apply pasted data
+    for (let r = 0; r < rowCount; r++) {
+      const targetRowIndex = startRowIndex + r;
+      if (targetRowIndex >= newRows.length) break;
+
+      const targetRow = newRows[targetRowIndex];
+
+      for (let c = 0; c < colCount; c++) {
+        const targetColIndex = startColIndex + c;
+        if (targetColIndex >= newColumns.length) break;
+
+        const targetCol = newColumns[targetColIndex];
+        const pasteCell = pasteData[r]?.[c];
+
+        if (targetRow && targetCol && pasteCell) {
+          const existingCell = targetRow.cells[targetCol.id] || { value: '' };
+          targetRow.cells[targetCol.id] = {
+            ...existingCell,
+            value: pasteCell.value,
+          };
+        }
+      }
+    }
+
+    // Update state
+    if (newColumns.length !== columns.length) {
+      setColumns(newColumns);
+    }
+    setRows([...newRows]);
+    queueSave(newColumns, newRows);
+
+    toast.success(`Colado: ${rowCount} linha${rowCount > 1 ? 's' : ''} × ${colCount} coluna${colCount > 1 ? 's' : ''}`);
+  }, [handlePaste, selectedCell, rows, columns, spreadsheet.id, queueSave]);
+
+  // Keyboard shortcuts for copy/paste
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // CRITICAL: Don't interfere with text editing
+      if (editingCell || editingColId) return;
+
+      // Skip if focus is on an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      const modKey = e.metaKey || e.ctrlKey;
+
+      if (modKey && e.key === 'c') {
+        e.preventDefault();
+        handleCopy();
+      } else if (modKey && e.key === 'v') {
+        e.preventDefault();
+        handlePasteData();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [editingCell, editingColId, handleCopy, handlePasteData]);
 
   // Cell editing
   const startEditCell = (rowId: string, colId: string) => {
@@ -731,6 +847,17 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="h-6 w-px bg-border mx-1" />
 
+        {/* Paste */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePasteData}
+          title="Colar (Ctrl+V)"
+          disabled={!selectedCell}
+        >
+          <Clipboard className="h-4 w-4 mr-1" />Colar
+        </Button>
+
         {/* Export */}
         <Button variant="outline" size="sm" onClick={exportExcel}>
           <Download className="h-4 w-4 mr-1" />Excel
@@ -991,7 +1118,7 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>{rows.length} linhas × {columns.length} colunas</span>
-        <span>Clique para selecionar • Duplo clique para editar • Arraste bordas para redimensionar</span>
+        <span>Clique para selecionar • Duplo clique para editar • Ctrl+C/V para copiar/colar</span>
       </div>
     </div>
   );
