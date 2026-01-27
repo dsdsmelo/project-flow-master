@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { logAuditEvent } from '@/lib/auditLog';
-import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote, Spreadsheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell } from '@/lib/types';
+import { Person, Project, Phase, Cell, Task, CustomColumn, Milestone, MeetingNote, Spreadsheet, SpreadsheetSheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell, SpreadsheetMerge } from '@/lib/types';
 
 // Helper to get current user ID
 async function getCurrentUserId(): Promise<string | null> {
@@ -429,18 +429,44 @@ export function useSupabaseData() {
     setSpreadsheets(prev => prev.filter(s => s.id !== id));
   };
 
-  // Fetch full spreadsheet data (columns, rows, cells) for editor
-  const fetchSpreadsheetData = async (spreadsheetId: string) => {
+  // Fetch full spreadsheet data (sheets, columns, rows, cells, merges) for editor
+  const fetchSpreadsheetData = async (spreadsheetId: string, sheetId?: string) => {
+    // Fetch sheets first
+    const { data: sheetsData, error: sheetsError } = await supabase
+      .from('spreadsheet_sheets')
+      .select('*')
+      .eq('spreadsheet_id', spreadsheetId)
+      .order('order_index');
+
+    if (sheetsError) throw sheetsError;
+
+    const sheets = (sheetsData || []).map(mapSpreadsheetSheet);
+
+    // Determine which sheet to load (first one if not specified)
+    const activeSheetId = sheetId || sheets[0]?.id;
+
+    // Build query filters - filter by sheet_id if available, otherwise by spreadsheet_id
+    const columnQuery = activeSheetId
+      ? supabase.from('spreadsheet_columns').select('*').eq('sheet_id', activeSheetId).order('order_index')
+      : supabase.from('spreadsheet_columns').select('*').eq('spreadsheet_id', spreadsheetId).order('order_index');
+
+    const rowQuery = activeSheetId
+      ? supabase.from('spreadsheet_rows').select('*').eq('sheet_id', activeSheetId).order('order_index')
+      : supabase.from('spreadsheet_rows').select('*').eq('spreadsheet_id', spreadsheetId).order('order_index');
+
+    const mergeQuery = activeSheetId
+      ? supabase.from('spreadsheet_merges').select('*').eq('sheet_id', activeSheetId)
+      : supabase.from('spreadsheet_merges').select('*').eq('spreadsheet_id', spreadsheetId);
+
     const [
       { data: columnsData, error: columnsError },
       { data: rowsData, error: rowsError },
-    ] = await Promise.all([
-      supabase.from('spreadsheet_columns').select('*').eq('spreadsheet_id', spreadsheetId).order('order_index'),
-      supabase.from('spreadsheet_rows').select('*').eq('spreadsheet_id', spreadsheetId).order('order_index'),
-    ]);
+      { data: mergesData, error: mergesError },
+    ] = await Promise.all([columnQuery, rowQuery, mergeQuery]);
 
     if (columnsError) throw columnsError;
     if (rowsError) throw rowsError;
+    if (mergesError) throw mergesError;
 
     // Fetch cells for all rows
     const rowIds = rowsData?.map(r => r.id) || [];
@@ -455,10 +481,74 @@ export function useSupabaseData() {
     }
 
     return {
+      sheets,
+      activeSheetId,
       columns: (columnsData || []).map(mapSpreadsheetColumn),
       rows: (rowsData || []).map(mapSpreadsheetRow),
       cells: cellsData.map(mapSpreadsheetCell),
+      merges: (mergesData || []).map(mapSpreadsheetMerge),
     };
+  };
+
+  // Sheet CRUD operations
+  const addSheet = async (sheet: Omit<SpreadsheetSheet, 'id' | 'createdAt'>) => {
+    const { data, error } = await supabase
+      .from('spreadsheet_sheets')
+      .insert([spreadsheetSheetToDb(sheet)])
+      .select()
+      .single();
+    if (error) throw error;
+    return mapSpreadsheetSheet(data);
+  };
+
+  const updateSheet = async (id: string, updates: Partial<SpreadsheetSheet>) => {
+    const { error } = await supabase
+      .from('spreadsheet_sheets')
+      .update(spreadsheetSheetToDb(updates))
+      .eq('id', id);
+    if (error) throw error;
+  };
+
+  const deleteSheet = async (id: string) => {
+    const { error } = await supabase.from('spreadsheet_sheets').delete().eq('id', id);
+    if (error) throw error;
+  };
+
+  // Merge CRUD operations
+  const addMerge = async (merge: Omit<SpreadsheetMerge, 'id'>) => {
+    const { data, error } = await supabase
+      .from('spreadsheet_merges')
+      .insert([spreadsheetMergeToDb(merge)])
+      .select()
+      .single();
+    if (error) throw error;
+    return mapSpreadsheetMerge(data);
+  };
+
+  const deleteMerge = async (id: string) => {
+    const { error } = await supabase.from('spreadsheet_merges').delete().eq('id', id);
+    if (error) throw error;
+  };
+
+  const deleteMergesInRange = async (spreadsheetId: string, sheetId: string | undefined, startRow: number, startCol: number, endRow: number, endCol: number) => {
+    let query = supabase
+      .from('spreadsheet_merges')
+      .delete()
+      .eq('spreadsheet_id', spreadsheetId);
+
+    if (sheetId) {
+      query = query.eq('sheet_id', sheetId);
+    }
+
+    // Delete any merge that overlaps with the specified range
+    query = query
+      .lte('start_row', endRow)
+      .gte('end_row', startRow)
+      .lte('start_col', endCol)
+      .gte('end_col', startCol);
+
+    const { error } = await query;
+    if (error) throw error;
   };
 
   // Spreadsheet columns CRUD
@@ -518,7 +608,9 @@ export function useSupabaseData() {
     spreadsheetId: string,
     columns: SpreadsheetColumn[],
     rows: SpreadsheetRow[],
-    cells: SpreadsheetCell[]
+    cells: SpreadsheetCell[],
+    sheetId?: string,
+    merges?: SpreadsheetMerge[]
   ) => {
     // Update spreadsheet timestamp
     await supabase
@@ -526,8 +618,16 @@ export function useSupabaseData() {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', spreadsheetId);
 
-    // Delete existing data
-    await supabase.from('spreadsheet_columns').delete().eq('spreadsheet_id', spreadsheetId);
+    // Delete existing data for the specific sheet or spreadsheet
+    if (sheetId) {
+      await supabase.from('spreadsheet_columns').delete().eq('sheet_id', sheetId);
+      await supabase.from('spreadsheet_rows').delete().eq('sheet_id', sheetId);
+      await supabase.from('spreadsheet_merges').delete().eq('sheet_id', sheetId);
+    } else {
+      await supabase.from('spreadsheet_columns').delete().eq('spreadsheet_id', spreadsheetId);
+      await supabase.from('spreadsheet_rows').delete().eq('spreadsheet_id', spreadsheetId);
+      await supabase.from('spreadsheet_merges').delete().eq('spreadsheet_id', spreadsheetId);
+    }
 
     // Insert new columns
     if (columns.length > 0) {
@@ -536,9 +636,6 @@ export function useSupabaseData() {
         .insert(columns.map(spreadsheetColumnToDb));
       if (colError) throw colError;
     }
-
-    // Delete existing rows (cascade deletes cells)
-    await supabase.from('spreadsheet_rows').delete().eq('spreadsheet_id', spreadsheetId);
 
     // Insert new rows
     if (rows.length > 0) {
@@ -554,6 +651,14 @@ export function useSupabaseData() {
         .from('spreadsheet_cells')
         .insert(cells.map(spreadsheetCellToDb));
       if (cellError) throw cellError;
+    }
+
+    // Insert new merges
+    if (merges && merges.length > 0) {
+      const { error: mergeError } = await supabase
+        .from('spreadsheet_merges')
+        .insert(merges.map(spreadsheetMergeToDb));
+      if (mergeError) throw mergeError;
     }
 
     // Update local state
@@ -592,6 +697,10 @@ export function useSupabaseData() {
     addSpreadsheetColumn, updateSpreadsheetColumn, deleteSpreadsheetColumn,
     addSpreadsheetRow, deleteSpreadsheetRow,
     upsertSpreadsheetCell,
+    // Sheets CRUD
+    addSheet, updateSheet, deleteSheet,
+    // Merges CRUD
+    addMerge, deleteMerge, deleteMergesInRange,
   };
 }
 
@@ -839,10 +948,30 @@ function spreadsheetToDb(spreadsheet: Partial<Spreadsheet>): any {
   return result;
 }
 
+function mapSpreadsheetSheet(data: any): SpreadsheetSheet {
+  return {
+    id: data.id,
+    spreadsheetId: data.spreadsheet_id,
+    name: data.name,
+    orderIndex: data.order_index,
+    createdAt: data.created_at,
+  };
+}
+
+function spreadsheetSheetToDb(sheet: Partial<SpreadsheetSheet>): any {
+  const result: any = {};
+  if (sheet.id !== undefined) result.id = sheet.id;
+  if (sheet.spreadsheetId !== undefined) result.spreadsheet_id = sheet.spreadsheetId;
+  if (sheet.name !== undefined) result.name = sheet.name;
+  if (sheet.orderIndex !== undefined) result.order_index = sheet.orderIndex;
+  return result;
+}
+
 function mapSpreadsheetColumn(data: any): SpreadsheetColumn {
   return {
     id: data.id,
     spreadsheetId: data.spreadsheet_id,
+    sheetId: data.sheet_id,
     name: data.name,
     type: data.type,
     width: data.width,
@@ -857,6 +986,7 @@ function spreadsheetColumnToDb(column: Partial<SpreadsheetColumn>): any {
   const result: any = {};
   if (column.id !== undefined) result.id = column.id;
   if (column.spreadsheetId !== undefined) result.spreadsheet_id = column.spreadsheetId;
+  if (column.sheetId !== undefined) result.sheet_id = column.sheetId;
   if (column.name !== undefined) result.name = column.name;
   if (column.type !== undefined) result.type = column.type;
   if (column.width !== undefined) result.width = column.width;
@@ -870,7 +1000,9 @@ function mapSpreadsheetRow(data: any): SpreadsheetRow {
   return {
     id: data.id,
     spreadsheetId: data.spreadsheet_id,
+    sheetId: data.sheet_id,
     orderIndex: data.order_index,
+    isHeader: data.is_header,
     createdAt: data.created_at,
   };
 }
@@ -879,7 +1011,33 @@ function spreadsheetRowToDb(row: Partial<SpreadsheetRow>): any {
   const result: any = {};
   if (row.id !== undefined) result.id = row.id;
   if (row.spreadsheetId !== undefined) result.spreadsheet_id = row.spreadsheetId;
+  if (row.sheetId !== undefined) result.sheet_id = row.sheetId;
   if (row.orderIndex !== undefined) result.order_index = row.orderIndex;
+  if (row.isHeader !== undefined) result.is_header = row.isHeader;
+  return result;
+}
+
+function mapSpreadsheetMerge(data: any): SpreadsheetMerge {
+  return {
+    id: data.id,
+    spreadsheetId: data.spreadsheet_id,
+    sheetId: data.sheet_id,
+    startRow: data.start_row,
+    startCol: data.start_col,
+    endRow: data.end_row,
+    endCol: data.end_col,
+  };
+}
+
+function spreadsheetMergeToDb(merge: Partial<SpreadsheetMerge>): any {
+  const result: any = {};
+  if (merge.id !== undefined) result.id = merge.id;
+  if (merge.spreadsheetId !== undefined) result.spreadsheet_id = merge.spreadsheetId;
+  if (merge.sheetId !== undefined) result.sheet_id = merge.sheetId;
+  if (merge.startRow !== undefined) result.start_row = merge.startRow;
+  if (merge.startCol !== undefined) result.start_col = merge.startCol;
+  if (merge.endRow !== undefined) result.end_row = merge.endRow;
+  if (merge.endCol !== undefined) result.end_col = merge.endCol;
   return result;
 }
 

@@ -13,9 +13,18 @@ export interface Spreadsheet {
   updatedAt: string;
 }
 
+export interface SpreadsheetSheet {
+  id: string;
+  spreadsheetId: string;
+  name: string;
+  orderIndex: number;
+  createdAt: string;
+}
+
 export interface SpreadsheetColumn {
   id: string;
   spreadsheetId: string;
+  sheetId?: string;
   name: string;
   type: 'text' | 'number' | 'date' | 'currency' | 'percentage' | 'formula';
   width: number;
@@ -28,8 +37,20 @@ export interface SpreadsheetColumn {
 export interface SpreadsheetRow {
   id: string;
   spreadsheetId: string;
+  sheetId?: string;
   orderIndex: number;
+  isHeader?: boolean;
   createdAt: string;
+}
+
+export interface SpreadsheetMerge {
+  id: string;
+  spreadsheetId: string;
+  sheetId?: string;
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
 }
 
 export interface SpreadsheetCell {

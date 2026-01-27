@@ -24,8 +24,10 @@ import {
   Type,
   Merge,
   Clipboard,
+  TableProperties,
+  Split,
 } from 'lucide-react';
-import { useSpreadsheetClipboard, ClipboardData } from '@/hooks/useSpreadsheetClipboard';
+import { useSpreadsheetClipboard } from '@/hooks/useSpreadsheetClipboard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +47,8 @@ import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useData } from '@/contexts/DataContext';
-import { Spreadsheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell } from '@/lib/types';
+import { Spreadsheet, SpreadsheetSheet, SpreadsheetColumn, SpreadsheetRow, SpreadsheetCell, SpreadsheetMerge } from '@/lib/types';
+import { SheetTabs } from './SheetTabs';
 
 interface SpreadsheetEditorProps {
   spreadsheet: Spreadsheet;
@@ -69,6 +72,15 @@ interface RowData {
   id: string;
   cells: { [colId: string]: CellData };
   height: number;
+  isHeader?: boolean;
+}
+
+interface MergeData {
+  id: string;
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
 }
 
 interface ColData extends SpreadsheetColumn {
@@ -116,15 +128,20 @@ const TEXT_COLORS = [
 ];
 
 export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
-  const { fetchSpreadsheetData, saveSpreadsheetData } = useData();
+  const { fetchSpreadsheetData, saveSpreadsheetData, addSheet, updateSheet, deleteSheet, addMerge, deleteMerge } = useData();
 
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
 
+  // Sheet states
+  const [sheets, setSheets] = useState<SpreadsheetSheet[]>([]);
+  const [activeSheetId, setActiveSheetId] = useState<string | undefined>(undefined);
+
   const [columns, setColumns] = useState<ColData[]>([]);
   const [rows, setRows] = useState<RowData[]>([]);
+  const [merges, setMerges] = useState<MergeData[]>([]);
   const [wrapText, setWrapText] = useState(false);
 
   // Editing states
@@ -132,13 +149,51 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  // Selection state
+  // Selection state (single cell)
   const [selectedCell, setSelectedCell] = useState<{ rowId: string; colId: string } | null>(null);
+
+  // Multi-cell selection state
+  const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
 
   // Resize states
   const [resizingCol, setResizingCol] = useState<string | null>(null);
   const [resizingRow, setResizingRow] = useState<string | null>(null);
   const resizeStartRef = useRef<{ pos: number; size: number }>({ pos: 0, size: 0 });
+
+  // Get selection bounds
+  const getSelectionBounds = useCallback(() => {
+    if (!selectionStart) return null;
+    const end = selectionEnd || selectionStart;
+    return {
+      startRow: Math.min(selectionStart.row, end.row),
+      endRow: Math.max(selectionStart.row, end.row),
+      startCol: Math.min(selectionStart.col, end.col),
+      endCol: Math.max(selectionStart.col, end.col),
+    };
+  }, [selectionStart, selectionEnd]);
+
+  // Check if cell is in selection range
+  const isInSelection = useCallback((rowIndex: number, colIndex: number) => {
+    const bounds = getSelectionBounds();
+    if (!bounds) return false;
+    return rowIndex >= bounds.startRow && rowIndex <= bounds.endRow &&
+           colIndex >= bounds.startCol && colIndex <= bounds.endCol;
+  }, [getSelectionBounds]);
+
+  // Check if cell is merged
+  const getMergeAt = useCallback((rowIndex: number, colIndex: number) => {
+    return merges.find(m =>
+      rowIndex >= m.startRow && rowIndex <= m.endRow &&
+      colIndex >= m.startCol && colIndex <= m.endCol
+    );
+  }, [merges]);
+
+  // Check if cell is the start of a merge
+  const isMergeStart = useCallback((rowIndex: number, colIndex: number) => {
+    return merges.find(m => m.startRow === rowIndex && m.startCol === colIndex);
+  }, [merges]);
 
   // Get current cell style
   const getCurrentCellStyle = (): CellStyle => {
@@ -147,74 +202,100 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     return row?.cells[selectedCell.colId]?.style || {};
   };
 
-  // Load data
+  // Load data for a specific sheet
+  const loadSheetData = useCallback(async (sheetId?: string) => {
+    try {
+      const data = await fetchSpreadsheetData(spreadsheet.id, sheetId);
+
+      // Set sheets
+      setSheets(data.sheets || []);
+      setActiveSheetId(data.activeSheetId);
+
+      // Load merges
+      const loadedMerges: MergeData[] = (data.merges || []).map((m: SpreadsheetMerge) => ({
+        id: m.id,
+        startRow: m.startRow,
+        startCol: m.startCol,
+        endRow: m.endRow,
+        endCol: m.endCol,
+      }));
+      setMerges(loadedMerges);
+
+      if (data.columns.length === 0) {
+        const defaultCols: ColData[] = ['A', 'B', 'C', 'D', 'E'].map((letter, i) => ({
+          id: crypto.randomUUID(),
+          spreadsheetId: spreadsheet.id,
+          sheetId: data.activeSheetId,
+          name: letter,
+          type: 'text',
+          width: 150,
+          orderIndex: i,
+          createdAt: new Date().toISOString(),
+        }));
+        const defaultRows: RowData[] = Array.from({ length: 10 }, () => ({
+          id: crypto.randomUUID(),
+          cells: {},
+          height: 36,
+        }));
+        setColumns(defaultCols);
+        setRows(defaultRows);
+        return { cols: defaultCols, rows: defaultRows, isNew: true };
+      } else {
+        const cols: ColData[] = data.columns.map((c: SpreadsheetColumn) => ({ ...c, width: c.width || 150 }));
+        setColumns(cols);
+        const loadedRows: RowData[] = data.rows.map((r: SpreadsheetRow) => {
+          const cells: { [colId: string]: CellData } = {};
+          data.cells.filter((c: SpreadsheetCell) => c.rowId === r.id).forEach((c: SpreadsheetCell) => {
+            let style: CellStyle = {};
+            if (c.formula) {
+              try {
+                style = JSON.parse(c.formula);
+              } catch {}
+            }
+            cells[c.columnId] = { value: c.value || '', style };
+          });
+          return { id: r.id, cells, height: 36, isHeader: r.isHeader };
+        });
+        const finalRows = loadedRows.length > 0 ? loadedRows : Array.from({ length: 10 }, () => ({ id: crypto.randomUUID(), cells: {}, height: 36 }));
+        setRows(finalRows);
+        return { cols, rows: finalRows, isNew: false };
+      }
+    } catch (err) {
+      console.error('Load error:', err);
+      toast.error('Erro ao carregar planilha');
+      return null;
+    }
+  }, [fetchSpreadsheetData, spreadsheet.id]);
+
+  // Initial load
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      try {
-        const data = await fetchSpreadsheetData(spreadsheet.id);
-        if (!mounted) return;
-
-        if (data.columns.length === 0) {
-          const defaultCols: ColData[] = ['A', 'B', 'C', 'D', 'E'].map((letter, i) => ({
-            id: crypto.randomUUID(),
-            spreadsheetId: spreadsheet.id,
-            name: letter,
-            type: 'text',
-            width: 150,
-            orderIndex: i,
-            createdAt: new Date().toISOString(),
-          }));
-          const defaultRows: RowData[] = Array.from({ length: 10 }, () => ({
-            id: crypto.randomUUID(),
-            cells: {},
-            height: 36,
-          }));
-          setColumns(defaultCols);
-          setRows(defaultRows);
-          queueSave(defaultCols, defaultRows);
-        } else {
-          const cols: ColData[] = data.columns.map(c => ({ ...c, width: c.width || 150 }));
-          setColumns(cols);
-          const loadedRows: RowData[] = data.rows.map(r => {
-            const cells: { [colId: string]: CellData } = {};
-            data.cells.filter(c => c.rowId === r.id).forEach(c => {
-              // Parse style from formula field (we store JSON there)
-              let style: CellStyle = {};
-              if (c.formula) {
-                try {
-                  style = JSON.parse(c.formula);
-                } catch {}
-              }
-              cells[c.columnId] = { value: c.value || '', style };
-            });
-            return { id: r.id, cells, height: 36 };
-          });
-          setRows(loadedRows.length > 0 ? loadedRows : Array.from({ length: 10 }, () => ({ id: crypto.randomUUID(), cells: {}, height: 36 })));
-        }
-      } catch (err) {
-        console.error('Load error:', err);
-        toast.error('Erro ao carregar planilha');
-      } finally {
-        if (mounted) setLoading(false);
+      const result = await loadSheetData();
+      if (!mounted) return;
+      if (result?.isNew) {
+        queueSave(result.cols, result.rows);
       }
+      setLoading(false);
     };
     load();
     return () => { mounted = false; };
   }, [spreadsheet.id]);
 
   // Save function
-  const doSave = useCallback(async (cols: ColData[], rws: RowData[]) => {
+  const doSave = useCallback(async (cols: ColData[], rws: RowData[], mrgs?: MergeData[]) => {
     if (savingRef.current) return;
     savingRef.current = true;
     setSaveStatus('saving');
 
     try {
-      const dbCols = cols.map((c, i) => ({ ...c, spreadsheetId: spreadsheet.id, orderIndex: i }));
+      const dbCols = cols.map((c, i) => ({ ...c, spreadsheetId: spreadsheet.id, sheetId: activeSheetId, orderIndex: i }));
       const dbRows: SpreadsheetRow[] = rws.map((r, i) => ({
         id: r.id,
         spreadsheetId: spreadsheet.id,
+        sheetId: activeSheetId,
         orderIndex: i,
+        isHeader: r.isHeader,
         createdAt: new Date().toISOString(),
       }));
       const dbCells: SpreadsheetCell[] = [];
@@ -232,7 +313,17 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         });
       });
 
-      await saveSpreadsheetData(spreadsheet.id, dbCols, dbRows, dbCells);
+      const dbMerges: SpreadsheetMerge[] = (mrgs || merges).map(m => ({
+        id: m.id,
+        spreadsheetId: spreadsheet.id,
+        sheetId: activeSheetId,
+        startRow: m.startRow,
+        startCol: m.startCol,
+        endRow: m.endRow,
+        endCol: m.endCol,
+      }));
+
+      await saveSpreadsheetData(spreadsheet.id, dbCols, dbRows, dbCells, activeSheetId, dbMerges);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (err) {
@@ -241,12 +332,170 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     } finally {
       savingRef.current = false;
     }
-  }, [spreadsheet.id, saveSpreadsheetData]);
+  }, [spreadsheet.id, activeSheetId, merges, saveSpreadsheetData]);
 
-  const queueSave = useCallback((cols: ColData[], rws: RowData[]) => {
+  const queueSave = useCallback((cols: ColData[], rws: RowData[], mrgs?: MergeData[]) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => doSave(cols, rws), 1500);
+    saveTimerRef.current = setTimeout(() => doSave(cols, rws, mrgs), 1500);
   }, [doSave]);
+
+  // Sheet management
+  const handleAddSheet = async () => {
+    try {
+      const newSheet = await addSheet({
+        spreadsheetId: spreadsheet.id,
+        name: `Planilha ${sheets.length + 1}`,
+        orderIndex: sheets.length,
+      });
+      setSheets(prev => [...prev, newSheet]);
+      // Switch to new sheet
+      setActiveSheetId(newSheet.id);
+      // Create default data for new sheet
+      const defaultCols: ColData[] = ['A', 'B', 'C', 'D', 'E'].map((letter, i) => ({
+        id: crypto.randomUUID(),
+        spreadsheetId: spreadsheet.id,
+        sheetId: newSheet.id,
+        name: letter,
+        type: 'text',
+        width: 150,
+        orderIndex: i,
+        createdAt: new Date().toISOString(),
+      }));
+      const defaultRows: RowData[] = Array.from({ length: 10 }, () => ({
+        id: crypto.randomUUID(),
+        cells: {},
+        height: 36,
+      }));
+      setColumns(defaultCols);
+      setRows(defaultRows);
+      setMerges([]);
+      queueSave(defaultCols, defaultRows, []);
+      toast.success('Planilha criada');
+    } catch (err) {
+      toast.error('Erro ao criar planilha');
+    }
+  };
+
+  const handleSelectSheet = async (sheetId: string) => {
+    if (sheetId === activeSheetId) return;
+    setLoading(true);
+    setActiveSheetId(sheetId);
+    await loadSheetData(sheetId);
+    setLoading(false);
+  };
+
+  const handleRenameSheet = async (sheetId: string, newName: string) => {
+    try {
+      await updateSheet(sheetId, { name: newName });
+      setSheets(prev => prev.map(s => s.id === sheetId ? { ...s, name: newName } : s));
+    } catch (err) {
+      toast.error('Erro ao renomear');
+    }
+  };
+
+  const handleDeleteSheet = async (sheetId: string) => {
+    if (sheets.length <= 1) {
+      toast.error('Precisa ter pelo menos 1 planilha');
+      return;
+    }
+    try {
+      await deleteSheet(sheetId);
+      const newSheets = sheets.filter(s => s.id !== sheetId);
+      setSheets(newSheets);
+      // Switch to first remaining sheet
+      if (activeSheetId === sheetId) {
+        handleSelectSheet(newSheets[0].id);
+      }
+      toast.success('Planilha excluída');
+    } catch (err) {
+      toast.error('Erro ao excluir');
+    }
+  };
+
+  const handleDuplicateSheet = async (sheetId: string) => {
+    const sourceSheet = sheets.find(s => s.id === sheetId);
+    if (!sourceSheet) return;
+    try {
+      const newSheet = await addSheet({
+        spreadsheetId: spreadsheet.id,
+        name: `${sourceSheet.name} (cópia)`,
+        orderIndex: sheets.length,
+      });
+      setSheets(prev => [...prev, newSheet]);
+      toast.success('Planilha duplicada');
+    } catch (err) {
+      toast.error('Erro ao duplicar');
+    }
+  };
+
+  // Toggle header row
+  const toggleHeaderRow = (rowIndex: number) => {
+    const newRows = rows.map((r, i) => ({
+      ...r,
+      isHeader: i === rowIndex ? !r.isHeader : r.isHeader,
+    }));
+    setRows(newRows);
+    queueSave(columns, newRows);
+  };
+
+  // Merge cells
+  const handleMergeCells = () => {
+    const bounds = getSelectionBounds();
+    if (!bounds) {
+      toast.error('Selecione células para mesclar');
+      return;
+    }
+    if (bounds.startRow === bounds.endRow && bounds.startCol === bounds.endCol) {
+      toast.error('Selecione pelo menos 2 células');
+      return;
+    }
+
+    // Check if any cell in range is already merged
+    for (let r = bounds.startRow; r <= bounds.endRow; r++) {
+      for (let c = bounds.startCol; c <= bounds.endCol; c++) {
+        if (getMergeAt(r, c)) {
+          toast.error('Remova a mesclagem existente primeiro');
+          return;
+        }
+      }
+    }
+
+    const newMerge: MergeData = {
+      id: crypto.randomUUID(),
+      startRow: bounds.startRow,
+      startCol: bounds.startCol,
+      endRow: bounds.endRow,
+      endCol: bounds.endCol,
+    };
+    const newMerges = [...merges, newMerge];
+    setMerges(newMerges);
+    queueSave(columns, rows, newMerges);
+    toast.success('Células mescladas');
+  };
+
+  // Unmerge cells
+  const handleUnmergeCells = () => {
+    const bounds = getSelectionBounds();
+    if (!bounds) return;
+
+    const merge = getMergeAt(bounds.startRow, bounds.startCol);
+    if (!merge) {
+      toast.error('Nenhuma mesclagem para desfazer');
+      return;
+    }
+
+    const newMerges = merges.filter(m => m.id !== merge.id);
+    setMerges(newMerges);
+    queueSave(columns, rows, newMerges);
+    toast.success('Mesclagem desfeita');
+  };
+
+  // Check if selection has merge
+  const selectionHasMerge = useCallback(() => {
+    const bounds = getSelectionBounds();
+    if (!bounds) return false;
+    return !!getMergeAt(bounds.startRow, bounds.startCol);
+  }, [getSelectionBounds, getMergeAt]);
 
   // Clipboard hook
   const { handleCopy, handlePaste } = useSpreadsheetClipboard({
@@ -361,6 +610,36 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [editingCell, editingColId, handleCopy, handlePasteData]);
+
+  // Mouse up handler for selection
+  useEffect(() => {
+    const handleMouseUp = () => setIsSelecting(false);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => document.removeEventListener('mouseup', handleMouseUp);
+  }, []);
+
+  // Cell mouse handlers for multi-select
+  const handleCellMouseDown = (rowIndex: number, colIndex: number, e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Left click only
+    if (editingCell) return;
+
+    setSelectionStart({ row: rowIndex, col: colIndex });
+    setSelectionEnd({ row: rowIndex, col: colIndex });
+    setIsSelecting(true);
+
+    // Also update selectedCell for compatibility
+    const row = rows[rowIndex];
+    const col = columns[colIndex];
+    if (row && col) {
+      setSelectedCell({ rowId: row.id, colId: col.id });
+    }
+  };
+
+  const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
+    if (isSelecting) {
+      setSelectionEnd({ row: rowIndex, col: colIndex });
+    }
+  };
 
   // Cell editing
   const startEditCell = (rowId: string, colId: string) => {
@@ -847,6 +1126,40 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
 
         <div className="h-6 w-px bg-border mx-1" />
 
+        {/* Merge/Unmerge */}
+        {selectionHasMerge() ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUnmergeCells}
+            title="Desfazer mesclagem"
+          >
+            <Split className="h-4 w-4 mr-1" />Separar
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMergeCells}
+            title="Mesclar células selecionadas"
+            disabled={!getSelectionBounds() || (getSelectionBounds()?.startRow === getSelectionBounds()?.endRow && getSelectionBounds()?.startCol === getSelectionBounds()?.endCol)}
+          >
+            <Merge className="h-4 w-4 mr-1" />Mesclar
+          </Button>
+        )}
+
+        {/* Header Row Toggle */}
+        <Button
+          variant={rows[0]?.isHeader ? "default" : "outline"}
+          size="sm"
+          onClick={() => toggleHeaderRow(0)}
+          title="Definir primeira linha como cabeçalho"
+        >
+          <TableProperties className="h-4 w-4 mr-1" />Cabeçalho
+        </Button>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
         {/* Paste */}
         <Button
           variant="outline"
@@ -987,10 +1300,10 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-              <tr key={row.id} className="group/row hover:bg-muted/20 relative">
+              <tr key={row.id} className={`group/row hover:bg-muted/20 relative ${row.isHeader ? 'bg-primary/10' : ''}`}>
                 {/* Row number */}
                 <td
-                  className="border-r border-b text-center text-xs text-muted-foreground bg-muted/30 relative"
+                  className={`border-r border-b text-center text-xs text-muted-foreground relative ${row.isHeader ? 'bg-primary/20 font-semibold' : 'bg-muted/30'}`}
                   style={{ height: row.height }}
                 >
                   <div className="flex items-center justify-center h-full">
@@ -1004,6 +1317,9 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                       <DropdownMenuContent align="start">
                         <DropdownMenuItem onClick={addRow}>
                           <Plus className="h-4 w-4 mr-2" /> Adicionar linha
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggleHeaderRow(rowIndex)}>
+                          <TableProperties className="h-4 w-4 mr-2" /> {row.isHeader ? 'Remover cabeçalho' : 'Definir como cabeçalho'}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuSub>
@@ -1042,18 +1358,44 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                   />
                 </td>
                 {/* Cells */}
-                {columns.map((col) => {
+                {columns.map((col, colIndex) => {
                   const cell = row.cells[col.id];
                   const cellStyle = cell?.style || {};
                   const isSelected = selectedCell?.rowId === row.id && selectedCell?.colId === col.id;
                   const isEditing = editingCell?.rowId === row.id && editingCell?.colId === col.id;
+                  const inSelection = isInSelection(rowIndex, colIndex);
+
+                  // Check for merge
+                  const merge = getMergeAt(rowIndex, colIndex);
+                  const mergeStart = isMergeStart(rowIndex, colIndex);
+
+                  // If cell is inside a merge but not the start, skip rendering
+                  if (merge && !mergeStart) {
+                    return null;
+                  }
+
+                  // Calculate colspan and rowspan
+                  const colSpan = mergeStart ? mergeStart.endCol - mergeStart.startCol + 1 : 1;
+                  const rowSpan = mergeStart ? mergeStart.endRow - mergeStart.startRow + 1 : 1;
+
+                  // Header row default style
+                  const headerStyle: CellStyle = row.isHeader ? {
+                    bold: true,
+                    bgColor: cellStyle.bgColor || '#e0e7ff',
+                    textColor: cellStyle.textColor || '#1e40af',
+                  } : {};
+
+                  const finalStyle = { ...headerStyle, ...cellStyle };
 
                   return (
                     <td
                       key={col.id}
-                      className={`border-r border-b p-0 ${isSelected && !isEditing ? 'ring-2 ring-primary ring-inset' : ''}`}
-                      style={{ height: row.height }}
-                      onClick={() => !isEditing && setSelectedCell({ rowId: row.id, colId: col.id })}
+                      colSpan={colSpan}
+                      rowSpan={rowSpan}
+                      className={`border-r border-b p-0 ${isSelected && !isEditing ? 'ring-2 ring-primary ring-inset' : ''} ${inSelection && !isEditing ? 'bg-primary/10' : ''}`}
+                      style={{ height: row.height * rowSpan }}
+                      onMouseDown={(e) => handleCellMouseDown(rowIndex, colIndex, e)}
+                      onMouseEnter={() => handleCellMouseEnter(rowIndex, colIndex)}
                     >
                       {isEditing ? (
                         <textarea
@@ -1073,7 +1415,6 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                             if (e.key === 'Tab') {
                               e.preventDefault();
                               saveCell();
-                              const colIndex = columns.findIndex(c => c.id === col.id);
                               const nextColIndex = colIndex + 1;
                               if (nextColIndex < columns.length) {
                                 setTimeout(() => startEditCell(row.id, columns[nextColIndex].id), 50);
@@ -1088,18 +1429,18 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
                         <div
                           className="w-full h-full px-2 py-1 text-sm cursor-cell hover:bg-primary/5 overflow-hidden"
                           style={{
-                            backgroundColor: cellStyle.bgColor || undefined,
-                            color: cellStyle.textColor || undefined,
-                            fontWeight: cellStyle.bold ? 'bold' : undefined,
-                            fontStyle: cellStyle.italic ? 'italic' : undefined,
-                            textDecoration: cellStyle.underline ? 'underline' : undefined,
-                            textAlign: cellStyle.align || 'left',
+                            backgroundColor: finalStyle.bgColor || undefined,
+                            color: finalStyle.textColor || undefined,
+                            fontWeight: finalStyle.bold ? 'bold' : undefined,
+                            fontStyle: finalStyle.italic ? 'italic' : undefined,
+                            textDecoration: finalStyle.underline ? 'underline' : undefined,
+                            textAlign: finalStyle.align || 'left',
                             whiteSpace: wrapText ? 'pre-wrap' : 'nowrap',
                             wordBreak: wrapText ? 'break-word' : 'normal',
-                            minHeight: row.height,
+                            minHeight: row.height * rowSpan,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: cellStyle.align === 'center' ? 'center' : cellStyle.align === 'right' ? 'flex-end' : 'flex-start',
+                            justifyContent: finalStyle.align === 'center' ? 'center' : finalStyle.align === 'right' ? 'flex-end' : 'flex-start',
                           }}
                           onDoubleClick={() => startEditCell(row.id, col.id)}
                         >
@@ -1115,10 +1456,23 @@ export function SpreadsheetEditor({ spreadsheet }: SpreadsheetEditorProps) {
         </table>
       </div>
 
+      {/* Sheet Tabs */}
+      {sheets.length > 0 && (
+        <SheetTabs
+          sheets={sheets}
+          activeSheetId={activeSheetId}
+          onSelectSheet={handleSelectSheet}
+          onAddSheet={handleAddSheet}
+          onRenameSheet={handleRenameSheet}
+          onDeleteSheet={handleDeleteSheet}
+          onDuplicateSheet={handleDuplicateSheet}
+        />
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>{rows.length} linhas × {columns.length} colunas</span>
-        <span>Clique para selecionar • Duplo clique para editar • Ctrl+C/V para copiar/colar</span>
+        <span>Arraste para selecionar • Duplo clique para editar • Ctrl+C/V para copiar/colar</span>
       </div>
     </div>
   );
