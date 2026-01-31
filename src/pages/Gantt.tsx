@@ -149,12 +149,12 @@ const Gantt = () => {
       }
     } else {
       safePeople.forEach(person => {
-        const personTasks = safeTasks.filter(t => t.responsibleId === person.id);
+        const personTasks = safeTasks.filter(t => t.responsibleIds && t.responsibleIds.length > 0 && t.responsibleIds[0] === person.id);
         if (personTasks.length > 0) {
           groups.push({ id: person.id, name: person.name, color: person.color, avatarUrl: person.avatarUrl, tasks: personTasks });
         }
       });
-      const unassigned = safeTasks.filter(t => !t.responsibleId);
+      const unassigned = safeTasks.filter(t => !t.responsibleIds || t.responsibleIds.length === 0);
       if (unassigned.length > 0) {
         groups.push({ id: 'unassigned', name: 'Sem Responsável', tasks: unassigned });
       }
@@ -384,7 +384,7 @@ const Gantt = () => {
                       {/* Task labels */}
                       {!isCollapsed && group.tasks.map((task, taskIndex) => {
                         const styles = getStatusStyles(task);
-                        const person = groupBy === 'project' ? safePeople.find(p => p.id === task.responsibleId) : undefined;
+                        const person = groupBy === 'project' && task.responsibleIds?.[0] ? safePeople.find(p => p.id === task.responsibleIds![0]) : undefined;
                         return (
                           <div
                             key={task.id}
@@ -466,7 +466,7 @@ const Gantt = () => {
                           const position = getPosition(task.startDate, task.endDate);
                           const styles = getStatusStyles(task);
                           const taskProgress = calculatePercentage(task);
-                          const person = safePeople.find(p => p.id === task.responsibleId);
+                          const person = task.responsibleIds?.[0] ? safePeople.find(p => p.id === task.responsibleIds![0]) : undefined;
                           const project = safeProjects.find(p => p.id === task.projectId);
 
                           return (

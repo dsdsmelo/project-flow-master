@@ -180,12 +180,21 @@ export const ProjectGanttChart = ({
 
   const groupedTasks = useMemo(() => {
     const groups: { id: string; name: string; color?: string; tasks: Task[] }[] = [];
-    const usedPeople = new Set(tasks.map(t => t.responsibleId).filter(Boolean));
+    // Collect all person IDs that have tasks assigned
+    const usedPeople = new Set<string>();
+    tasks.forEach(t => {
+      if (t.responsibleIds && t.responsibleIds.length > 0) {
+        t.responsibleIds.forEach(id => usedPeople.add(id));
+      }
+    });
+    // Group tasks by their first responsible (tasks appear under first responsible)
     people.filter(p => usedPeople.has(p.id)).forEach(person => {
-      const personTasks = tasks.filter(t => t.responsibleId === person.id);
+      const personTasks = tasks.filter(t =>
+        t.responsibleIds && t.responsibleIds.length > 0 && t.responsibleIds[0] === person.id
+      );
       if (personTasks.length > 0) groups.push({ id: person.id, name: person.name, color: person.color, tasks: personTasks });
     });
-    const unassigned = tasks.filter(t => !t.responsibleId);
+    const unassigned = tasks.filter(t => !t.responsibleIds || t.responsibleIds.length === 0);
     if (unassigned.length > 0) groups.push({ id: 'unassigned', name: 'Sem Responsável', tasks: unassigned });
     return groups;
   }, [tasks, people]);

@@ -42,11 +42,11 @@ const People = () => {
   }, [safePeople, search, activeTab]);
 
   const getTaskCount = (personId: string) => {
-    return safeTasks.filter(t => t.responsibleId === personId && t.status !== 'completed' && t.status !== 'cancelled').length;
+    return safeTasks.filter(t => t.responsibleIds?.includes(personId) && t.status !== 'completed' && t.status !== 'cancelled').length;
   };
 
   const getCompletedTaskCount = (personId: string) => {
-    return safeTasks.filter(t => t.responsibleId === personId && t.status === 'completed').length;
+    return safeTasks.filter(t => t.responsibleIds?.includes(personId) && t.status === 'completed').length;
   };
 
   const toggleActive = async (personId: string) => {

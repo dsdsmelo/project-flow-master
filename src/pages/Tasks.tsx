@@ -482,7 +482,7 @@ const Tasks = () => {
               </thead>
               <tbody>
                 {filteredTasks.map(task => {
-                  const person = getPerson(task.responsibleId);
+                  const person = task.responsibleIds?.[0] ? getPerson(task.responsibleIds[0]) : undefined;
                   const progress = calculatePercentage(task);
                   const overdue = isTaskOverdue(task);
 

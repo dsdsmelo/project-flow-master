@@ -69,7 +69,7 @@ const ProjectDetail = () => {
   const { projects = [], tasks = [], people = [], phases = [], cells = [], customColumns = [], milestones = [], deleteMilestone, updateMilestone, deletePhase, updatePhase, loading, error } = useData();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskDefaultResponsible, setTaskDefaultResponsible] = useState<string | undefined>(undefined);
+  const [taskDefaultResponsibleIds, setTaskDefaultResponsibleIds] = useState<string[] | undefined>(undefined);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<typeof milestones[0] | undefined>(undefined);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
@@ -128,20 +128,23 @@ const ProjectDetail = () => {
     const personMap = new Map<string, { name: string; color: string; tasks: number }>();
 
     projectTasks.forEach(task => {
-      if (task.responsibleId) {
-        const person = safePeople.find(p => p.id === task.responsibleId);
-        if (person) {
-          const existing = personMap.get(person.id);
-          if (existing) {
-            existing.tasks++;
-          } else {
-            personMap.set(person.id, {
-              name: person.name.split(' ')[0],
-              color: person.color,
-              tasks: 1,
-            });
+      if (task.responsibleIds && task.responsibleIds.length > 0) {
+        // Count task for each responsible person
+        task.responsibleIds.forEach(responsibleId => {
+          const person = safePeople.find(p => p.id === responsibleId);
+          if (person) {
+            const existing = personMap.get(person.id);
+            if (existing) {
+              existing.tasks++;
+            } else {
+              personMap.set(person.id, {
+                name: person.name.split(' ')[0],
+                color: person.color,
+                tasks: 1,
+              });
+            }
           }
-        }
+        });
       }
     });
 
@@ -151,7 +154,7 @@ const ProjectDetail = () => {
   const alerts = useMemo(() => {
     const overdue = projectTasks.filter(isTaskOverdue);
     const dueSoon = projectTasks.filter(isTaskDueSoon);
-    const unassigned = projectTasks.filter(t => !t.responsibleId && t.status !== 'completed' && t.status !== 'cancelled');
+    const unassigned = projectTasks.filter(t => (!t.responsibleIds || t.responsibleIds.length === 0) && t.status !== 'completed' && t.status !== 'cancelled');
     return { overdue, dueSoon, unassigned };
   }, [projectTasks]);
 
@@ -475,7 +478,7 @@ const ProjectDetail = () => {
                     }
 
                     return inProgressTasks.map(task => {
-                      const person = people.find(p => p.id === task.responsibleId);
+                      const person = task.responsibleIds?.[0] ? people.find(p => p.id === task.responsibleIds![0]) : null;
                       return (
                         <div key={task.id} className="flex items-center gap-2 py-1.5 px-2 bg-muted/30 rounded">
                           <span className={cn(
@@ -509,7 +512,7 @@ const ProjectDetail = () => {
                 <div className="space-y-1.5">
                   {alerts.overdue.length > 0 ? (
                     alerts.overdue.slice(0, 4).map(task => {
-                      const person = people.find(p => p.id === task.responsibleId);
+                      const person = task.responsibleIds?.[0] ? people.find(p => p.id === task.responsibleIds![0]) : null;
                       const daysOverdue = task.endDate ? Math.floor((new Date().getTime() - new Date(task.endDate + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0;
                       return (
                         <div key={task.id} className="flex items-center gap-2 py-1.5 px-2 bg-red-500/5 rounded">
@@ -544,7 +547,7 @@ const ProjectDetail = () => {
                 <div className="space-y-1.5">
                   {alerts.dueSoon.length > 0 ? (
                     alerts.dueSoon.slice(0, 4).map(task => {
-                      const person = people.find(p => p.id === task.responsibleId);
+                      const person = task.responsibleIds?.[0] ? people.find(p => p.id === task.responsibleIds![0]) : null;
                       const daysLeft = task.endDate ? Math.max(0, Math.floor((new Date(task.endDate + 'T12:00:00').getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0;
                       return (
                         <div key={task.id} className="flex items-center gap-2 py-1.5 px-2 bg-amber-500/5 rounded">
@@ -675,7 +678,7 @@ const ProjectDetail = () => {
                 }
               }}
               onAddTask={(responsibleId) => {
-                setTaskDefaultResponsible(responsibleId);
+                setTaskDefaultResponsibleIds(responsibleId ? [responsibleId] : undefined);
                 setTaskModalOpen(true);
               }}
             />
@@ -693,10 +696,10 @@ const ProjectDetail = () => {
         open={taskModalOpen}
         onOpenChange={(open) => {
           setTaskModalOpen(open);
-          if (!open) setTaskDefaultResponsible(undefined);
+          if (!open) setTaskDefaultResponsibleIds(undefined);
         }}
         defaultProjectId={projectId}
-        defaultResponsibleId={taskDefaultResponsible}
+        defaultResponsibleIds={taskDefaultResponsibleIds}
       />
 
       {/* Milestone Modal */}

@@ -98,7 +98,7 @@ const Dashboard = () => {
       .slice(0, 5)
       .map(task => {
         const project = safeProjects.find(p => p.id === task.projectId);
-        const person = safePeople.find(p => p.id === task.responsibleId);
+        const person = task.responsibleIds?.[0] ? safePeople.find(p => p.id === task.responsibleIds![0]) : null;
         return { ...task, projectName: project?.name || '-', person };
       });
   }, [safeTasks, safeProjects, safePeople]);

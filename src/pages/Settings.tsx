@@ -164,14 +164,14 @@ const Settings = () => {
     const rows = tasks.map(task => {
       const project = projects.find(p => p.id === task.projectId);
       const phase = phases.find(p => p.id === task.phaseId);
-      const person = people.find(p => p.id === task.responsibleId);
+      const responsibleNames = task.responsibleIds?.map(id => people.find(p => p.id === id)?.name).filter(Boolean).join(', ') || '';
       const progress = task.quantity ? Math.round((task.collected || 0) / task.quantity * 100) : 0;
       
       const baseValues = [
         `"${task.name}"`,
         `"${project?.name || ''}"`,
         `"${phase?.name || ''}"`,
-        `"${person?.name || ''}"`,
+        `"${responsibleNames}"`,
         task.status,
         task.priority,
         `${progress}%`
