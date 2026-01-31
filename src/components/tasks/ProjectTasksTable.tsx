@@ -709,7 +709,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                         className={cn(
                           "py-1 px-2 text-xs",
                           !shouldWrap && "whitespace-nowrap",
-                          shouldWrap && "min-w-[150px] max-w-[300px]",
+                          shouldWrap && "min-w-[300px] max-w-[600px]",
                           isCompactCol && "w-[1px]",
                           isNameCol && "sticky left-8 z-20 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border transition-colors",
                           isNameCol && "group-hover/row:bg-muted",
