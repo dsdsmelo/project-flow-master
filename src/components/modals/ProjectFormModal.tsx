@@ -572,11 +572,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
             <input
               type="color"
               className="sr-only"
-              onInput={(e) => {
-                const newColor = (e.target as HTMLInputElement).value;
-                setCoverColor(newColor);
-              }}
-              onBlur={(e) => {
+              onChange={(e) => {
                 const newColor = e.target.value;
                 if (!customColors.includes(newColor)) {
                   setCustomColors(prev => [...prev, newColor]);

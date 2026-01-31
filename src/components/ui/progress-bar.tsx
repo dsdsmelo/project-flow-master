@@ -5,6 +5,8 @@ interface ProgressBarProps {
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  color?: string; // Custom color (hex) or gradient class
+  gradientClass?: string; // Tailwind gradient class (e.g., 'from-blue-500 to-cyan-400')
 }
 
 const sizeStyles = {
@@ -20,13 +22,18 @@ const getProgressColor = (value: number): string => {
   return 'bg-status-blocked';
 };
 
-export const ProgressBar = ({ 
-  value, 
-  showLabel = false, 
+export const ProgressBar = ({
+  value,
+  showLabel = false,
   size = 'md',
-  className 
+  className,
+  color,
+  gradientClass,
 }: ProgressBarProps) => {
   const clampedValue = Math.min(100, Math.max(0, value));
+
+  // Determine if using custom color
+  const useCustomColor = color || gradientClass;
 
   return (
     <div className={cn('flex items-center gap-3', className)}>
@@ -34,9 +41,13 @@ export const ProgressBar = ({
         <div
           className={cn(
             'h-full rounded-full transition-all duration-500 ease-out',
-            getProgressColor(clampedValue)
+            !useCustomColor && getProgressColor(clampedValue),
+            gradientClass && `bg-gradient-to-r ${gradientClass}`
           )}
-          style={{ width: `${clampedValue}%` }}
+          style={{
+            width: `${clampedValue}%`,
+            ...(color && !gradientClass ? { backgroundColor: color } : {})
+          }}
         />
       </div>
       {showLabel && (

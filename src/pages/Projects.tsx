@@ -229,10 +229,10 @@ const Projects = () => {
                 >
                   {/* Color strip */}
                   {coverGradient && (
-                    <div className={cn("h-1.5 w-full bg-gradient-to-r", coverGradient.class)} />
+                    <div className={cn("h-2 w-full bg-gradient-to-r", coverGradient.class)} />
                   )}
                   {coverSolid && (
-                    <div className="h-1.5 w-full" style={{ backgroundColor: coverSolid }} />
+                    <div className="h-2 w-full" style={{ backgroundColor: coverSolid }} />
                   )}
 
                   {/* Content Section */}
@@ -302,7 +302,12 @@ const Projects = () => {
                     {/* Progress bar inline */}
                     <div className="flex items-center gap-2 mt-3">
                       <div className="flex-1">
-                        <ProgressBar value={progress} size="sm" />
+                        <ProgressBar
+                          value={progress}
+                          size="sm"
+                          color={coverSolid || undefined}
+                          gradientClass={coverGradient?.class}
+                        />
                       </div>
                       <span className="text-xs font-medium text-muted-foreground min-w-[32px] text-right">
                         {progress}%
