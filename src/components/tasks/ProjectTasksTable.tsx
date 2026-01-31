@@ -30,11 +30,11 @@ import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerShe
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { TablePagination } from '@/components/ui/table-pagination';
 import {
-  CustomColumnFilters,
   CustomFiltersState,
   countActiveCustomFilters,
   matchesCustomFilters,
 } from '@/components/tasks/CustomColumnFilters';
+import { ColumnHeaderFilter, ActiveFiltersBar } from '@/components/tasks/ColumnHeaderFilter';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -579,13 +579,6 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   </Select>
                 </div>
 
-                {/* Filtros de Colunas Customizadas */}
-                <CustomColumnFilters
-                  columns={projectColumns}
-                  filters={customFilters}
-                  onChange={setCustomFilters}
-                />
-
                 <Button
                   variant="outline"
                   className="w-full"
@@ -671,6 +664,20 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
         </div>
       </div>
 
+      {/* Barra de filtros ativos para colunas customizadas */}
+      <ActiveFiltersBar
+        filters={customFilters}
+        columns={projectColumns.filter(c => !c.standardField)}
+        onClear={(columnId) => {
+          setCustomFilters(prev => {
+            const updated = { ...prev };
+            delete updated[columnId];
+            return updated;
+          });
+        }}
+        onClearAll={() => setCustomFilters({})}
+      />
+
       {/* Tasks Table */}
       <div className="bg-card rounded-lg border border-border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
@@ -732,6 +739,24 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                         >
                           {col.name}
                         </span>
+                      )}
+                      {/* Filtro no cabeçalho - apenas para colunas customizadas */}
+                      {!col.standardField && (
+                        <ColumnHeaderFilter
+                          column={col}
+                          filter={customFilters[col.id]}
+                          onChange={(value) => {
+                            if (value) {
+                              setCustomFilters(prev => ({ ...prev, [col.id]: value }));
+                            } else {
+                              setCustomFilters(prev => {
+                                const updated = { ...prev };
+                                delete updated[col.id];
+                                return updated;
+                              });
+                            }
+                          }}
+                        />
                       )}
                     </div>
                   </th>

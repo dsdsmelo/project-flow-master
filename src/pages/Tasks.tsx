@@ -27,11 +27,11 @@ import {
 } from '@/components/tasks/InlineTaskFieldEdit';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import {
-  CustomColumnFilters,
   CustomFiltersState,
   countActiveCustomFilters,
   matchesCustomFilters,
 } from '@/components/tasks/CustomColumnFilters';
+import { ColumnHeaderFilter, ActiveFiltersBar } from '@/components/tasks/ColumnHeaderFilter';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
@@ -388,15 +388,6 @@ const Tasks = () => {
                     </Select>
                   </div>
 
-                  {/* Filtros de Colunas Customizadas (só aparece quando um projeto está selecionado) */}
-                  {filters.project !== 'all' && (
-                    <CustomColumnFilters
-                      columns={displayedCustomColumns}
-                      filters={customFilters}
-                      onChange={setCustomFilters}
-                    />
-                  )}
-
                   <Button
                     variant="outline"
                     className="w-full"
@@ -449,6 +440,22 @@ const Tasks = () => {
           </div>
         </div>
 
+        {/* Barra de filtros ativos para colunas customizadas */}
+        {filters.project !== 'all' && (
+          <ActiveFiltersBar
+            filters={customFilters}
+            columns={displayedCustomColumns.filter(c => !c.standardField)}
+            onClear={(columnId) => {
+              setCustomFilters(prev => {
+                const updated = { ...prev };
+                delete updated[columnId];
+                return updated;
+              });
+            }}
+            onClearAll={() => setCustomFilters({})}
+          />
+        )}
+
         {/* Tasks Table */}
         <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
           <div className="overflow-x-auto">
@@ -469,9 +476,26 @@ const Tasks = () => {
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
                   {/* Custom Columns Headers */}
-                  {displayedCustomColumns.map(col => (
+                  {displayedCustomColumns.filter(c => !c.standardField).map(col => (
                     <th key={col.id} className="text-left py-4 px-4 text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {col.name}
+                      <div className="flex items-center gap-1">
+                        <span>{col.name}</span>
+                        <ColumnHeaderFilter
+                          column={col}
+                          filter={customFilters[col.id]}
+                          onChange={(value) => {
+                            if (value) {
+                              setCustomFilters(prev => ({ ...prev, [col.id]: value }));
+                            } else {
+                              setCustomFilters(prev => {
+                                const updated = { ...prev };
+                                delete updated[col.id];
+                                return updated;
+                              });
+                            }
+                          }}
+                        />
+                      </div>
                     </th>
                   ))}
                   <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground w-12"></th>
@@ -542,7 +566,7 @@ const Tasks = () => {
                         />
                       </td>
                       {/* Custom Columns Values - Inline Editable */}
-                      {displayedCustomColumns.map(col => {
+                      {displayedCustomColumns.filter(c => !c.standardField).map(col => {
                         const shouldWrap = col.type === 'text' && col.wrapText;
                         return (
                           <td
