@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { StatusBadge, PriorityBadge } from '@/components/ui/status-badge';
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Task, TaskStatus, TaskPriority, Person, Phase } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
@@ -106,31 +107,60 @@ export const PriorityEditCell = ({ priority, onSave }: PriorityEditCellProps) =>
   );
 };
 
-// Responsible Edit
+// Responsible Edit (Multi-select)
 interface ResponsibleEditCellProps {
-  responsibleId?: string;
+  responsibleIds?: string[];
   people: Person[];
-  onSave: (responsibleId: string | undefined) => void;
+  onSave: (responsibleIds: string[] | undefined) => void;
 }
 
-export const ResponsibleEditCell = ({ responsibleId, people, onSave }: ResponsibleEditCellProps) => {
+export const ResponsibleEditCell = ({ responsibleIds = [], people, onSave }: ResponsibleEditCellProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const person = people.find(p => p.id === responsibleId);
+  const selectedPeople = people.filter(p => responsibleIds.includes(p.id));
   const activePeople = people.filter(p => p.active);
 
-  const handleSelect = (value: string) => {
-    onSave(value === 'none' ? undefined : value);
-    setIsOpen(false);
+  const handleToggle = (personId: string) => {
+    const newIds = responsibleIds.includes(personId)
+      ? responsibleIds.filter(id => id !== personId)
+      : [...responsibleIds, personId];
+    onSave(newIds.length > 0 ? newIds : undefined);
+  };
+
+  const handleClearAll = () => {
+    onSave(undefined);
   };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <div className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[22px]">
-          {person ? (
-            <div className="flex items-center gap-1.5">
-              <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
-              <span className="text-xs truncate max-w-[180px]">{person.name}</span>
+          {selectedPeople.length > 0 ? (
+            <div className="flex items-center gap-1">
+              {/* Mostra até 3 avatares sobrepostos */}
+              <div className="flex -space-x-1.5">
+                {selectedPeople.slice(0, 3).map((person) => (
+                  <AvatarCircle
+                    key={person.id}
+                    name={person.name}
+                    color={person.color}
+                    size="xs"
+                    avatarUrl={person.avatarUrl}
+                    className="ring-1 ring-background"
+                  />
+                ))}
+              </div>
+              {/* Se houver mais de 3, mostra +N */}
+              {selectedPeople.length > 3 && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  +{selectedPeople.length - 3}
+                </span>
+              )}
+              {/* Se for só 1 ou 2, mostra o nome */}
+              {selectedPeople.length <= 2 && (
+                <span className="text-xs truncate max-w-[120px] ml-1">
+                  {selectedPeople.map(p => p.name).join(', ')}
+                </span>
+              )}
             </div>
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
@@ -138,29 +168,32 @@ export const ResponsibleEditCell = ({ responsibleId, people, onSave }: Responsib
           <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-2" align="start">
-        <div className="space-y-1 max-h-48 overflow-y-auto">
-          <button
-            className={cn(
-              "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors",
-              !responsibleId && "bg-muted"
-            )}
-            onClick={() => handleSelect('none')}
-          >
-            <span className="text-muted-foreground">Nenhum</span>
-          </button>
-          {activePeople.map((p) => (
+      <PopoverContent className="w-56 p-2" align="start">
+        <div className="space-y-1 max-h-64 overflow-y-auto">
+          {selectedPeople.length > 0 && (
             <button
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+              onClick={handleClearAll}
+            >
+              <X className="w-3 h-3" />
+              Limpar seleção
+            </button>
+          )}
+          {activePeople.map((p) => (
+            <label
               key={p.id}
               className={cn(
-                "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors",
-                responsibleId === p.id && "bg-muted"
+                "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors cursor-pointer",
+                responsibleIds.includes(p.id) && "bg-muted"
               )}
-              onClick={() => handleSelect(p.id)}
             >
+              <Checkbox
+                checked={responsibleIds.includes(p.id)}
+                onCheckedChange={() => handleToggle(p.id)}
+              />
               <AvatarCircle name={p.name} color={p.color} size="sm" avatarUrl={p.avatarUrl} />
               <span className="truncate">{p.name}</span>
-            </button>
+            </label>
           ))}
         </div>
       </PopoverContent>

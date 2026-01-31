@@ -109,7 +109,8 @@ const Tasks = () => {
       // Filtros padrão agora usam arrays - se vazio, aceita todos
       const matchesStatus = standardFilters.status.length === 0 || standardFilters.status.includes(task.status);
       const matchesPriority = standardFilters.priority.length === 0 || standardFilters.priority.includes(task.priority);
-      const matchesResponsible = standardFilters.responsible.length === 0 || (task.responsibleId && standardFilters.responsible.includes(task.responsibleId));
+      const matchesResponsible = standardFilters.responsible.length === 0 ||
+        (task.responsibleIds && task.responsibleIds.some(id => standardFilters.responsible.includes(id)));
 
       // Filtros customizados (só aplicar se um projeto estiver selecionado)
       const matchesCustom = projectFilter === 'all' || matchesCustomFilters(task, customFilters, displayedCustomColumns);
@@ -520,9 +521,9 @@ const Tasks = () => {
                       </td>
                       <td className="py-4 px-4">
                         <ResponsibleEditCell
-                          responsibleId={task.responsibleId}
+                          responsibleIds={task.responsibleIds}
                           people={people}
-                          onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleId: value })}
+                          onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleIds: value })}
                         />
                       </td>
                       <td className="py-4 px-4">

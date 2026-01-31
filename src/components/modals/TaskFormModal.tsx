@@ -10,10 +10,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Pencil } from 'lucide-react';
+import { ClipboardList, Pencil, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AvatarCircle } from '@/components/ui/avatar-circle';
 import {
   Select,
   SelectContent,
@@ -21,15 +23,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useData } from '@/contexts/DataContext';
 import { Task } from '@/lib/types';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const taskSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(200, 'Nome deve ter no máximo 200 caracteres'),
   description: z.string().max(2000, 'Descrição deve ter no máximo 2000 caracteres').optional(),
   projectId: z.string().min(1, 'Projeto é obrigatório'),
-  responsibleId: z.string().optional(),
+  responsibleIds: z.array(z.string()).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
@@ -42,12 +50,13 @@ interface TaskFormModalProps {
   onOpenChange: (open: boolean) => void;
   task?: Task;
   defaultProjectId?: string;
-  defaultResponsibleId?: string;
+  defaultResponsibleIds?: string[];
 }
 
-export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defaultResponsibleId }: TaskFormModalProps) {
+export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defaultResponsibleIds }: TaskFormModalProps) {
   const { projects, people, addTask, updateTask } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [responsiblePopoverOpen, setResponsiblePopoverOpen] = useState(false);
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
@@ -55,12 +64,25 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
       name: '',
       description: '',
       projectId: defaultProjectId || '',
-      responsibleId: defaultResponsibleId || '',
+      responsibleIds: defaultResponsibleIds || [],
       startDate: '',
       endDate: '',
       priority: 'medium',
     },
   });
+
+  const selectedResponsibleIds = form.watch('responsibleIds') || [];
+  const selectedPeople = people.filter(p => selectedResponsibleIds.includes(p.id));
+  const activePeople = people.filter(p => p.active);
+
+  const toggleResponsible = (personId: string) => {
+    const current = form.getValues('responsibleIds') || [];
+    if (current.includes(personId)) {
+      form.setValue('responsibleIds', current.filter(id => id !== personId));
+    } else {
+      form.setValue('responsibleIds', [...current, personId]);
+    }
+  };
 
   useEffect(() => {
     if (task) {
@@ -68,7 +90,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
         name: task.name,
         description: task.description || '',
         projectId: task.projectId,
-        responsibleId: task.responsibleId || '',
+        responsibleIds: task.responsibleIds || [],
         startDate: task.startDate || '',
         endDate: task.endDate || '',
         priority: task.priority,
@@ -78,13 +100,13 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
         name: '',
         description: '',
         projectId: defaultProjectId || '',
-        responsibleId: defaultResponsibleId || '',
+        responsibleIds: defaultResponsibleIds || [],
         startDate: '',
         endDate: '',
         priority: 'medium',
       });
     }
-  }, [task, defaultProjectId, defaultResponsibleId, form, open]);
+  }, [task, defaultProjectId, defaultResponsibleIds, form, open]);
 
   const onSubmit = async (data: TaskFormData) => {
     setIsSubmitting(true);
@@ -93,7 +115,7 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
         name: data.name,
         description: data.description || undefined,
         projectId: data.projectId,
-        responsibleId: data.responsibleId || undefined,
+        responsibleIds: data.responsibleIds && data.responsibleIds.length > 0 ? data.responsibleIds : undefined,
         startDate: data.startDate || undefined,
         endDate: data.endDate || undefined,
         status: task?.status || 'pending' as const, // Keep existing status or default to pending
@@ -188,25 +210,74 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Responsible */}
+            {/* Responsible - Multi-select */}
             <div className="space-y-2">
-              <Label htmlFor="responsibleId">Responsável</Label>
-              <Select
-                value={form.watch('responsibleId') || ''}
-                onValueChange={(value) => form.setValue('responsibleId', value === 'none' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {people.filter(p => p.active).map((person) => (
-                    <SelectItem key={person.id} value={person.id}>
-                      {person.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Responsáveis</Label>
+              <Popover open={responsiblePopoverOpen} onOpenChange={setResponsiblePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      selectedPeople.length === 0 && "text-muted-foreground"
+                    )}
+                  >
+                    {selectedPeople.length === 0 ? (
+                      <span>Selecione...</span>
+                    ) : selectedPeople.length === 1 ? (
+                      <div className="flex items-center gap-2">
+                        <AvatarCircle name={selectedPeople[0].name} color={selectedPeople[0].color} size="xs" avatarUrl={selectedPeople[0].avatarUrl} />
+                        <span className="truncate">{selectedPeople[0].name}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <div className="flex -space-x-1">
+                          {selectedPeople.slice(0, 3).map(p => (
+                            <AvatarCircle key={p.id} name={p.name} color={p.color} size="xs" avatarUrl={p.avatarUrl} className="ring-1 ring-background" />
+                          ))}
+                        </div>
+                        <span className="text-sm">{selectedPeople.length} selecionados</span>
+                      </div>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {selectedPeople.length > 0 && (
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+                        onClick={() => form.setValue('responsibleIds', [])}
+                      >
+                        <X className="w-3 h-3" />
+                        Limpar seleção
+                      </button>
+                    )}
+                    {activePeople.map((person) => (
+                      <label
+                        key={person.id}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors cursor-pointer",
+                          selectedResponsibleIds.includes(person.id) && "bg-muted"
+                        )}
+                      >
+                        <Checkbox
+                          checked={selectedResponsibleIds.includes(person.id)}
+                          onCheckedChange={() => toggleResponsible(person.id)}
+                        />
+                        <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
+                        <span className="truncate">{person.name}</span>
+                      </label>
+                    ))}
+                    {activePeople.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        Nenhuma pessoa cadastrada
+                      </p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Priority */}

@@ -752,6 +752,10 @@ function mapCell(data: any): Cell {
 }
 
 function mapTask(data: any): Task {
+  // Suporta migração: se responsible_ids existe usa ele, senão converte responsible_id para array
+  const responsibleIds = data.responsible_ids
+    || (data.responsible_id ? [data.responsible_id] : undefined);
+
   return {
     id: data.id,
     name: data.name,
@@ -760,7 +764,7 @@ function mapTask(data: any): Task {
     phaseId: data.phase_id,
     cellId: data.cell_id,
     deviceId: data.device_id,
-    responsibleId: data.responsible_id,
+    responsibleIds,
     quantity: data.quantity,
     collected: data.collected,
     startDate: data.start_date,
@@ -785,6 +789,7 @@ function mapCustomColumn(data: any): CustomColumn {
     isMilestone: data.is_milestone,
     active: data.active,
     hidden: data.hidden || false,
+    wrapText: data.wrap_text || false,
     standardField: data.standard_field,
   };
 }
@@ -840,7 +845,7 @@ function taskToDb(task: Partial<Task>): any {
   if (task.phaseId !== undefined) result.phase_id = task.phaseId;
   if (task.cellId !== undefined) result.cell_id = task.cellId;
   if (task.deviceId !== undefined) result.device_id = task.deviceId;
-  if (task.responsibleId !== undefined) result.responsible_id = task.responsibleId;
+  if (task.responsibleIds !== undefined) result.responsible_ids = task.responsibleIds;
   if (task.quantity !== undefined) result.quantity = task.quantity;
   if (task.collected !== undefined) result.collected = task.collected;
   if (task.startDate !== undefined) result.start_date = task.startDate;
@@ -864,6 +869,7 @@ function customColumnToDb(column: Partial<CustomColumn>): any {
   if (column.isMilestone !== undefined) result.is_milestone = column.isMilestone;
   if (column.active !== undefined) result.active = column.active;
   if (column.hidden !== undefined) result.hidden = column.hidden;
+  if (column.wrapText !== undefined) result.wrap_text = column.wrapText;
   if (column.standardField !== undefined) result.standard_field = column.standardField;
   return result;
 }

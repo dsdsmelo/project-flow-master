@@ -113,7 +113,7 @@ export interface Task {
   phaseId?: string;
   cellId?: string;
   deviceId?: string;
-  responsibleId?: string;
+  responsibleIds?: string[]; // Array de IDs dos responsáveis
   quantity?: number;
   collected?: number;
   startDate?: string;
