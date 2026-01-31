@@ -701,7 +701,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     {projectColumns.map((col, colIndex) => {
                       const isNameCol = colIndex === 0;
                       const isCompactCol = ['status', 'priority', 'startDate', 'endDate', 'progress'].includes(col.standardField || '') || ['number', 'percentage'].includes(col.type);
-                      const shouldWrap = col.type === 'text' && col.wrapText;
+                      // Todas as colunas de texto têm quebra automática
+                      const shouldWrap = col.type === 'text' && !col.standardField;
                       return (
                       <td
                         key={col.id}

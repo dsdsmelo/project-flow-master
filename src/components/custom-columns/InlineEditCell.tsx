@@ -78,10 +78,7 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
   if (!isEditing) {
     return (
       <div
-        className={cn(
-          "group flex items-start gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]",
-          column.wrapText && "items-start"
-        )}
+        className="group flex items-start gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]"
         onClick={handleStartEdit}
       >
         <DisplayValue column={column} value={value} people={people} />
@@ -92,18 +89,8 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
 
   // Edit mode
   return (
-    <div className={cn("flex gap-1", column.wrapText ? "items-start" : "items-center")}>
-      {column.type === 'text' && !column.wrapText && (
-        <Input
-          ref={inputRef}
-          value={editValue as string}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleSave}
-          className="h-6 text-xs min-w-[80px]"
-        />
-      )}
-      {column.type === 'text' && column.wrapText && (
+    <div className={cn("flex gap-1", column.type === 'text' ? "items-start" : "items-center")}>
+      {column.type === 'text' && (
         <textarea
           ref={inputRef as React.RefObject<HTMLTextAreaElement>}
           value={editValue as string}
@@ -196,7 +183,7 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
       )}
 
       {(column.type === 'text' || column.type === 'number' || column.type === 'date') && (
-        <div className={cn("flex gap-0.5", column.wrapText && "flex-col")}>
+        <div className={cn("flex gap-0.5", column.type === 'text' && "flex-col")}>
           <Button
             variant="ghost"
             size="sm"
@@ -304,11 +291,9 @@ const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
 
   switch (column.type) {
     case 'text':
+      // Todas as colunas de texto têm quebra automática
       return (
-        <span className={cn(
-          "text-xs",
-          column.wrapText && "whitespace-pre-wrap break-words"
-        )}>
+        <span className="text-xs whitespace-pre-wrap break-words">
           {value as string}
         </span>
       );
