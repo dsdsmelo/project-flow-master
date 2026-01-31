@@ -15,7 +15,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { ProjectFormModal, COVER_GRADIENTS, COVER_SOLID_COLORS } from '@/components/modals/ProjectFormModal';
+import { ProjectFormModal, COVER_GRADIENTS, isHexColor } from '@/components/modals/ProjectFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage } from '@/lib/mockData';
 import { projectStatusLabels, Project } from '@/lib/types';
@@ -217,8 +217,8 @@ const Projects = () => {
               const coverGradient = project.coverColor
                 ? COVER_GRADIENTS.find(g => g.id === project.coverColor)
                 : null;
-              const coverSolid = project.coverColor
-                ? COVER_SOLID_COLORS.find(c => c.id === project.coverColor)
+              const coverSolid = project.coverColor && isHexColor(project.coverColor)
+                ? project.coverColor
                 : null;
 
               return (
@@ -232,7 +232,7 @@ const Projects = () => {
                     <div className={cn("h-1.5 w-full bg-gradient-to-r", coverGradient.class)} />
                   )}
                   {coverSolid && (
-                    <div className="h-1.5 w-full" style={{ backgroundColor: coverSolid.color }} />
+                    <div className="h-1.5 w-full" style={{ backgroundColor: coverSolid }} />
                   )}
 
                   {/* Content Section */}

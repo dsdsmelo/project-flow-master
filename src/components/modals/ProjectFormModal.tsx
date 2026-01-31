@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
 const projectSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().optional(),
-  startDate: z.string().optional(),
+  startDate: z.string().min(1, 'Data início é obrigatória'),
   endDate: z.string().optional(),
   status: z.enum(['planning', 'active', 'paused', 'completed', 'cancelled']),
 });
@@ -71,21 +71,8 @@ export const COVER_GRADIENTS = [
   { id: 'pink', name: 'Rosa', class: 'from-pink-500 to-fuchsia-500' },
 ];
 
-// Solid color options
-export const COVER_SOLID_COLORS = [
-  { id: 'solid-blue', name: 'Azul', color: '#3B82F6' },
-  { id: 'solid-green', name: 'Verde', color: '#22C55E' },
-  { id: 'solid-yellow', name: 'Amarelo', color: '#EAB308' },
-  { id: 'solid-orange', name: 'Laranja', color: '#F97316' },
-  { id: 'solid-red', name: 'Vermelho', color: '#EF4444' },
-  { id: 'solid-purple', name: 'Roxo', color: '#8B5CF6' },
-  { id: 'solid-pink', name: 'Rosa', color: '#EC4899' },
-  { id: 'solid-cyan', name: 'Ciano', color: '#06B6D4' },
-  { id: 'solid-slate', name: 'Cinza', color: '#64748B' },
-  { id: 'solid-emerald', name: 'Esmeralda', color: '#10B981' },
-  { id: 'solid-amber', name: 'Âmbar', color: '#F59E0B' },
-  { id: 'solid-rose', name: 'Rosê', color: '#F43F5E' },
-];
+// Helper function to check if a color value is a hex color
+export const isHexColor = (value: string) => value?.startsWith('#');
 
 // Protected standard fields that cannot be deleted
 const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
@@ -98,6 +85,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
   // Cover state
   const [coverColor, setCoverColor] = useState<string | null>(null);
+  const [customColors, setCustomColors] = useState<string[]>([]);
 
   // Members state
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
@@ -153,6 +141,10 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         status: project.status,
       });
       setCoverColor(project.coverColor || null);
+      // If project has a custom hex color, add it to customColors
+      if (project.coverColor && isHexColor(project.coverColor) && !customColors.includes(project.coverColor)) {
+        setCustomColors(prev => [...prev, project.coverColor!]);
+      }
       setPendingColumns([]);
       // Carregar membros do projeto
       setSelectedMemberIds(getProjectMemberIds(project.id));
@@ -539,7 +531,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       </Label>
       <div className="space-y-2">
         <span className="text-xs text-muted-foreground">Gradientes</span>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           {COVER_GRADIENTS.map((gradient) => (
             <button
               key={gradient.id}
@@ -555,26 +547,44 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               title={gradient.name}
             />
           ))}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <span className="text-xs text-muted-foreground">Cores sólidas</span>
-        <div className="flex flex-wrap gap-2">
-          {COVER_SOLID_COLORS.map((solidColor) => (
+          {/* Custom colors */}
+          {customColors.map((color) => (
             <button
-              key={solidColor.id}
+              key={color}
               type="button"
-              onClick={() => handleSelectGradient(solidColor.id)}
+              onClick={() => setCoverColor(coverColor === color ? null : color)}
               className={cn(
                 "w-8 h-8 rounded-md transition-all",
-                coverColor === solidColor.id
+                coverColor === color
                   ? "ring-2 ring-primary ring-offset-2 scale-110"
                   : "hover:scale-105 hover:ring-1 hover:ring-border"
               )}
-              style={{ backgroundColor: solidColor.color }}
-              title={solidColor.name}
+              style={{ backgroundColor: color }}
+              title={color}
             />
           ))}
+          {/* Custom color picker button */}
+          <label
+            className="w-8 h-8 rounded-md border-2 border-dashed border-muted-foreground/50 flex items-center justify-center cursor-pointer hover:border-primary hover:scale-105 transition-all"
+            title="Adicionar cor personalizada"
+          >
+            <Plus className="w-4 h-4 text-muted-foreground" />
+            <input
+              type="color"
+              className="sr-only"
+              onInput={(e) => {
+                const newColor = (e.target as HTMLInputElement).value;
+                setCoverColor(newColor);
+              }}
+              onBlur={(e) => {
+                const newColor = e.target.value;
+                if (!customColors.includes(newColor)) {
+                  setCustomColors(prev => [...prev, newColor]);
+                }
+                setCoverColor(newColor);
+              }}
+            />
+          </label>
         </div>
       </div>
     </div>
@@ -810,8 +820,11 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startDate">Data Início</Label>
+                    <Label htmlFor="startDate">Data Início *</Label>
                     <Input id="startDate" type="date" {...form.register('startDate')} />
+                    {form.formState.errors.startDate && (
+                      <p className="text-sm text-destructive">{form.formState.errors.startDate.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="endDate">Data Fim</Label>
@@ -882,8 +895,11 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate">Data Início</Label>
+                  <Label htmlFor="startDate">Data Início *</Label>
                   <Input id="startDate" type="date" {...form.register('startDate')} />
+                  {form.formState.errors.startDate && (
+                    <p className="text-sm text-destructive">{form.formState.errors.startDate.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate">Data Fim</Label>
