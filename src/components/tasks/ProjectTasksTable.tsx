@@ -579,12 +579,15 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                 {projectColumns.map((col, colIndex) => {
                   const isNameCol = colIndex === 0;
                   const isCompactCol = ['status', 'priority', 'startDate', 'endDate', 'progress'].includes(col.standardField || '') || ['number', 'percentage'].includes(col.type);
+                  // Colunas de texto customizadas têm largura controlada
+                  const isTextCol = col.type === 'text' && !col.standardField;
                   return (
                   <th
                     key={col.id}
                     className={cn(
                       "text-left py-1.5 px-2 text-xs font-medium text-muted-foreground whitespace-nowrap transition-all",
                       isCompactCol && "w-[1px]",
+                      isTextCol && "min-w-[150px]",
                       draggedColumnId === col.id && "opacity-50",
                       dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
                       isNameCol && "sticky left-8 z-20 bg-muted after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border"
@@ -709,7 +712,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                         className={cn(
                           "py-1 px-2 text-xs",
                           !shouldWrap && "whitespace-nowrap",
-                          shouldWrap && "min-w-[120px] max-w-[400px]",
+                          shouldWrap && "min-w-[150px]",
                           isCompactCol && "w-[1px]",
                           isNameCol && "sticky left-8 z-20 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border transition-colors",
                           isNameCol && "group-hover/row:bg-muted",
