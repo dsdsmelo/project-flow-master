@@ -145,6 +145,7 @@ export interface Milestone {
   id: string;
   name: string;
   projectId: string;
+  phaseId?: string; // Fase vinculada (opcional)
   description?: string;
   color?: string;
   date: string; // Data única do marco (diamante)

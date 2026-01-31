@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,7 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useData } from '@/contexts/DataContext';
 import { Milestone } from '@/lib/types';
 import { toast } from 'sonner';
-import { Calendar, Diamond, Plus } from 'lucide-react';
+import { Calendar, Diamond, Plus, Layers } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +46,7 @@ const milestoneSchema = z.object({
   description: z.string().optional(),
   color: z.string().optional(),
   date: z.string().min(1, 'Data é obrigatória'),
+  phaseId: z.string().optional(),
 });
 
 type MilestoneFormData = z.infer<typeof milestoneSchema>;
@@ -65,9 +73,15 @@ export const MilestoneFormModal = ({
   projectId,
   milestone,
 }: MilestoneFormModalProps) => {
-  const { addMilestone, updateMilestone } = useData();
+  const { addMilestone, updateMilestone, phases } = useData();
   const [customColors, setCustomColors] = useState<string[]>([]);
   const [dateOpen, setDateOpen] = useState(false);
+
+  // Filtrar fases do projeto atual
+  const projectPhases = useMemo(
+    () => phases.filter(p => p.projectId === projectId).sort((a, b) => a.order - b.order),
+    [phases, projectId]
+  );
 
   const form = useForm<MilestoneFormData>({
     resolver: zodResolver(milestoneSchema),
@@ -76,6 +90,7 @@ export const MilestoneFormModal = ({
       description: '',
       color: '#3B82F6',
       date: '',
+      phaseId: '',
     },
   });
 
@@ -86,6 +101,7 @@ export const MilestoneFormModal = ({
         description: milestone.description || '',
         color: milestone.color || '#3B82F6',
         date: milestone.date || '',
+        phaseId: milestone.phaseId || '',
       });
     } else {
       form.reset({
@@ -93,6 +109,7 @@ export const MilestoneFormModal = ({
         description: '',
         color: '#3B82F6',
         date: '',
+        phaseId: '',
       });
     }
   }, [milestone, open, form]);
@@ -105,6 +122,7 @@ export const MilestoneFormModal = ({
           description: data.description,
           color: data.color,
           date: data.date,
+          phaseId: data.phaseId || undefined,
         });
         toast.success('Marco atualizado com sucesso!');
       } else {
@@ -114,6 +132,7 @@ export const MilestoneFormModal = ({
           description: data.description,
           color: data.color,
           date: data.date,
+          phaseId: data.phaseId || undefined,
         });
         toast.success('Marco criado com sucesso!');
       }
@@ -198,6 +217,52 @@ export const MilestoneFormModal = ({
                 </FormItem>
               )}
             />
+
+            {/* Seleção de Fase (opcional) */}
+            {projectPhases.length > 0 && (
+              <FormField
+                control={form.control}
+                name="phaseId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-amber-600" />
+                      Vincular a uma Fase (opcional)
+                    </FormLabel>
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma fase..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">Nenhuma fase</span>
+                        </SelectItem>
+                        {projectPhases.map((phase) => (
+                          <SelectItem key={phase.id} value={phase.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-sm"
+                                style={{ backgroundColor: phase.color || '#f59e0b' }}
+                              />
+                              {phase.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      O marco será exibido junto à fase no Gantt
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

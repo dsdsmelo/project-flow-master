@@ -940,6 +940,7 @@ function mapMilestone(data: any): Milestone {
     id: data.id,
     name: data.name,
     projectId: data.project_id,
+    phaseId: data.phase_id || undefined,
     description: data.description,
     color: data.color,
     date: data.date || data.start_date || '',
@@ -951,6 +952,7 @@ function milestoneToDb(milestone: Partial<Milestone>): any {
   const result: any = {};
   if (milestone.name !== undefined) result.name = milestone.name;
   if (milestone.projectId !== undefined) result.project_id = milestone.projectId;
+  if (milestone.phaseId !== undefined) result.phase_id = milestone.phaseId || null;
   if (milestone.description !== undefined) result.description = milestone.description;
   if (milestone.color !== undefined) result.color = milestone.color;
   if (milestone.date !== undefined) result.date = milestone.date;
