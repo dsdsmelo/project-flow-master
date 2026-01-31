@@ -587,7 +587,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     className={cn(
                       "text-left py-1.5 px-2 text-xs font-medium text-muted-foreground whitespace-nowrap transition-all",
                       isCompactCol && "w-[1px]",
-                      isTextCol && "min-w-[150px]",
+                      isTextCol && "min-w-[250px]",
                       draggedColumnId === col.id && "opacity-50",
                       dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
                       isNameCol && "sticky left-8 z-20 bg-muted after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border"
@@ -712,7 +712,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                         className={cn(
                           "py-1 px-2 text-xs",
                           !shouldWrap && "whitespace-nowrap",
-                          shouldWrap && "min-w-[150px]",
+                          shouldWrap && "min-w-[250px]",
                           isCompactCol && "w-[1px]",
                           isNameCol && "sticky left-8 z-20 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border transition-colors",
                           isNameCol && "group-hover/row:bg-muted",
