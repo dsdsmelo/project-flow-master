@@ -71,6 +71,22 @@ export const COVER_GRADIENTS = [
   { id: 'pink', name: 'Rosa', class: 'from-pink-500 to-fuchsia-500' },
 ];
 
+// Solid color options
+export const COVER_SOLID_COLORS = [
+  { id: 'solid-blue', name: 'Azul', color: '#3B82F6' },
+  { id: 'solid-green', name: 'Verde', color: '#22C55E' },
+  { id: 'solid-yellow', name: 'Amarelo', color: '#EAB308' },
+  { id: 'solid-orange', name: 'Laranja', color: '#F97316' },
+  { id: 'solid-red', name: 'Vermelho', color: '#EF4444' },
+  { id: 'solid-purple', name: 'Roxo', color: '#8B5CF6' },
+  { id: 'solid-pink', name: 'Rosa', color: '#EC4899' },
+  { id: 'solid-cyan', name: 'Ciano', color: '#06B6D4' },
+  { id: 'solid-slate', name: 'Cinza', color: '#64748B' },
+  { id: 'solid-emerald', name: 'Esmeralda', color: '#10B981' },
+  { id: 'solid-amber', name: 'Âmbar', color: '#F59E0B' },
+  { id: 'solid-rose', name: 'Rosê', color: '#F43F5E' },
+];
+
 // Protected standard fields that cannot be deleted
 const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
   'name', 'description', 'responsible', 'status', 'priority', 'startDate', 'endDate', 'progress',
@@ -516,27 +532,50 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
 
   // Cover color selection component
   const CoverSection = () => (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Label className="flex items-center gap-2">
         <Palette className="w-4 h-4" />
         Cor do Projeto
       </Label>
-      <div className="flex flex-wrap gap-2">
-        {COVER_GRADIENTS.map((gradient) => (
-          <button
-            key={gradient.id}
-            type="button"
-            onClick={() => handleSelectGradient(gradient.id)}
-            className={cn(
-              "w-8 h-8 rounded-md bg-gradient-to-br transition-all",
-              gradient.class,
-              coverColor === gradient.id
-                ? "ring-2 ring-primary ring-offset-2 scale-110"
-                : "hover:scale-105 hover:ring-1 hover:ring-border"
-            )}
-            title={gradient.name}
-          />
-        ))}
+      <div className="space-y-2">
+        <span className="text-xs text-muted-foreground">Gradientes</span>
+        <div className="flex flex-wrap gap-2">
+          {COVER_GRADIENTS.map((gradient) => (
+            <button
+              key={gradient.id}
+              type="button"
+              onClick={() => handleSelectGradient(gradient.id)}
+              className={cn(
+                "w-8 h-8 rounded-md bg-gradient-to-br transition-all",
+                gradient.class,
+                coverColor === gradient.id
+                  ? "ring-2 ring-primary ring-offset-2 scale-110"
+                  : "hover:scale-105 hover:ring-1 hover:ring-border"
+              )}
+              title={gradient.name}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <span className="text-xs text-muted-foreground">Cores sólidas</span>
+        <div className="flex flex-wrap gap-2">
+          {COVER_SOLID_COLORS.map((solidColor) => (
+            <button
+              key={solidColor.id}
+              type="button"
+              onClick={() => handleSelectGradient(solidColor.id)}
+              className={cn(
+                "w-8 h-8 rounded-md transition-all",
+                coverColor === solidColor.id
+                  ? "ring-2 ring-primary ring-offset-2 scale-110"
+                  : "hover:scale-105 hover:ring-1 hover:ring-border"
+              )}
+              style={{ backgroundColor: solidColor.color }}
+              title={solidColor.name}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
