@@ -97,6 +97,7 @@ export const ColumnManagerSheet = ({
     options: [] as string[],
     newOption: '',
     isMilestone: false,
+    wrapText: false,
   });
 
   const project = projects.find(p => p.id === projectId);
@@ -106,7 +107,7 @@ export const ColumnManagerSheet = ({
     .sort((a, b) => a.order - b.order);
 
   const resetForm = () => {
-    setFormData({ name: '', type: 'text', options: [], newOption: '', isMilestone: false });
+    setFormData({ name: '', type: 'text', options: [], newOption: '', isMilestone: false, wrapText: false });
     setEditingColumn(null);
   };
 
@@ -123,6 +124,7 @@ export const ColumnManagerSheet = ({
       options: column.options || [],
       newOption: '',
       isMilestone: column.isMilestone || false,
+      wrapText: column.wrapText || false,
     });
     setIsDialogOpen(true);
   };
@@ -154,7 +156,7 @@ export const ColumnManagerSheet = ({
           type: formData.type,
           options: formData.options,
           isMilestone: formData.isMilestone,
-          wrapText: formData.type === 'text', // Sempre true para texto
+          wrapText: formData.type === 'text' ? formData.wrapText : false,
         });
       } else {
         await addCustomColumn({
@@ -164,7 +166,7 @@ export const ColumnManagerSheet = ({
           order: projectColumns.length + 1,
           options: formData.type === 'list' ? formData.options : undefined,
           isMilestone: formData.isMilestone,
-          wrapText: formData.type === 'text', // Sempre true para texto
+          wrapText: formData.type === 'text' ? formData.wrapText : false,
           active: true,
         });
       }
@@ -516,6 +518,22 @@ export const ColumnManagerSheet = ({
                 <p className="text-xs text-muted-foreground">O tipo não pode ser alterado após a criação</p>
               )}
             </div>
+
+            {formData.type === 'text' && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="wrapText" className="text-sm font-medium">Quebra de linhas</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Textos longos ocupam mais linhas (coluna mais larga)
+                  </p>
+                </div>
+                <Switch
+                  id="wrapText"
+                  checked={formData.wrapText}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, wrapText: checked }))}
+                />
+              </div>
+            )}
 
             {formData.type === 'list' && (
               <div className="space-y-2">

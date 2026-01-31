@@ -291,9 +291,12 @@ const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
 
   switch (column.type) {
     case 'text':
-      // Todas as colunas de texto têm quebra automática
+      // Quebra de linha apenas quando wrapText está habilitado
       return (
-        <span className="text-xs whitespace-pre-wrap break-words">
+        <span className={cn(
+          "text-xs",
+          column.wrapText ? "whitespace-pre-wrap break-words" : "truncate block max-w-[200px]"
+        )}>
           {value as string}
         </span>
       );

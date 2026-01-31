@@ -579,15 +579,15 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                 {projectColumns.map((col, colIndex) => {
                   const isNameCol = colIndex === 0;
                   const isCompactCol = ['status', 'priority', 'startDate', 'endDate', 'progress'].includes(col.standardField || '') || ['number', 'percentage'].includes(col.type);
-                  // Colunas de texto customizadas têm largura controlada
-                  const isTextCol = col.type === 'text' && !col.standardField;
+                  // Colunas de texto com wrapText habilitado têm largura controlada
+                  const shouldWrapHeader = col.type === 'text' && !col.standardField && col.wrapText;
                   return (
                   <th
                     key={col.id}
                     className={cn(
                       "text-left py-1.5 px-2 text-xs font-medium text-muted-foreground whitespace-nowrap transition-all",
                       isCompactCol && "w-[1px]",
-                      isTextCol && "min-w-[250px]",
+                      shouldWrapHeader && "min-w-[250px]",
                       draggedColumnId === col.id && "opacity-50",
                       dragOverColumnId === col.id && "bg-primary/10 border-l-2 border-primary",
                       isNameCol && "sticky left-8 z-20 bg-muted after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border"
@@ -704,8 +704,8 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     {projectColumns.map((col, colIndex) => {
                       const isNameCol = colIndex === 0;
                       const isCompactCol = ['status', 'priority', 'startDate', 'endDate', 'progress'].includes(col.standardField || '') || ['number', 'percentage'].includes(col.type);
-                      // Todas as colunas de texto têm quebra automática
-                      const shouldWrap = col.type === 'text' && !col.standardField;
+                      // Colunas de texto com wrapText habilitado têm quebra automática
+                      const shouldWrap = col.type === 'text' && !col.standardField && col.wrapText;
                       return (
                       <td
                         key={col.id}
