@@ -18,14 +18,20 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { InlineEditCell } from '@/components/custom-columns/InlineEditCell';
 import { TaskProgressEditCell } from '@/components/custom-columns/TaskProgressEditCell';
-import { 
-  StatusEditCell, 
-  PriorityEditCell, 
-  ResponsibleEditCell, 
+import {
+  StatusEditCell,
+  PriorityEditCell,
+  ResponsibleEditCell,
   PhaseEditCell,
-  TextEditCell 
+  TextEditCell
 } from '@/components/tasks/InlineTaskFieldEdit';
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
+import {
+  CustomColumnFilters,
+  CustomFiltersState,
+  countActiveCustomFilters,
+  matchesCustomFilters,
+} from '@/components/tasks/CustomColumnFilters';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
@@ -75,6 +81,8 @@ const Tasks = () => {
     priority: 'all',
     responsible: 'all',
   });
+  // Filtros para colunas customizadas
+  const [customFilters, setCustomFilters] = useState<CustomFiltersState>({});
   // Toggle to show/hide completed tasks (hidden by default)
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -101,9 +109,13 @@ const Tasks = () => {
       const matchesStatus = filters.status === 'all' || task.status === filters.status;
       const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
       const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
-      return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesResponsible;
+
+      // Filtros customizados (só aplicar se um projeto estiver selecionado)
+      const matchesCustom = filters.project === 'all' || matchesCustomFilters(task, customFilters, displayedCustomColumns);
+
+      return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesResponsible && matchesCustom;
     });
-  }, [safeTasks, search, filters, showCompleted]);
+  }, [safeTasks, search, filters, showCompleted, customFilters, displayedCustomColumns]);
 
   // Get custom columns for the selected project (or all if no project selected)
   // Columns are automatically displayed based on project selection
@@ -147,7 +159,7 @@ const Tasks = () => {
     }
   };
 
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length;
+  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length + countActiveCustomFilters(customFilters);
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
@@ -279,7 +291,11 @@ const Tasks = () => {
               />
             </div>
             
-            <Select value={filters.project} onValueChange={(v) => setFilters(f => ({ ...f, project: v }))}>
+            <Select value={filters.project} onValueChange={(v) => {
+              setFilters(f => ({ ...f, project: v }));
+              // Limpar filtros customizados ao mudar de projeto (colunas são específicas por projeto)
+              setCustomFilters({});
+            }}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Projeto" />
               </SelectTrigger>
@@ -372,10 +388,22 @@ const Tasks = () => {
                     </Select>
                   </div>
 
-                  <Button 
-                    variant="outline" 
+                  {/* Filtros de Colunas Customizadas (só aparece quando um projeto está selecionado) */}
+                  {filters.project !== 'all' && (
+                    <CustomColumnFilters
+                      columns={displayedCustomColumns}
+                      filters={customFilters}
+                      onChange={setCustomFilters}
+                    />
+                  )}
+
+                  <Button
+                    variant="outline"
                     className="w-full"
-                    onClick={() => setFilters({ project: 'all', status: 'all', priority: 'all', responsible: 'all' })}
+                    onClick={() => {
+                      setFilters({ project: 'all', status: 'all', priority: 'all', responsible: 'all' });
+                      setCustomFilters({});
+                    }}
                   >
                     Limpar Filtros
                   </Button>
@@ -514,15 +542,24 @@ const Tasks = () => {
                         />
                       </td>
                       {/* Custom Columns Values - Inline Editable */}
-                      {displayedCustomColumns.map(col => (
-                        <td key={col.id} className="py-3 px-4">
-                          <InlineEditCell
-                            column={col}
-                            value={task.customValues?.[col.id]}
-                            onSave={(value) => handleCustomValueChange(task.id, col.id, value)}
-                          />
-                        </td>
-                      ))}
+                      {displayedCustomColumns.map(col => {
+                        const shouldWrap = col.type === 'text' && col.wrapText;
+                        return (
+                          <td
+                            key={col.id}
+                            className={cn(
+                              "py-3 px-4",
+                              shouldWrap && "min-w-[150px] max-w-[300px]"
+                            )}
+                          >
+                            <InlineEditCell
+                              column={col}
+                              value={task.customValues?.[col.id]}
+                              onSave={(value) => handleCustomValueChange(task.id, col.id, value)}
+                            />
+                          </td>
+                        );
+                      })}
                       <td className="py-4 px-4 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

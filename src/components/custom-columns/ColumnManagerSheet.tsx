@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, GripVertical, X, Settings2, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, X, Settings2, RotateCcw, Eye, EyeOff, WrapText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useData } from '@/contexts/DataContext';
 import { CustomColumn } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -96,6 +97,7 @@ export const ColumnManagerSheet = ({
     options: [] as string[],
     newOption: '',
     isMilestone: false,
+    wrapText: false,
   });
 
   const project = projects.find(p => p.id === projectId);
@@ -105,7 +107,7 @@ export const ColumnManagerSheet = ({
     .sort((a, b) => a.order - b.order);
 
   const resetForm = () => {
-    setFormData({ name: '', type: 'text', options: [], newOption: '', isMilestone: false });
+    setFormData({ name: '', type: 'text', options: [], newOption: '', isMilestone: false, wrapText: false });
     setEditingColumn(null);
   };
 
@@ -122,6 +124,7 @@ export const ColumnManagerSheet = ({
       options: column.options || [],
       newOption: '',
       isMilestone: column.isMilestone || false,
+      wrapText: column.wrapText || false,
     });
     setIsDialogOpen(true);
   };
@@ -153,6 +156,7 @@ export const ColumnManagerSheet = ({
           type: formData.type,
           options: formData.options,
           isMilestone: formData.isMilestone,
+          wrapText: formData.type === 'text' ? formData.wrapText : false,
         });
       } else {
         await addCustomColumn({
@@ -162,6 +166,7 @@ export const ColumnManagerSheet = ({
           order: projectColumns.length + 1,
           options: formData.type === 'list' ? formData.options : undefined,
           isMilestone: formData.isMilestone,
+          wrapText: formData.type === 'text' ? formData.wrapText : false,
           active: true,
         });
       }
@@ -431,6 +436,12 @@ export const ColumnManagerSheet = ({
                             Marco
                           </Badge>
                         )}
+                        {column.wrapText && (
+                          <Badge variant="outline" className="text-xs border-blue-500 text-blue-600">
+                            <WrapText className="w-3 h-3 mr-1" />
+                            Quebra
+                          </Badge>
+                        )}
                         {column.type === 'list' && column.options && !column.standardField && (
                           <span className="text-xs text-muted-foreground">
                             {column.options.length} opções
@@ -540,6 +551,25 @@ export const ColumnManagerSheet = ({
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {formData.type === 'text' && (
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label htmlFor="wrapText" className="text-sm font-medium flex items-center gap-2">
+                    <WrapText className="w-4 h-4" />
+                    Quebra de linhas
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Permite que o texto quebre em múltiplas linhas
+                  </p>
+                </div>
+                <Switch
+                  id="wrapText"
+                  checked={formData.wrapText}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, wrapText: checked }))}
+                />
               </div>
             )}
 

@@ -77,20 +77,23 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
   // Display mode for other types
   if (!isEditing) {
     return (
-      <div 
-        className="group flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]"
+      <div
+        className={cn(
+          "group flex items-start gap-1 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors min-h-[24px]",
+          column.wrapText && "items-start"
+        )}
         onClick={handleStartEdit}
       >
         <DisplayValue column={column} value={value} people={people} />
-        <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
       </div>
     );
   }
 
   // Edit mode
   return (
-    <div className="flex items-center gap-1">
-      {column.type === 'text' && (
+    <div className={cn("flex gap-1", column.wrapText ? "items-start" : "items-center")}>
+      {column.type === 'text' && !column.wrapText && (
         <Input
           ref={inputRef}
           value={editValue as string}
@@ -98,6 +101,24 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
           className="h-6 text-xs min-w-[80px]"
+        />
+      )}
+      {column.type === 'text' && column.wrapText && (
+        <textarea
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+          value={editValue as string}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') handleCancel();
+            // Enter com Shift quebra linha, Enter sozinho salva
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSave();
+            }
+          }}
+          onBlur={handleSave}
+          className="text-xs min-w-[120px] min-h-[60px] max-h-[150px] p-2 rounded-md border border-input bg-background resize-y"
+          placeholder="Digite aqui... (Shift+Enter para nova linha)"
         />
       )}
 
@@ -175,18 +196,18 @@ export const InlineEditCell = ({ column, value, onSave }: InlineEditCellProps) =
       )}
 
       {(column.type === 'text' || column.type === 'number' || column.type === 'date') && (
-        <div className="flex gap-0.5">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+        <div className={cn("flex gap-0.5", column.wrapText && "flex-col")}>
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
             onClick={handleSave}
           >
             <Check className="w-3 h-3" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
             onClick={handleCancel}
           >
@@ -283,7 +304,14 @@ const DisplayValue = ({ column, value, people }: DisplayValueProps) => {
 
   switch (column.type) {
     case 'text':
-      return <span className="text-xs">{value as string}</span>;
+      return (
+        <span className={cn(
+          "text-xs",
+          column.wrapText && "whitespace-pre-wrap break-words"
+        )}>
+          {value as string}
+        </span>
+      );
 
     case 'number':
       return <span className="text-xs font-mono">{value}</span>;

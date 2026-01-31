@@ -136,6 +136,7 @@ export interface CustomColumn {
   isMilestone?: boolean;
   active: boolean;
   hidden?: boolean;
+  wrapText?: boolean; // Permitir quebra de linhas em colunas de texto
   // Standard field mapping - if set, this column displays a core task field
   standardField?: 'name' | 'description' | 'responsible' | 'status' | 'priority' | 'startDate' | 'endDate' | 'progress';
 }

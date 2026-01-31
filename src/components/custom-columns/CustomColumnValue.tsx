@@ -4,6 +4,7 @@ import { AvatarCircle } from '@/components/ui/avatar-circle';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { useData } from '@/contexts/DataContext';
 import { CustomColumn } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -123,7 +124,14 @@ export const CustomColumnDisplay = ({ column, value }: CustomColumnDisplayProps)
 
   switch (column.type) {
     case 'text':
-      return <span className="text-sm">{value as string}</span>;
+      return (
+        <span className={cn(
+          "text-sm",
+          column.wrapText && "whitespace-pre-wrap break-words"
+        )}>
+          {value as string}
+        </span>
+      );
 
     case 'number':
       return <span className="text-sm font-mono">{value}</span>;

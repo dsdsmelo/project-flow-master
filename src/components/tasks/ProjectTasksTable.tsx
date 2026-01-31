@@ -29,6 +29,12 @@ import {
 import { ColumnManagerSheet } from '@/components/custom-columns/ColumnManagerSheet';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  CustomColumnFilters,
+  CustomFiltersState,
+  countActiveCustomFilters,
+  matchesCustomFilters,
+} from '@/components/tasks/CustomColumnFilters';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -82,6 +88,9 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     responsible: 'all',
   });
 
+  // Filtros para colunas customizadas
+  const [customFilters, setCustomFilters] = useState<CustomFiltersState>({});
+
   // Toggle to show/hide completed tasks (hidden by default to reduce visual clutter)
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -128,9 +137,13 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
       const matchesStatus = filters.status === 'all' || task.status === filters.status;
       const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
       const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
-      return matchesSearch && matchesStatus && matchesPriority && matchesResponsible;
+
+      // Filtros customizados
+      const matchesCustom = matchesCustomFilters(task, customFilters, customColumns);
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesResponsible && matchesCustom;
     });
-  }, [projectTasks, search, filters, showCompleted]);
+  }, [projectTasks, search, filters, showCompleted, customFilters, customColumns]);
 
   // Paginated tasks
   const paginatedTasks = useMemo(() => {
@@ -178,7 +191,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     }
   };
 
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length + (showCompleted ? 0 : 1);
+  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length + (showCompleted ? 0 : 1) + countActiveCustomFilters(customFilters);
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
@@ -260,6 +273,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
 
   const clearFilters = () => {
     setFilters({ status: 'all', priority: 'all', responsible: 'all' });
+    setCustomFilters({});
     setSearch('');
     setShowCompleted(true);
     setCurrentPage(1);
@@ -565,6 +579,13 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                   </Select>
                 </div>
 
+                {/* Filtros de Colunas Customizadas */}
+                <CustomColumnFilters
+                  columns={projectColumns}
+                  filters={customFilters}
+                  onChange={setCustomFilters}
+                />
+
                 <Button
                   variant="outline"
                   className="w-full"
@@ -747,11 +768,14 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                     {projectColumns.map((col, colIndex) => {
                       const isNameCol = colIndex === 0;
                       const isCompactCol = ['status', 'priority', 'startDate', 'endDate', 'progress'].includes(col.standardField || '') || ['number', 'percentage'].includes(col.type);
+                      const shouldWrap = col.type === 'text' && col.wrapText;
                       return (
                       <td
                         key={col.id}
                         className={cn(
-                          "py-1 px-2 text-xs whitespace-nowrap",
+                          "py-1 px-2 text-xs",
+                          !shouldWrap && "whitespace-nowrap",
+                          shouldWrap && "min-w-[150px] max-w-[300px]",
                           isCompactCol && "w-[1px]",
                           isNameCol && "sticky left-8 z-20 bg-card after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-border transition-colors",
                           isNameCol && "group-hover/row:bg-muted",
