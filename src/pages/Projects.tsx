@@ -288,12 +288,12 @@ const Projects = () => {
                       <span>{phaseCount} fases</span>
                       <span className="text-border">•</span>
                       <span>{taskCount} tarefas</span>
-                      {project.startDate && project.endDate && (
+                      {project.startDate && (
                         <>
                           <span className="text-border">•</span>
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {new Date(project.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                            {new Date(project.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
                           </span>
                         </>
                       )}
