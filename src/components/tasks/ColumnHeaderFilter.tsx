@@ -220,6 +220,227 @@ interface ActiveFiltersBarProps {
   onClearAll: () => void;
 }
 
+// ============================================
+// Filtros para Colunas Padrão (Status, Prioridade, Responsável)
+// ============================================
+
+export type StandardFilterType = 'status' | 'priority' | 'responsible';
+
+export interface StandardFiltersState {
+  status: string[];
+  priority: string[];
+  responsible: string[];
+}
+
+interface StandardColumnFilterProps {
+  type: StandardFilterType;
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  people?: Person[];
+}
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pendente', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  { value: 'in_progress', label: 'Em Progresso', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'blocked', label: 'Bloqueado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  { value: 'completed', label: 'Concluído', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  { value: 'cancelled', label: 'Cancelado', color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400' },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: 'low', label: 'Baixa', color: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400' },
+  { value: 'medium', label: 'Média', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'high', label: 'Alta', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  { value: 'urgent', label: 'Urgente', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+];
+
+export const StandardColumnFilter = ({ type, selected, onChange, people = [] }: StandardColumnFilterProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const hasActiveFilter = selected.length > 0;
+
+  const clearFilter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange([]);
+  };
+
+  const getTitle = () => {
+    switch (type) {
+      case 'status': return 'Status';
+      case 'priority': return 'Prioridade';
+      case 'responsible': return 'Responsável';
+    }
+  };
+
+  const toggleOption = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter(s => s !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "p-0.5 rounded hover:bg-muted/80 transition-colors",
+            hasActiveFilter ? "text-primary" : "text-muted-foreground/50 hover:text-muted-foreground"
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Filter className={cn("w-3 h-3", hasActiveFilter && "fill-primary/20")} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Filtrar: {getTitle()}</span>
+            {hasActiveFilter && (
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearFilter}>
+                <X className="w-3 h-3 mr-1" />
+                Limpar
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-1 max-h-[200px] overflow-y-auto">
+            {type === 'status' && STATUS_OPTIONS.map(option => (
+              <label
+                key={option.value}
+                className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5"
+              >
+                <Checkbox
+                  checked={selected.includes(option.value)}
+                  onCheckedChange={() => toggleOption(option.value)}
+                />
+                <span className={cn("text-xs px-2 py-0.5 rounded-full", option.color)}>
+                  {option.label}
+                </span>
+              </label>
+            ))}
+
+            {type === 'priority' && PRIORITY_OPTIONS.map(option => (
+              <label
+                key={option.value}
+                className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5"
+              >
+                <Checkbox
+                  checked={selected.includes(option.value)}
+                  onCheckedChange={() => toggleOption(option.value)}
+                />
+                <span className={cn("text-xs px-2 py-0.5 rounded-full", option.color)}>
+                  {option.label}
+                </span>
+              </label>
+            ))}
+
+            {type === 'responsible' && (
+              people.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2">Nenhum usuário</p>
+              ) : (
+                people.filter(p => p.active).map(person => (
+                  <label
+                    key={person.id}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5"
+                  >
+                    <Checkbox
+                      checked={selected.includes(person.id)}
+                      onCheckedChange={() => toggleOption(person.id)}
+                    />
+                    <AvatarCircle name={person.name} color={person.color} size="xs" avatarUrl={person.avatarUrl} />
+                    <span className="text-sm">{person.name}</span>
+                  </label>
+                ))
+              )
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// Helper functions for standard filter labels
+export const getStatusLabel = (value: string): string => {
+  return STATUS_OPTIONS.find(o => o.value === value)?.label || value;
+};
+
+export const getPriorityLabel = (value: string): string => {
+  return PRIORITY_OPTIONS.find(o => o.value === value)?.label || value;
+};
+
+// Função para verificar se há filtros padrão ativos
+export const hasActiveStandardFilters = (filters: StandardFiltersState): boolean => {
+  return filters.status.length > 0 || filters.priority.length > 0 || filters.responsible.length > 0;
+};
+
+// Função para contar filtros padrão ativos
+export const countActiveStandardFilters = (filters: StandardFiltersState): number => {
+  let count = 0;
+  if (filters.status.length > 0) count++;
+  if (filters.priority.length > 0) count++;
+  if (filters.responsible.length > 0) count++;
+  return count;
+};
+
+// Barra de filtros padrão ativos
+interface StandardFiltersBarProps {
+  filters: StandardFiltersState;
+  people: Person[];
+  onClearStatus: () => void;
+  onClearPriority: () => void;
+  onClearResponsible: () => void;
+}
+
+export const StandardFiltersBar = ({ filters, people, onClearStatus, onClearPriority, onClearResponsible }: StandardFiltersBarProps) => {
+  const hasFilters = hasActiveStandardFilters(filters);
+  if (!hasFilters) return null;
+
+  const getResponsibleNames = (ids: string[]) => {
+    const names = ids.map(id => people.find(p => p.id === id)?.name || id);
+    return names.length > 2 ? `${names.length} selecionados` : names.join(', ');
+  };
+
+  const getSelectedLabels = (selected: string[], options: { value: string; label: string }[]) => {
+    if (selected.length > 2) return `${selected.length} selecionados`;
+    return selected.map(v => options.find(o => o.value === v)?.label || v).join(', ');
+  };
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {filters.status.length > 0 && (
+        <Badge variant="secondary" className="gap-1 text-xs">
+          <span className="font-medium">Status:</span>
+          <span className="font-normal">{getSelectedLabels(filters.status, STATUS_OPTIONS)}</span>
+          <button onClick={onClearStatus} className="ml-1 hover:text-destructive">
+            <X className="w-3 h-3" />
+          </button>
+        </Badge>
+      )}
+      {filters.priority.length > 0 && (
+        <Badge variant="secondary" className="gap-1 text-xs">
+          <span className="font-medium">Prioridade:</span>
+          <span className="font-normal">{getSelectedLabels(filters.priority, PRIORITY_OPTIONS)}</span>
+          <button onClick={onClearPriority} className="ml-1 hover:text-destructive">
+            <X className="w-3 h-3" />
+          </button>
+        </Badge>
+      )}
+      {filters.responsible.length > 0 && (
+        <Badge variant="secondary" className="gap-1 text-xs">
+          <span className="font-medium">Responsável:</span>
+          <span className="font-normal">{getResponsibleNames(filters.responsible)}</span>
+          <button onClick={onClearResponsible} className="ml-1 hover:text-destructive">
+            <X className="w-3 h-3" />
+          </button>
+        </Badge>
+      )}
+    </div>
+  );
+};
+
 export const ActiveFiltersBar = ({ filters, columns, onClear, onClearAll }: ActiveFiltersBarProps) => {
   const { people } = useData();
 

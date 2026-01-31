@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import {
   Search,
-  Filter,
   MoreVertical,
   Edit,
   Trash2,
@@ -9,7 +8,6 @@ import {
   Columns3,
   GripVertical,
   X,
-  CheckCircle2,
   Eye,
   EyeOff
 } from 'lucide-react';
@@ -34,19 +32,19 @@ import {
   countActiveCustomFilters,
   matchesCustomFilters,
 } from '@/components/tasks/CustomColumnFilters';
-import { ColumnHeaderFilter, ActiveFiltersBar } from '@/components/tasks/ColumnHeaderFilter';
+import {
+  ColumnHeaderFilter,
+  ActiveFiltersBar,
+  StandardColumnFilter,
+  StandardFiltersState,
+  StandardFiltersBar,
+  countActiveStandardFilters,
+} from '@/components/tasks/ColumnHeaderFilter';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Task, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,14 +52,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,10 +72,11 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
 
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
-  const [filters, setFilters] = useState({
-    status: 'all',
-    priority: 'all',
-    responsible: 'all',
+  // Filtros padrão agora usam arrays para seleção múltipla
+  const [standardFilters, setStandardFilters] = useState<StandardFiltersState>({
+    status: [],
+    priority: [],
+    responsible: [],
   });
 
   // Filtros para colunas customizadas
@@ -134,16 +125,17 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
       if (!showCompleted && task.status === 'completed') return false;
 
       const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = filters.status === 'all' || task.status === filters.status;
-      const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
-      const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
+      // Filtros padrão agora usam arrays - se vazio, aceita todos
+      const matchesStatus = standardFilters.status.length === 0 || standardFilters.status.includes(task.status);
+      const matchesPriority = standardFilters.priority.length === 0 || standardFilters.priority.includes(task.priority);
+      const matchesResponsible = standardFilters.responsible.length === 0 || (task.responsibleId && standardFilters.responsible.includes(task.responsibleId));
 
       // Filtros customizados
       const matchesCustom = matchesCustomFilters(task, customFilters, customColumns);
 
       return matchesSearch && matchesStatus && matchesPriority && matchesResponsible && matchesCustom;
     });
-  }, [projectTasks, search, filters, showCompleted, customFilters, customColumns]);
+  }, [projectTasks, search, standardFilters, showCompleted, customFilters, customColumns]);
 
   // Paginated tasks
   const paginatedTasks = useMemo(() => {
@@ -154,9 +146,9 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
 
   const totalPages = Math.ceil(filteredTasks.length / pageSize);
 
-  // Reset to page 1 when filters change
-  const handleFilterChange = useCallback((newFilters: typeof filters) => {
-    setFilters(newFilters);
+  // Reset to page 1 when standard filters change
+  const handleStandardFilterChange = useCallback((type: keyof StandardFiltersState, values: string[]) => {
+    setStandardFilters(prev => ({ ...prev, [type]: values }));
     setCurrentPage(1);
   }, []);
 
@@ -191,7 +183,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
     }
   };
 
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length + (showCompleted ? 0 : 1) + countActiveCustomFilters(customFilters);
+  const activeFiltersCount = countActiveStandardFilters(standardFilters) + (showCompleted ? 0 : 1) + countActiveCustomFilters(customFilters);
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
@@ -272,7 +264,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
   };
 
   const clearFilters = () => {
-    setFilters({ status: 'all', priority: 'all', responsible: 'all' });
+    setStandardFilters({ status: [], priority: [], responsible: [] });
     setCustomFilters({});
     setSearch('');
     setShowCompleted(true);
@@ -485,23 +477,6 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             )}
           </div>
 
-          <Select
-            value={filters.status}
-            onValueChange={(v) => handleFilterChange({ ...filters, status: v })}
-          >
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="pending">Pendente</SelectItem>
-              <SelectItem value="in_progress">Em Progresso</SelectItem>
-              <SelectItem value="blocked">Bloqueado</SelectItem>
-              <SelectItem value="completed">Concluído</SelectItem>
-              <SelectItem value="cancelled">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
-
           {/* Toggle Completed Tasks */}
           <Button
             variant={showCompleted ? "outline" : "secondary"}
@@ -522,116 +497,12 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             )}
           </Button>
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="relative">
-                <Filter className="w-4 h-4 mr-2" />
-                Filtros
-                {activeFiltersCount > 0 && (
-                  <Badge variant="default" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Filtros Avançados</SheetTitle>
-                <SheetDescription>
-                  Refine a lista de tarefas usando os filtros abaixo
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-6 space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Prioridade</label>
-                  <Select
-                    value={filters.priority}
-                    onValueChange={(v) => handleFilterChange({ ...filters, priority: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Prioridade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      <SelectItem value="low">Baixa</SelectItem>
-                      <SelectItem value="medium">Média</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                      <SelectItem value="urgent">Urgente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Responsável</label>
-                  <Select
-                    value={filters.responsible}
-                    onValueChange={(v) => handleFilterChange({ ...filters, responsible: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Responsável" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {people.filter(p => p.active).map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={clearFilters}
-                >
-                  Limpar Filtros
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          {/* Active filters badges */}
+          {/* Clear Filters Button */}
           {activeFiltersCount > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {!showCompleted && (
-                <Badge variant="secondary" className="gap-1">
-                  <EyeOff className="w-3 h-3" />
-                  Concluídas ocultas
-                  <button onClick={() => setShowCompleted(true)}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.status !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Status: {filters.status === 'pending' ? 'Pendente' :
-                           filters.status === 'in_progress' ? 'Em Progresso' :
-                           filters.status === 'blocked' ? 'Bloqueado' :
-                           filters.status === 'completed' ? 'Concluído' : 'Cancelado'}
-                  <button onClick={() => handleFilterChange({ ...filters, status: 'all' })}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.priority !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Prioridade: {filters.priority === 'low' ? 'Baixa' :
-                               filters.priority === 'medium' ? 'Média' :
-                               filters.priority === 'high' ? 'Alta' : 'Urgente'}
-                  <button onClick={() => handleFilterChange({ ...filters, priority: 'all' })}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.responsible !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Responsável: {people.find(p => p.id === filters.responsible)?.name}
-                  <button onClick={() => handleFilterChange({ ...filters, responsible: 'all' })}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-            </div>
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+              <X className="w-4 h-4 mr-1" />
+              Limpar filtros ({activeFiltersCount})
+            </Button>
           )}
         </div>
 
@@ -664,19 +535,30 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
         </div>
       </div>
 
-      {/* Barra de filtros ativos para colunas customizadas */}
-      <ActiveFiltersBar
-        filters={customFilters}
-        columns={projectColumns.filter(c => !c.standardField)}
-        onClear={(columnId) => {
-          setCustomFilters(prev => {
-            const updated = { ...prev };
-            delete updated[columnId];
-            return updated;
-          });
-        }}
-        onClearAll={() => setCustomFilters({})}
-      />
+      {/* Barra de filtros ativos */}
+      <div className="flex flex-wrap gap-2">
+        {/* Filtros padrão ativos */}
+        <StandardFiltersBar
+          filters={standardFilters}
+          people={people}
+          onClearStatus={() => handleStandardFilterChange('status', [])}
+          onClearPriority={() => handleStandardFilterChange('priority', [])}
+          onClearResponsible={() => handleStandardFilterChange('responsible', [])}
+        />
+        {/* Filtros customizados ativos */}
+        <ActiveFiltersBar
+          filters={customFilters}
+          columns={projectColumns.filter(c => !c.standardField)}
+          onClear={(columnId) => {
+            setCustomFilters(prev => {
+              const updated = { ...prev };
+              delete updated[columnId];
+              return updated;
+            });
+          }}
+          onClearAll={() => setCustomFilters({})}
+        />
+      </div>
 
       {/* Tasks Table */}
       <div className="bg-card rounded-lg border border-border shadow-soft overflow-hidden">
@@ -740,7 +622,30 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
                           {col.name}
                         </span>
                       )}
-                      {/* Filtro no cabeçalho - apenas para colunas customizadas */}
+                      {/* Filtro no cabeçalho - colunas padrão */}
+                      {col.standardField === 'status' && (
+                        <StandardColumnFilter
+                          type="status"
+                          selected={standardFilters.status}
+                          onChange={(values) => handleStandardFilterChange('status', values)}
+                        />
+                      )}
+                      {col.standardField === 'priority' && (
+                        <StandardColumnFilter
+                          type="priority"
+                          selected={standardFilters.priority}
+                          onChange={(values) => handleStandardFilterChange('priority', values)}
+                        />
+                      )}
+                      {col.standardField === 'responsible' && (
+                        <StandardColumnFilter
+                          type="responsible"
+                          selected={standardFilters.responsible}
+                          onChange={(values) => handleStandardFilterChange('responsible', values)}
+                          people={people}
+                        />
+                      )}
+                      {/* Filtro no cabeçalho - colunas customizadas */}
                       {!col.standardField && (
                         <ColumnHeaderFilter
                           column={col}

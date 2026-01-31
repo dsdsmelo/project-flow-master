@@ -2,14 +2,14 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   Plus,
   Search,
-  Filter,
   MoreVertical,
   Edit,
   Trash2,
   Copy,
   Columns3,
   Eye,
-  EyeOff
+  EyeOff,
+  X
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -31,7 +31,14 @@ import {
   countActiveCustomFilters,
   matchesCustomFilters,
 } from '@/components/tasks/CustomColumnFilters';
-import { ColumnHeaderFilter, ActiveFiltersBar } from '@/components/tasks/ColumnHeaderFilter';
+import {
+  ColumnHeaderFilter,
+  ActiveFiltersBar,
+  StandardColumnFilter,
+  StandardFiltersState,
+  StandardFiltersBar,
+  countActiveStandardFilters,
+} from '@/components/tasks/ColumnHeaderFilter';
 import { TaskFormModal } from '@/components/modals/TaskFormModal';
 import { useData } from '@/contexts/DataContext';
 import { calculatePercentage, isTaskOverdue } from '@/lib/mockData';
@@ -53,14 +60,6 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -75,11 +74,12 @@ const Tasks = () => {
   const { tasks = [], addTask, updateTask, deleteTask, projects = [], phases = [], people = [], customColumns = [], loading, error } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
-  const [filters, setFilters] = useState({
-    project: 'all',
-    status: 'all',
-    priority: 'all',
-    responsible: 'all',
+  const [projectFilter, setProjectFilter] = useState('all');
+  // Filtros padrão agora usam arrays para seleção múltipla
+  const [standardFilters, setStandardFilters] = useState<StandardFiltersState>({
+    status: [],
+    priority: [],
+    responsible: [],
   });
   // Filtros para colunas customizadas
   const [customFilters, setCustomFilters] = useState<CustomFiltersState>({});
@@ -102,32 +102,33 @@ const Tasks = () => {
 
   const filteredTasks = useMemo(() => {
     return safeTasks.filter(task => {
-      // Hide completed tasks unless toggle is on or status filter is explicitly "completed"
-      if (!showCompleted && task.status === 'completed' && filters.status !== 'completed') return false;
+      // Hide completed tasks unless toggle is on or status filter explicitly includes "completed"
+      if (!showCompleted && task.status === 'completed' && !standardFilters.status.includes('completed')) return false;
       const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase());
-      const matchesProject = filters.project === 'all' || task.projectId === filters.project;
-      const matchesStatus = filters.status === 'all' || task.status === filters.status;
-      const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
-      const matchesResponsible = filters.responsible === 'all' || task.responsibleId === filters.responsible;
+      const matchesProject = projectFilter === 'all' || task.projectId === projectFilter;
+      // Filtros padrão agora usam arrays - se vazio, aceita todos
+      const matchesStatus = standardFilters.status.length === 0 || standardFilters.status.includes(task.status);
+      const matchesPriority = standardFilters.priority.length === 0 || standardFilters.priority.includes(task.priority);
+      const matchesResponsible = standardFilters.responsible.length === 0 || (task.responsibleId && standardFilters.responsible.includes(task.responsibleId));
 
       // Filtros customizados (só aplicar se um projeto estiver selecionado)
-      const matchesCustom = filters.project === 'all' || matchesCustomFilters(task, customFilters, displayedCustomColumns);
+      const matchesCustom = projectFilter === 'all' || matchesCustomFilters(task, customFilters, displayedCustomColumns);
 
       return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesResponsible && matchesCustom;
     });
-  }, [safeTasks, search, filters, showCompleted, customFilters, displayedCustomColumns]);
+  }, [safeTasks, search, projectFilter, standardFilters, showCompleted, customFilters, displayedCustomColumns]);
 
   // Get custom columns for the selected project (or all if no project selected)
   // Columns are automatically displayed based on project selection
   const displayedCustomColumns = useMemo(() => {
-    if (filters.project !== 'all') {
+    if (projectFilter !== 'all') {
       return safeCustomColumns
-        .filter(col => col.projectId === filters.project && col.active)
+        .filter(col => col.projectId === projectFilter && col.active)
         .sort((a, b) => a.order - b.order);
     }
     // When viewing all projects, don't show custom columns (they are project-specific)
     return [];
-  }, [safeCustomColumns, filters.project]);
+  }, [safeCustomColumns, projectFilter]);
 
   const getProjectName = (projectId: string) => {
     return safeProjects.find(p => p.id === projectId)?.name || '-';
@@ -159,7 +160,7 @@ const Tasks = () => {
     }
   };
 
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all').length + countActiveCustomFilters(customFilters);
+  const activeFiltersCount = (projectFilter !== 'all' ? 1 : 0) + countActiveStandardFilters(standardFilters) + countActiveCustomFilters(customFilters);
 
   // Handler to update custom column value
   const handleCustomValueChange = useCallback(async (taskId: string, columnId: string, value: string | number) => {
@@ -291,8 +292,8 @@ const Tasks = () => {
               />
             </div>
             
-            <Select value={filters.project} onValueChange={(v) => {
-              setFilters(f => ({ ...f, project: v }));
+            <Select value={projectFilter} onValueChange={(v) => {
+              setProjectFilter(v);
               // Limpar filtros customizados ao mudar de projeto (colunas são específicas por projeto)
               setCustomFilters({});
             }}>
@@ -304,20 +305,6 @@ const Tasks = () => {
                 {safeProjects.map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendente</SelectItem>
-                <SelectItem value="in_progress">Em Progresso</SelectItem>
-                <SelectItem value="blocked">Bloqueado</SelectItem>
-                <SelectItem value="completed">Concluído</SelectItem>
-                <SelectItem value="cancelled">Cancelado</SelectItem>
               </SelectContent>
             </Select>
 
@@ -337,77 +324,29 @@ const Tasks = () => {
               )}
             </Button>
 
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="relative">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filtros
-                  {activeFiltersCount > 0 && (
-                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Filtros Avançados</SheetTitle>
-                  <SheetDescription>
-                    Refine a lista de tarefas usando os filtros abaixo
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="mt-6 space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Prioridade</label>
-                    <Select value={filters.priority} onValueChange={(v) => setFilters(f => ({ ...f, priority: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Prioridade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
-                        <SelectItem value="low">Baixa</SelectItem>
-                        <SelectItem value="medium">Média</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
-                        <SelectItem value="urgent">Urgente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Responsável</label>
-                    <Select value={filters.responsible} onValueChange={(v) => setFilters(f => ({ ...f, responsible: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Responsável" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {safePeople.filter(p => p.active).map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setFilters({ project: 'all', status: 'all', priority: 'all', responsible: 'all' });
-                      setCustomFilters({});
-                    }}
-                  >
-                    Limpar Filtros
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
+            {/* Clear Filters Button */}
+            {activeFiltersCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setProjectFilter('all');
+                  setStandardFilters({ status: [], priority: [], responsible: [] });
+                  setCustomFilters({});
+                }}
+                className="text-muted-foreground"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Limpar filtros ({activeFiltersCount})
+              </Button>
+            )}
           </div>
 
           <div className="flex gap-2 flex-wrap">
             {/* Column Manager - Only show when a project is selected */}
-            {filters.project !== 'all' && (
-              <ColumnManagerSheet 
-                projectId={filters.project}
+            {projectFilter !== 'all' && (
+              <ColumnManagerSheet
+                projectId={projectFilter}
                 trigger={
                   <Button variant="outline" className="relative">
                     <Columns3 className="w-4 h-4 mr-2" />
@@ -440,21 +379,32 @@ const Tasks = () => {
           </div>
         </div>
 
-        {/* Barra de filtros ativos para colunas customizadas */}
-        {filters.project !== 'all' && (
-          <ActiveFiltersBar
-            filters={customFilters}
-            columns={displayedCustomColumns.filter(c => !c.standardField)}
-            onClear={(columnId) => {
-              setCustomFilters(prev => {
-                const updated = { ...prev };
-                delete updated[columnId];
-                return updated;
-              });
-            }}
-            onClearAll={() => setCustomFilters({})}
+        {/* Barra de filtros ativos */}
+        <div className="flex flex-wrap gap-2">
+          {/* Filtros padrão ativos */}
+          <StandardFiltersBar
+            filters={standardFilters}
+            people={safePeople}
+            onClearStatus={() => setStandardFilters(prev => ({ ...prev, status: [] }))}
+            onClearPriority={() => setStandardFilters(prev => ({ ...prev, priority: [] }))}
+            onClearResponsible={() => setStandardFilters(prev => ({ ...prev, responsible: [] }))}
           />
-        )}
+          {/* Filtros customizados ativos */}
+          {projectFilter !== 'all' && (
+            <ActiveFiltersBar
+              filters={customFilters}
+              columns={displayedCustomColumns.filter(c => !c.standardField)}
+              onClear={(columnId) => {
+                setCustomFilters(prev => {
+                  const updated = { ...prev };
+                  delete updated[columnId];
+                  return updated;
+                });
+              }}
+              onClearAll={() => setCustomFilters({})}
+            />
+          )}
+        </div>
 
         {/* Tasks Table */}
         <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
@@ -471,9 +421,37 @@ const Tasks = () => {
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Tarefa</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Projeto</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Fase</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Responsável</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Prioridade</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <span>Responsável</span>
+                      <StandardColumnFilter
+                        type="responsible"
+                        selected={standardFilters.responsible}
+                        onChange={(values) => setStandardFilters(prev => ({ ...prev, responsible: values }))}
+                        people={safePeople}
+                      />
+                    </div>
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <span>Status</span>
+                      <StandardColumnFilter
+                        type="status"
+                        selected={standardFilters.status}
+                        onChange={(values) => setStandardFilters(prev => ({ ...prev, status: values }))}
+                      />
+                    </div>
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <span>Prioridade</span>
+                      <StandardColumnFilter
+                        type="priority"
+                        selected={standardFilters.priority}
+                        onChange={(values) => setStandardFilters(prev => ({ ...prev, priority: values }))}
+                      />
+                    </div>
+                  </th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground w-40">Progresso</th>
                   {/* Custom Columns Headers */}
                   {displayedCustomColumns.filter(c => !c.standardField).map(col => (
@@ -643,7 +621,7 @@ const Tasks = () => {
         open={taskModalOpen}
         onOpenChange={setTaskModalOpen}
         task={editingTask}
-        defaultProjectId={filters.project !== 'all' ? filters.project : undefined}
+        defaultProjectId={projectFilter !== 'all' ? projectFilter : undefined}
       />
 
       {/* Delete Confirmation Dialog */}
