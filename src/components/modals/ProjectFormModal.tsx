@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AvatarCircle } from '@/components/ui/avatar-circle';
 import {
   Select,
   SelectContent,
@@ -21,10 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useData } from '@/contexts/DataContext';
 import { Project, CustomColumn } from '@/lib/types';
 import { toast } from 'sonner';
-import { Columns3, Plus, Edit, Trash2, GripVertical, X, FolderKanban, Pencil, Palette, Eye, EyeOff } from 'lucide-react';
+import { Columns3, Plus, Edit, Trash2, GripVertical, X, FolderKanban, Pencil, Palette, Eye, EyeOff, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const projectSchema = z.object({
@@ -70,11 +77,17 @@ const PROTECTED_FIELDS: CustomColumn['standardField'][] = [
 ];
 
 export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormModalProps) {
-  const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns } = useData();
+  const { addProject, updateProject, customColumns, addCustomColumn, updateCustomColumn, setCustomColumns, people, getProjectMemberIds, updateProjectMembers } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Cover state
   const [coverColor, setCoverColor] = useState<string | null>(null);
+
+  // Members state
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [membersPopoverOpen, setMembersPopoverOpen] = useState(false);
+  const activePeople = people.filter(p => p.active);
+  const selectedMembers = people.filter(p => selectedMemberIds.includes(p.id));
   
   // Custom columns state
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
@@ -125,6 +138,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       });
       setCoverColor(project.coverColor || null);
       setPendingColumns([]);
+      // Carregar membros do projeto
+      setSelectedMemberIds(getProjectMemberIds(project.id));
     } else {
       form.reset({
         name: '',
@@ -135,8 +150,17 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       });
       setCoverColor(null);
       setPendingColumns([]);
+      setSelectedMemberIds([]);
     }
-  }, [project, form, open]);
+  }, [project, form, open, getProjectMemberIds]);
+
+  const toggleMember = (personId: string) => {
+    setSelectedMemberIds(prev =>
+      prev.includes(personId)
+        ? prev.filter(id => id !== personId)
+        : [...prev, personId]
+    );
+  };
 
   // Column management functions
   const resetColumnForm = () => {
@@ -427,7 +451,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
       // Create user-added pending columns (after default columns)
       if (pendingColumns.length > 0) {
         await Promise.all(
-          pendingColumns.map((col, index) => 
+          pendingColumns.map((col, index) =>
             addCustomColumn({
               name: col.name,
               type: col.type,
@@ -439,6 +463,11 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
             })
           )
         );
+      }
+
+      // Salvar membros do projeto
+      if (selectedMemberIds.length > 0) {
+        await updateProjectMembers(newProject.id, selectedMemberIds);
       }
 
       toast.success('Projeto criado com sucesso!');
@@ -464,6 +493,10 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
         status: data.status,
         coverColor: coverColor || null,
       });
+
+      // Atualizar membros do projeto
+      await updateProjectMembers(project.id, selectedMemberIds);
+
       toast.success('Projeto atualizado com sucesso!');
       onOpenChange(false);
     } catch (error) {
@@ -477,6 +510,7 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
   const handleClose = () => {
     setPendingColumns([]);
     setCoverColor(null);
+    setSelectedMemberIds([]);
     onOpenChange(false);
   };
 
@@ -504,6 +538,105 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
           />
         ))}
       </div>
+    </div>
+  );
+
+  // Members selection component
+  const MembersSection = () => (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-2">
+        <Users className="w-4 h-4" />
+        Equipe do Projeto
+      </Label>
+      <Popover open={membersPopoverOpen} onOpenChange={setMembersPopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            className={cn(
+              "w-full justify-start text-left font-normal h-auto min-h-10 py-2",
+              selectedMembers.length === 0 && "text-muted-foreground"
+            )}
+          >
+            {selectedMembers.length === 0 ? (
+              <span>Selecione os membros da equipe...</span>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex -space-x-1">
+                  {selectedMembers.slice(0, 5).map(p => (
+                    <AvatarCircle
+                      key={p.id}
+                      name={p.name}
+                      color={p.color}
+                      size="xs"
+                      avatarUrl={p.avatarUrl}
+                      className="ring-1 ring-background"
+                    />
+                  ))}
+                </div>
+                <span className="text-sm">
+                  {selectedMembers.length} {selectedMembers.length === 1 ? 'membro' : 'membros'}
+                </span>
+              </div>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-2" align="start">
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {selectedMembers.length > 0 && (
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+                onClick={() => setSelectedMemberIds([])}
+              >
+                <X className="w-3 h-3" />
+                Limpar seleção
+              </button>
+            )}
+            {activePeople.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhuma pessoa cadastrada.<br />
+                <span className="text-xs">Cadastre pessoas em Configurações → Pessoas</span>
+              </p>
+            ) : (
+              activePeople.map((person) => (
+                <label
+                  key={person.id}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors cursor-pointer",
+                    selectedMemberIds.includes(person.id) && "bg-muted"
+                  )}
+                >
+                  <Checkbox
+                    checked={selectedMemberIds.includes(person.id)}
+                    onCheckedChange={() => toggleMember(person.id)}
+                  />
+                  <AvatarCircle name={person.name} color={person.color} size="sm" avatarUrl={person.avatarUrl} />
+                  <span className="truncate">{person.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+      {selectedMembers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {selectedMembers.map(member => (
+            <Badge key={member.id} variant="secondary" className="gap-1 pr-1">
+              <AvatarCircle name={member.name} color={member.color} size="xs" avatarUrl={member.avatarUrl} />
+              <span className="text-xs">{member.name}</span>
+              <button
+                type="button"
+                onClick={() => toggleMember(member.id)}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -648,6 +781,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
                 </div>
 
                 <CoverSection />
+
+                <MembersSection />
               </div>
 
               <div className="space-y-4 pt-4 border-t">
@@ -718,6 +853,8 @@ export function ProjectFormModal({ open, onOpenChange, project }: ProjectFormMod
               </div>
 
               <CoverSection />
+
+              <MembersSection />
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>

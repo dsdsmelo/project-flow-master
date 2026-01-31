@@ -71,7 +71,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Tasks = () => {
-  const { tasks = [], addTask, updateTask, deleteTask, projects = [], phases = [], people = [], customColumns = [], loading, error } = useData();
+  const { tasks = [], addTask, updateTask, deleteTask, projects = [], phases = [], people = [], customColumns = [], loading, error, getProjectMemberIds } = useData();
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState('all');
@@ -523,6 +523,7 @@ const Tasks = () => {
                         <ResponsibleEditCell
                           responsibleIds={task.responsibleIds}
                           people={people}
+                          projectMemberIds={getProjectMemberIds(task.projectId)}
                           onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleIds: value })}
                         />
                       </td>

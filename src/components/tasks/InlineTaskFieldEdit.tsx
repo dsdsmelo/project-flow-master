@@ -111,13 +111,21 @@ export const PriorityEditCell = ({ priority, onSave }: PriorityEditCellProps) =>
 interface ResponsibleEditCellProps {
   responsibleIds?: string[];
   people: Person[];
+  projectMemberIds?: string[]; // Se definido, filtra apenas membros do projeto
   onSave: (responsibleIds: string[] | undefined) => void;
 }
 
-export const ResponsibleEditCell = ({ responsibleIds = [], people, onSave }: ResponsibleEditCellProps) => {
+export const ResponsibleEditCell = ({ responsibleIds = [], people, projectMemberIds, onSave }: ResponsibleEditCellProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedPeople = people.filter(p => responsibleIds.includes(p.id));
-  const activePeople = people.filter(p => p.active);
+  // Se há membros definidos no projeto, filtra apenas eles. Senão, mostra todos os ativos.
+  const activePeople = people.filter(p => {
+    if (!p.active) return false;
+    if (projectMemberIds && projectMemberIds.length > 0) {
+      return projectMemberIds.includes(p.id);
+    }
+    return true;
+  });
 
   const handleToggle = (personId: string) => {
     const newIds = responsibleIds.includes(personId)

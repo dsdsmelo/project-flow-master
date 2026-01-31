@@ -19,6 +19,8 @@ export function useSupabaseData() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [spreadsheets, setSpreadsheets] = useState<Spreadsheet[]>([]);
+  // Mapa de projectId -> array de personIds (membros do projeto)
+  const [projectMembers, setProjectMembers] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function useSupabaseData() {
         { data: milestonesData, error: milestonesError },
         { data: meetingNotesData, error: meetingNotesError },
         { data: spreadsheetsData, error: spreadsheetsError },
+        { data: projectMembersData, error: projectMembersError },
       ] = await Promise.all([
         supabase.from('people').select('*').order('name'),
         supabase.from('projects').select('*').order('name'),
@@ -60,6 +63,7 @@ export function useSupabaseData() {
         supabase.from('milestones').select('*').order('name'),
         supabase.from('meeting_notes').select('*').order('meeting_date', { ascending: false }),
         supabase.from('project_spreadsheets').select('*').order('created_at', { ascending: false }),
+        supabase.from('project_members').select('project_id, person_id'),
       ]);
 
       if (peopleError) throw peopleError;
@@ -71,6 +75,10 @@ export function useSupabaseData() {
       if (milestonesError) throw milestonesError;
       if (meetingNotesError) throw meetingNotesError;
       if (spreadsheetsError) throw spreadsheetsError;
+      // projectMembersError é ignorado se a tabela não existir ainda
+      if (projectMembersError && !projectMembersError.message?.includes('does not exist')) {
+        console.warn('Error fetching project members:', projectMembersError);
+      }
 
       // Map snake_case to camelCase - ensure arrays are never undefined
       setPeople(Array.isArray(peopleData) ? peopleData.map(mapPerson) : []);
@@ -82,6 +90,18 @@ export function useSupabaseData() {
       setMilestones(Array.isArray(milestonesData) ? milestonesData.map(mapMilestone) : []);
       setMeetingNotes(Array.isArray(meetingNotesData) ? meetingNotesData.map(mapMeetingNote) : []);
       setSpreadsheets(Array.isArray(spreadsheetsData) ? spreadsheetsData.map(mapSpreadsheet) : []);
+
+      // Build project members map: { projectId: [personId1, personId2, ...] }
+      const membersMap: Record<string, string[]> = {};
+      if (Array.isArray(projectMembersData)) {
+        projectMembersData.forEach((row: { project_id: string; person_id: string }) => {
+          if (!membersMap[row.project_id]) {
+            membersMap[row.project_id] = [];
+          }
+          membersMap[row.project_id].push(row.person_id);
+        });
+      }
+      setProjectMembers(membersMap);
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setError(err.message);
@@ -109,6 +129,7 @@ export function useSupabaseData() {
         setMilestones([]);
         setMeetingNotes([]);
         setSpreadsheets([]);
+        setProjectMembers({});
         setLoading(false);
         initialLoadDone.current = false;
       }
@@ -184,7 +205,45 @@ export function useSupabaseData() {
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
     setProjects(prev => prev.filter(p => p.id !== id));
+    // Também remove os membros do projeto do estado local
+    setProjectMembers(prev => {
+      const updated = { ...prev };
+      delete updated[id];
+      return updated;
+    });
     logAuditEvent({ action: 'project_deleted', entity_type: 'project', entity_id: id, entity_name: project?.name, level: 'warning', details: `Projeto "${project?.name || id}" excluído` });
+  };
+
+  // Project Members operations
+  const getProjectMemberIds = (projectId: string): string[] => {
+    return projectMembers[projectId] || [];
+  };
+
+  const updateProjectMembers = async (projectId: string, memberIds: string[]) => {
+    // Remove todos os membros atuais
+    const { error: deleteError } = await supabase
+      .from('project_members')
+      .delete()
+      .eq('project_id', projectId);
+    if (deleteError) throw deleteError;
+
+    // Adiciona os novos membros
+    if (memberIds.length > 0) {
+      const inserts = memberIds.map(personId => ({
+        project_id: projectId,
+        person_id: personId,
+      }));
+      const { error: insertError } = await supabase
+        .from('project_members')
+        .insert(inserts);
+      if (insertError) throw insertError;
+    }
+
+    // Atualiza o estado local
+    setProjectMembers(prev => ({
+      ...prev,
+      [projectId]: memberIds,
+    }));
   };
 
   // CRUD operations for Phases
@@ -679,6 +738,8 @@ export function useSupabaseData() {
     addPerson, updatePerson, deletePerson,
     // Projects CRUD
     addProject, updateProject, deleteProject,
+    // Project Members
+    projectMembers, getProjectMemberIds, updateProjectMembers,
     // Phases CRUD
     addPhase, updatePhase, deletePhase,
     // Cells CRUD

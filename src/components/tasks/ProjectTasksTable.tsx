@@ -68,7 +68,8 @@ interface ProjectTasksTableProps {
 }
 
 export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
-  const { tasks, addTask, updateTask, deleteTask, people, customColumns, updateCustomColumn, setCustomColumns } = useData();
+  const { tasks, addTask, updateTask, deleteTask, people, customColumns, updateCustomColumn, setCustomColumns, getProjectMemberIds } = useData();
+  const projectMemberIds = getProjectMemberIds(projectId);
 
   const [search, setSearch] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -400,6 +401,7 @@ export const ProjectTasksTable = ({ projectId }: ProjectTasksTableProps) => {
             <ResponsibleEditCell
               responsibleIds={task.responsibleIds}
               people={people}
+              projectMemberIds={projectMemberIds}
               onSave={(value) => handleTaskFieldUpdate(task.id, { responsibleIds: value })}
             />
           );

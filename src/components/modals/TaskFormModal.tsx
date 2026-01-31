@@ -54,7 +54,7 @@ interface TaskFormModalProps {
 }
 
 export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defaultResponsibleIds }: TaskFormModalProps) {
-  const { projects, people, addTask, updateTask } = useData();
+  const { projects, people, addTask, updateTask, getProjectMemberIds } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [responsiblePopoverOpen, setResponsiblePopoverOpen] = useState(false);
 
@@ -71,9 +71,19 @@ export function TaskFormModal({ open, onOpenChange, task, defaultProjectId, defa
     },
   });
 
+  const selectedProjectId = form.watch('projectId');
+  const projectMemberIds = selectedProjectId ? getProjectMemberIds(selectedProjectId) : [];
+
   const selectedResponsibleIds = form.watch('responsibleIds') || [];
   const selectedPeople = people.filter(p => selectedResponsibleIds.includes(p.id));
-  const activePeople = people.filter(p => p.active);
+  // Filtrar pessoas ativas pelos membros do projeto (se houver membros definidos)
+  const activePeople = people.filter(p => {
+    if (!p.active) return false;
+    if (projectMemberIds && projectMemberIds.length > 0) {
+      return projectMemberIds.includes(p.id);
+    }
+    return true;
+  });
 
   const toggleResponsible = (personId: string) => {
     const current = form.getValues('responsibleIds') || [];
